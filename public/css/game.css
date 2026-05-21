@@ -275,6 +275,39 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
 .lobby-err { color: var(--red-l); font-size: 0.8rem; padding: 6px; border: 1px solid var(--red); margin-top: 0.5rem; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
+/* ─── Terrain tooltip ────────────────────────────────────────────────────── */
+.terrain-tip {
+  display: none;
+  position: absolute;
+  bottom: 10px; left: 50%; transform: translateX(-50%);
+  background: rgba(5,18,38,0.92);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 5px 14px;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+/* ─── Terrain legend panel ───────────────────────────────────────────────── */
+.terrain-panel {}
+.terrain-legend, .infra-legend { margin-bottom: 6px; }
+.tleg-row {
+  display: flex; align-items: center;
+  gap: 7px; font-size: 0.70rem;
+  color: var(--dim); padding: 2px 0;
+}
+.tleg-sw {
+  width: 14px; height: 10px; border-radius: 2px; flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.ileg-ic {
+  width: 16px; text-align: center; font-size: 0.85rem; flex-shrink: 0;
+}
+.infra-legend { border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px; }
+
 /* ═══ OVERLAYS ═══════════════════════════════════════════════════════════════ */
 .overlay {
   position: fixed; inset: 0;
