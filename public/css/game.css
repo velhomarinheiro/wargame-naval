@@ -233,7 +233,9 @@ body {
 #lobby-screen {
   position: fixed; inset: 0;
   background: var(--navy);
-  display: flex; align-items: center; justify-content: center;
+  display: flex; flex-direction: column; align-items: center;
+  overflow-y: auto;
+  padding: 2rem 1rem 3rem;
   z-index: 50;
 }
 
@@ -393,3 +395,103 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
 .cm-oor       { color: #ff8c00; }
 .cm-blue      { color: var(--blue-l); }
 .cm-red       { color: var(--red-l); }
+
+/* ═══ ORDER OF BATTLE (lobby) ════════════════════════════════════════════════ */
+.oob-wrap {
+  margin-top: 2rem;
+  max-width: 900px;
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 1.2rem 1.5rem 1.5rem;
+}
+.oob-header {
+  font-size: 0.65rem;
+  letter-spacing: 4px;
+  color: var(--dim);
+  text-align: center;
+  margin-bottom: 1.2rem;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.6rem;
+}
+.oob-forces {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+.oob-side {
+  flex: 1;
+  min-width: 280px;
+}
+.oob-side-title {
+  font-size: 0.72rem;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  margin-bottom: 0.75rem;
+}
+.blue-title { color: var(--blue-l); }
+.red-title  { color: var(--red-l); }
+
+.oob-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+  color: var(--dim);
+}
+.oob-table tr {
+  border-bottom: 1px solid rgba(80,120,160,0.08);
+}
+.oob-table td { padding: 3px 5px; vertical-align: middle; }
+.oob-table td:last-child { color: var(--text); }
+
+/* Unit type badge */
+.oc {
+  display: inline-block;
+  font-family: 'Courier New', monospace;
+  font-size: 0.60rem;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  min-width: 20px;
+  text-align: center;
+  white-space: nowrap;
+}
+.blue-oc { background: #0c2d5a; color: #82b1ff; border: 1px solid rgba(130,177,255,0.4); }
+.red-oc  { background: #5a0c0c; color: #ff8a80; border: 1px solid rgba(255,138,128,0.4); }
+
+/* Platform count */
+.opl {
+  text-align: right;
+  padding-right: 8px;
+  color: var(--gold-l);
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.oob-note {
+  margin-top: 0.6rem;
+  font-size: 0.65rem;
+  color: var(--dim);
+  font-style: italic;
+  text-align: right;
+}
+
+/* Legend row at the bottom */
+.oob-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 1.2rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border);
+}
+.oob-leg-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.65rem;
+  color: var(--dim);
+  white-space: nowrap;
+}

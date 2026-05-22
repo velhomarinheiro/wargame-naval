@@ -34,8 +34,34 @@ function canEnterTerrain(category, terrain) {
   return terrain !== T_LAND; // surface
 }
 
-// ─── Display type mapping ────────────────────────────────────────────────────
-const DISPLAY_TYPE = { surface: 'fragata', submarine: 'submarino', air: 'patrulha', land: 'corveta' };
+// ─── Display type: primary composition type → counter icon type ───────────────
+const COMP_DISPLAY_TYPE = {
+  'navio_aeródromo':       'carrier',
+  'navio_doca':            'amphib',
+  'navio_desembarque':     'amphib',
+  'fragata':               'fragata',
+  'corveta':               'corveta',
+  'destroier':             'destroier',
+  'destroyer':             'destroier',
+  'cruzador':              'cruzador',
+  'navio_patoc':           'patrulha_oc',
+  'navio_patrulha':        'patrulha_c',
+  'navio_logistico':       'logistico',
+  'navio_tanque':          'tanque',
+  'submarino_nuclear':     'sub_nuclear',
+  'submarino_convencional':'submarino',
+  'patrulha_maritima':     'patrulha',
+  'caca':                  'caca',
+  'ataque':                'ataque',
+  'aew':                   'aew',
+  'helicoptero_ASW':       'helicoptero',
+  'helicoptero_ASup':      'helicoptero',
+  'bateria_costeira':      'bateria_costeira',
+  'bateria_ada':           'bateria_ada',
+  'plataforma':            'fpso',
+  'porto':                 'porto',
+};
+const DISPLAY_TYPE_FALLBACK = { surface: 'fragata', submarine: 'submarino', air: 'patrulha', land: 'corveta' };
 
 // ─── Range helper ─────────────────────────────────────────────────────────────
 function rangeAgainst(rangeTable, targetCategory) {
@@ -98,7 +124,7 @@ function makeUnit(team, spec) {
     team,
     name:          spec.name,
     category:      spec.category,
-    type:          DISPLAY_TYPE[spec.category] || 'fragata',
+    type:          (spec.composition && spec.composition[0] && COMP_DISPLAY_TYPE[spec.composition[0].type]) || DISPLAY_TYPE_FALLBACK[spec.category] || 'fragata',
     composition:   spec.composition || [],
     movement:      spec.movement,
     detectionRange: spec.detectionRange,
