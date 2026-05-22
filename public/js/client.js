@@ -361,13 +361,20 @@ function drawInfrastructure() {
 // ── Layer 6: Units ────────────────────────────────────────────────────────────
 function drawUnits() {
   if (!gameState) return;
+
   for (const u of gameState.units) {
     if (u.hp <= 0) continue;
+
     const {x, y} = hexToPixel(u.col, u.row);
+
+    ctx.beginPath();
+    ctx.arc(x, y, HEX_R * 0.58, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fill();
+
     drawUnitCounter(ctx, u, x, y, u.id === selUnitId);
   }
 }
-
 // ── Layer 7: Coordinate labels ────────────────────────────────────────────────
 function drawCoordLabels() {
   ctx.shadowColor = 'rgba(0,0,0,0.8)';
