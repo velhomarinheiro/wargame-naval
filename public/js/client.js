@@ -60,6 +60,11 @@ let selGroupIds  = [];          // unit ids acting together as a group (empty = 
 // ─── Socket ───────────────────────────────────────────────────────────────────
 const socket = io();
 
+function rangeAgainst(rangeTable, targetCategory) {
+  if (!rangeTable) return 0;
+  return Number(rangeTable[targetCategory] || 0);
+}
+
 socket.on('connect', () => {
   const action = sessionStorage.getItem('pendingAction');
   if (action === 'create') {
@@ -239,7 +244,7 @@ function handleClick(col, row) {
             for (const id of selGroupIds) {
               const gu = gameState.units.find(u => u.id === id && u.hp > 0);
               if (!gu) continue;
-              if (hexDist(gu.col, gu.row, atk.col, atk.row) <= UNIT_DEFS[gu.type].atkRange
+              if (rangeAgainst(gu.attackRange, atk.category) >= 1 && hexDist(gu.col, gu.row, atk.col, atk.row) <= rangeAgainst(gu.attackRange, atk.category)
                   && !pendingAtks.some(a => a.attackerId === id && a.targetId === atk.unitId)) {
                 pendingAtks.push({attackerId: id, targetId: atk.unitId});
               }
@@ -325,14 +330,14 @@ function undoStep() {
 function recalcHighlightsGroup(units) {
   const {phase} = gameState;
   if (phase === 'movement' && isMyTurn()) {
-    const minMov     = Math.min(...units.map(u => UNIT_DEFS[u.type].mov));
+    const minMov     = Math.min(...units.map(u => u.movement));
     const stepsTaken = activePath.length - 1;
     if (stepsTaken < minMov) {
       const lastHex = activePath[activePath.length - 1];
       const inPath  = new Set(activePath.map(h => `${h.col},${h.row}`));
       moveHexes = hexNeighbors(lastHex.col, lastHex.row).filter(nb => {
         if (inPath.has(`${nb.col},${nb.row}`)) return false;
-        return units.every(u => canEnterTerrain(u.type, TERRAIN_MAP[nb.row][nb.col]));
+        return units.every(u => canEnterTerrain(u.category, TERRAIN_MAP[nb.row][nb.col]));
       });
     } else { moveHexes = []; }
   } else { moveHexes = []; }
@@ -341,8 +346,8 @@ function recalcHighlightsGroup(units) {
     atkHexes = [];
     const enemies = gameState.units.filter(u => u.team !== myTeam && u.hp > 0 && u.detected);
     for (const e of enemies) {
-      if (units.some(u => hexDist(u.col, u.row, e.col, e.row) <= UNIT_DEFS[u.type].atkRange)) {
-        atkHexes.push({col: e.col, row: e.row, unitId: e.id});
+      if (units.some(u => hexDist(u.col, u.row, e.col, e.row) <= rangeAgainst(u.attackRange, e.category))) {
+        atkHexes.push({col: e.col, row: e.row, unitId: e.id, category: e.category});
       }
     }
   } else { atkHexes = []; }
@@ -352,11 +357,10 @@ function recalcHighlightsGroup(units) {
 function showStackPicker(col, row, units) {
   spList.innerHTML = '';
   for (const u of units) {
-    const def = UNIT_DEFS[u.type];
     const btn = document.createElement('button');
     btn.className = 'sp-unit-btn';
     const c = u.team === 'blue' ? 'var(--blue-l)' : 'var(--red-l)';
-    btn.innerHTML = `<span style="color:${c}">${def.name}</span> · ${u.hp}/${u.maxHp}HP`;
+    btn.innerHTML = `<span style="color:${c}">${u.name}</span> · ${u.hp}/${u.maxHp}SP`;
     btn.addEventListener('click', () => { hideStackPicker(); _selectUnit(u); });
     spList.appendChild(btn);
   }
@@ -406,17 +410,16 @@ function _selectGroup(units) {
 }
 
 function recalcHighlights(unit) {
-  const def = UNIT_DEFS[unit.type];
   const {phase} = gameState;
 
   if (phase === 'movement' && isMyTurn()) {
     const stepsTaken = activePath.length - 1;
-    if (stepsTaken < def.mov) {
+    if (stepsTaken < unit.movement) {
       const lastHex = activePath[activePath.length - 1];
       const inPath  = new Set(activePath.map(h => `${h.col},${h.row}`));
       moveHexes = hexNeighbors(lastHex.col, lastHex.row).filter(nb => {
         if (inPath.has(`${nb.col},${nb.row}`)) return false;
-        return canEnterTerrain(unit.type, TERRAIN_MAP[nb.row][nb.col]);
+        return canEnterTerrain(unit.category, TERRAIN_MAP[nb.row][nb.col]);
       });
     } else {
       moveHexes = [];
@@ -429,8 +432,8 @@ function recalcHighlights(unit) {
     atkHexes = [];
     const enemies = gameState.units.filter(u => u.team !== myTeam && u.hp > 0 && u.detected);
     for (const e of enemies) {
-      if (hexDist(unit.col, unit.row, e.col, e.row) <= def.atkRange) {
-        atkHexes.push({col: e.col, row: e.row, unitId: e.id});
+      if (hexDist(unit.col, unit.row, e.col, e.row) <= rangeAgainst(unit.attackRange, e.category)) {
+        atkHexes.push({col: e.col, row: e.row, unitId: e.id, category: e.category});
       }
     }
   } else {
@@ -483,36 +486,40 @@ function updateUI() {
   fleetRed.textContent  = `Verm: ${r}`;
 
   const sel = selUnitId ? gameState.units.find(u => u.id === selUnitId && u.hp > 0) : null;
+  const sel = selUnitId ? gameState.units.find(u => u.id === selUnitId && u.hp > 0) : null;
   if (sel) {
-    const def   = UNIT_DEFS[sel.type];
     const hpPct = sel.hp / sel.maxHp * 100;
     const bar   = hpPct > 60 ? '#69f0ae' : hpPct > 30 ? '#ffca28' : '#ff5252';
     const t     = sel.col >= 0 ? TERRAIN_MAP[sel.row][sel.col] : 3;
-    const pathSteps = activePath.length - 1;
+    const pathSteps    = activePath.length - 1;
     const pathStepsMov = selGroupIds.length > 0
-      ? Math.min(...selGroupIds.map(id => { const u2 = gameState.units.find(u => u.id === id); return u2 ? UNIT_DEFS[u2.type].mov : 99; }))
-      : def.mov;
+      ? Math.min(...selGroupIds.map(id => { const u2 = gameState.units.find(u => u.id === id); return u2 ? u2.movement : 99; }))
+      : sel.movement;
     const pathHint  = pathSteps > 0
-      ? `<div class="u-hint">Caminho: ${pathSteps}/${pathStepsMov} passo(s)</div>`
-      : '';
+      ? `<div class="u-hint">Caminho: ${pathSteps}/${pathStepsMov} passo(s)</div>` : '';
     const groupHint = selGroupIds.length > 1
       ? `<div class="u-hint">Grupo: ${selGroupIds.length} unidades em conjunto</div>` : '';
     const declaredCount = selGroupIds.length > 0
       ? pendingAtks.filter(a => selGroupIds.includes(a.attackerId)).length
       : pendingAtks.filter(a => a.attackerId === sel.id).length;
+    const det = sel.detectionRange || {};
+    const atk = sel.attackRange    || {};
+    const comp = (sel.composition||[]).map(c=>`${c.quantity}× ${c.type}`).join(' · ');
     unitPanel.innerHTML = `
-      <div class="u-name ${sel.team}">${def.name}</div>
+      <div class="u-name ${sel.team}">${sel.name}</div>
       <div class="hp-bar"><div class="hp-fill" style="width:${hpPct}%;background:${bar}"></div></div>
       <div class="u-stats">
-        <span>HP</span><span>${sel.hp}/${sel.maxHp}</span>
-        <span>MOV</span><span>${def.mov}</span>
-        <span>DET</span><span>${def.detect}/${def.subDetect}★</span>
-        <span>ATK</span><span>${def.atkRange}hex·P${def.atkPower}</span>
+        <span>SP</span><span>${sel.hp}/${sel.maxHp}</span>
+        <span>MOV</span><span>${sel.movement}</span>
+        <span>Categoria</span><span>${sel.category}</span>
+        <span>Det S/Aé/Sb/T</span><span>${det.surface||0}/${det.air||0}/${det.submarine||0}/${det.land||0}</span>
+        <span>Atq S/Aé/Sb/T</span><span>${atk.surface||0}/${atk.air||0}/${atk.submarine||0}/${atk.land||0}</span>
         <span>Terreno</span><span style="font-size:0.7em">${T_NAME[t]}</span>
       </div>
+      ${comp ? `<div class="u-hint" style="color:var(--dim);font-size:0.67rem;line-height:1.5">${comp}</div>` : ''}
       ${groupHint}
       ${pathHint}
-      ${atkHexes.length ? `<div class="u-hint">Clique em alvos vermelhos p/ declarar ataque</div>` : ''}
+      ${atkHexes.length ? '<div class="u-hint">Clique em alvos vermelhos p/ declarar ataque</div>' : ''}
       ${declaredCount ? `<div class="u-hint atk-declared">${declaredCount} ataque(s) declarado(s)</div>` : ''}
     `;
   } else {

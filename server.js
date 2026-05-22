@@ -3,6 +3,7 @@ const express  = require('express');
 const http     = require('http');
 const { Server } = require('socket.io');
 const path     = require('path');
+const { ORDER_OF_BATTLE } = require('./shared/order_of_battle');
 
 const PORT   = process.env.PORT || 3000;
 const GRID_W = 16;
@@ -26,22 +27,21 @@ function getTerrain(col, row) {
   if (row < 0 || row >= GRID_H || col < 0 || col >= GRID_W) return T_LAND;
   return TERRAIN_MAP[row][col];
 }
-function canEnterTerrain(unitType, terrain) {
-  if (terrain === T_LAND) return false;
-  if (unitType === 'helicoptero' || unitType === 'patrulha') return true;
-  if (unitType === 'submarino' && terrain === T_SHALLOW) return false;
-  return true;
+function canEnterTerrain(category, terrain) {
+  if (category === 'air')       return true;
+  if (category === 'land')      return terrain === T_LAND || terrain === T_SHALLOW;
+  if (category === 'submarine') return terrain !== T_LAND && terrain !== T_SHALLOW;
+  return terrain !== T_LAND; // surface
 }
 
-// ─── Unit definitions ────────────────────────────────────────────────────────
-const UNIT_DEFS = {
-  fragata:    { name: 'Fragata',           hp: 4, mov: 3, detect: 4, subDetect: 2, atkRange: 3, atkPower: 4 },
-  destroier:  { name: 'Destróier',         hp: 5, mov: 4, detect: 4, subDetect: 3, atkRange: 4, atkPower: 5 },
-  corveta:    { name: 'Corveta',           hp: 3, mov: 3, detect: 3, subDetect: 3, atkRange: 3, atkPower: 3 },
-  submarino:  { name: 'Submarino',         hp: 3, mov: 3, detect: 3, subDetect: 2, atkRange: 4, atkPower: 5, stealthy: true },
-  helicoptero:{ name: 'Helicóptero ASW',   hp: 2, mov: 5, detect: 4, subDetect: 5, atkRange: 3, atkPower: 3 },
-  patrulha:   { name: 'Patrulha Marítima', hp: 2, mov: 7, detect: 7, subDetect: 6, atkRange: 5, atkPower: 4 },
-};
+// ─── Display type mapping ────────────────────────────────────────────────────
+const DISPLAY_TYPE = { surface: 'fragata', submarine: 'submarino', air: 'patrulha', land: 'corveta' };
+
+// ─── Range helper ─────────────────────────────────────────────────────────────
+function rangeAgainst(rangeTable, targetCategory) {
+  if (!rangeTable) return 0;
+  return Number(rangeTable[targetCategory] || 0);
+}
 
 // ─── Hex math (odd-q offset, flat-top) — matches client hex.js ──────────────
 function oddqToCube(col, row) {
@@ -70,17 +70,18 @@ function detectedEnemies(state, team) {
   const mine    = state.units.filter(u => u.team === team && u.hp > 0);
   const enemies = state.units.filter(u => u.team !== team && u.hp > 0);
   return enemies.filter(enemy => {
-    const stealthy = !!UNIT_DEFS[enemy.type].stealthy;
-    // Deep-water subs are even harder to detect
+    const stealthy = !!enemy.stealthy;
     const deepBonus = getTerrain(enemy.col, enemy.row) === T_DEEP ? 1 : 0;
     return mine.some(f => {
-      const def   = UNIT_DEFS[f.type];
-      let range   = stealthy ? def.subDetect - deepBonus : def.detect;
-      if (night)  range -= stealthy ? 1 : 2;
+      let range = stealthy
+        ? rangeAgainst(f.detectionRange, 'submarine') - deepBonus
+        : rangeAgainst(f.detectionRange, enemy.category);
+      if (night) range -= stealthy ? 1 : 2;
       return range >= 1 && hexDist(f.col, f.row, enemy.col, enemy.row) <= range;
     });
   }).map(e => ({ ...e, detected: true }));
 }
+
 function stateFor(state, team) {
   return {
     ...state,
@@ -90,36 +91,36 @@ function stateFor(state, team) {
   };
 }
 
-// ─── Initial units (validated against terrain) ───────────────────────────────
-let _uid = 1;
-function mkUnit(team, type, col, row) {
-  const d = UNIT_DEFS[type];
-  return { id: _uid++, team, type, name: d.name, col, row, hp: d.hp, maxHp: d.hp, moved: false };
+// ─── Unit factory ─────────────────────────────────────────────────────────────
+function makeUnit(team, spec) {
+  return {
+    id:            spec.id,
+    team,
+    name:          spec.name,
+    category:      spec.category,
+    type:          DISPLAY_TYPE[spec.category] || 'fragata',
+    composition:   spec.composition || [],
+    movement:      spec.movement,
+    detectionRange: spec.detectionRange,
+    attackRange:   spec.attackRange,
+    col:           spec.start.col,
+    row:           spec.start.row,
+    hp:            spec.stayingPower,
+    maxHp:         spec.stayingPower,
+    stealthy:      spec.category === 'submarine',
+    moved:         false,
+  };
 }
+
 function initialUnits() {
-  _uid = 1;
-  return [
-    // ── Força Azul (oeste / costa brasileira) ────────────────────
-    mkUnit('blue', 'fragata',     4, 2),   // Águas Rasas
-    mkUnit('blue', 'fragata',     2, 6),   // Águas Rasas
-    mkUnit('blue', 'destroier',   3, 3),   // Águas Rasas
-    mkUnit('blue', 'corveta',     2, 8),   // Águas Rasas
-    mkUnit('blue', 'submarino',   4, 4),   // Plataforma Continental
-    mkUnit('blue', 'submarino',   3, 7),   // Bacia Petrolífera
-    mkUnit('blue', 'helicoptero', 5, 1),   // voa sobre qualquer terreno
-    mkUnit('blue', 'helicoptero', 3, 6),
-    mkUnit('blue', 'patrulha',    6, 0),   // voa sobre qualquer terreno
-    // ── Força Vermelha (leste / Atlântico aberto) ─────────────────
-    mkUnit('red',  'fragata',    12, 1),   // Águas Profundas
-    mkUnit('red',  'fragata',    12, 6),
-    mkUnit('red',  'destroier',  11, 3),
-    mkUnit('red',  'corveta',    12, 7),
-    mkUnit('red',  'submarino',  13, 4),
-    mkUnit('red',  'submarino',  12, 8),
-    mkUnit('red',  'helicoptero',11, 1),
-    mkUnit('red',  'helicoptero',11, 7),
-    mkUnit('red',  'patrulha',   10, 0),
-  ];
+  const units = [];
+  for (const spec of ORDER_OF_BATTLE.forces.blue) {
+    units.push(makeUnit('blue', spec));
+  }
+  for (const spec of ORDER_OF_BATTLE.forces.red) {
+    units.push(makeUnit('red', spec));
+  }
+  return units;
 }
 
 function newGame() {
@@ -139,13 +140,13 @@ function resolveCombat(state) {
   const all = [...(state.blueAttacks||[]), ...(state.redAttacks||[])];
   const dmg = {};
   for (const atk of all) {
-    const att = state.units.find(u => u.id===atk.attackerId && u.hp>0);
-    const tgt = state.units.find(u => u.id===atk.targetId   && u.hp>0);
+    const att = state.units.find(u => u.id === atk.attackerId && u.hp > 0);
+    const tgt = state.units.find(u => u.id === atk.targetId   && u.hp > 0);
     if (!att || !tgt) continue;
-    const def  = UNIT_DEFS[att.type];
+    const atkRange = rangeAgainst(att.attackRange, tgt.category);
     const dist = hexDist(att.col, att.row, tgt.col, tgt.row);
     const r = { attacker: att.name, attackerTeam: att.team, target: tgt.name, targetTeam: tgt.team, targetId: tgt.id, hit: false, damage: 0, destroyed: false };
-    if (dist > def.atkRange) {
+    if (dist > atkRange) {
       state.log.unshift(`⚠ ${att.name} fora de alcance de ${tgt.name}.`);
       r.outOfRange = true; results.push(r); continue;
     }
@@ -153,7 +154,8 @@ function resolveCombat(state) {
     const roll = Math.ceil(Math.random()*100);
     r.roll = roll; r.chance = hitChance;
     if (roll <= hitChance) {
-      const d = Math.ceil(def.atkPower/2);
+      const totalPlatforms = (att.composition || []).reduce((sum, c) => sum + c.quantity, 0);
+      const d = Math.max(1, Math.ceil(totalPlatforms / 3));
       dmg[tgt.id] = (dmg[tgt.id]||0) + d;
       state.log.unshift(`✓ ${att.name}(${att.team}) → ${tgt.name}(${tgt.team}) −${d}HP [${roll}≤${hitChance}]`);
       r.hit = true; r.damage = d;
@@ -163,7 +165,7 @@ function resolveCombat(state) {
     results.push(r);
   }
   for (const [id, d] of Object.entries(dmg)) {
-    const u = state.units.find(u => u.id===+id);
+    const u = state.units.find(u => u.id === id);
     if (!u) continue;
     u.hp = Math.max(0, u.hp-d);
     if (u.hp===0) {
@@ -174,11 +176,14 @@ function resolveCombat(state) {
   if (state.log.length > 30) state.log = state.log.slice(0,30);
   return results;
 }
+
 function checkWinner(state) {
-  const b=state.units.some(u=>u.team==='blue'&&u.hp>0);
-  const r=state.units.some(u=>u.team==='red' &&u.hp>0);
+  const isCombatant = u => u.movement > 0 && Object.values(u.attackRange || {}).some(v => v > 0);
+  const b = state.units.some(u => u.team==='blue' && u.hp>0 && isCombatant(u));
+  const r = state.units.some(u => u.team==='red'  && u.hp>0 && isCombatant(u));
   if (!b) return 'red'; if (!r) return 'blue'; return null;
 }
+
 function nextTurn(state) {
   state.units.forEach(u => { u.moved=false; });
   state.period    = state.period==='day'?'night':'day';
@@ -245,13 +250,14 @@ io.on('connection', socket => {
       if (!Array.isArray(path)||path.length<2) continue;
       const unit=state.units.find(u=>u.id===unitId&&u.team===team&&u.hp>0);
       if (!unit) { socket.emit('action_error',`Unidade ${unitId} inválida.`); return; }
+      if (unit.movement === 0) { socket.emit('action_error',`${unit.name}: unidade fixa.`); return; }
       if (path[0].col!==unit.col||path[0].row!==unit.row) { socket.emit('action_error',`Caminho inválido para ${unit.name}.`); return; }
-      if (path.length-1>UNIT_DEFS[unit.type].mov) { socket.emit('action_error',`${unit.name}: caminho excede alcance máximo.`); return; }
+      if (path.length-1>unit.movement) { socket.emit('action_error',`${unit.name}: caminho excede alcance máximo.`); return; }
       for (let i=1;i<path.length;i++) {
         const {col,row}=path[i];
         if (col<0||col>=GRID_W||row<0||row>=GRID_H) { socket.emit('action_error',`${unit.name}: posição fora do tabuleiro.`); return; }
         if (hexDist(path[i-1].col,path[i-1].row,col,row)!==1) { socket.emit('action_error',`${unit.name}: passo não adjacente.`); return; }
-        if (!canEnterTerrain(unit.type,getTerrain(col,row))) { socket.emit('action_error',`${unit.name}: terreno intransponível em ${String.fromCharCode(65+col)}${row+1}.`); return; }
+        if (!canEnterTerrain(unit.category,getTerrain(col,row))) { socket.emit('action_error',`${unit.name}: terreno intransponível em ${String.fromCharCode(65+col)}${row+1}.`); return; }
       }
     }
 
