@@ -21,7 +21,7 @@ const CVS_H = 1086;
 // ─── Origem da grade sobre o mapa ──────────────────────────────────────────
 // Centro do hexágono A-1
 const OX = 82;
-const OY = 118;
+const OY = 132;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // CONVERSÕES
