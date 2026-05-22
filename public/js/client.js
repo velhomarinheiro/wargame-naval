@@ -305,7 +305,7 @@ function drawTerrainLayer() {
       const t = TERRAIN_MAP[r][c];
       const {x, y} = hexToPixel(c, r);
       const fill = mapReady ? T_COLOR_OVERLAY[t] : T_COLOR_SOLID[t];
-      drawHex(ctx, x, y, fill, null);
+      drawHex(ctx, x, y, null, 'rgba(255,255,255,0.55)', 1.4);
     }
   }
 }
