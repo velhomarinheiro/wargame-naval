@@ -43,24 +43,24 @@ const UNIT_DEFS = {
   patrulha:   { name: 'Patrulha Marítima', hp: 2, mov: 7, detect: 7, subDetect: 6, atkRange: 5, atkPower: 4 },
 };
 
-// ─── Hex math (odd-r offset, pointy-top) ────────────────────────────────────
-function oddrToCube(col, row) {
-  const x = col - (row - (row & 1)) / 2;
-  const z = row;
+// ─── Hex math (odd-q offset, flat-top) — matches client hex.js ──────────────
+function oddqToCube(col, row) {
+  const x = col;
+  const z = row - (col - (col & 1)) / 2;
   return { x, y: -x - z, z };
 }
-function cubeToOddr(x, z) { return { col: x + (z - (z & 1)) / 2, row: z }; }
+function cubeToOddq(x, z) { return { col: x, row: z + (x - (x & 1)) / 2 }; }
 const CUBE_DIRS = [
   {dx:+1,dy:-1,dz:0},{dx:+1,dy:0,dz:-1},{dx:0,dy:+1,dz:-1},
   {dx:-1,dy:+1,dz:0},{dx:-1,dy:0,dz:+1},{dx:0,dy:-1,dz:+1},
 ];
 function hexNeighbors(col, row) {
-  const c = oddrToCube(col, row);
-  return CUBE_DIRS.map(d => cubeToOddr(c.x+d.dx, c.z+d.dz))
+  const c = oddqToCube(col, row);
+  return CUBE_DIRS.map(d => cubeToOddq(c.x+d.dx, c.z+d.dz))
     .filter(({col:nc,row:nr}) => nc>=0 && nc<GRID_W && nr>=0 && nr<GRID_H);
 }
 function hexDist(c1,r1,c2,r2) {
-  const a=oddrToCube(c1,r1), b=oddrToCube(c2,r2);
+  const a=oddqToCube(c1,r1), b=oddqToCube(c2,r2);
   return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y), Math.abs(a.z-b.z));
 }
 
@@ -100,15 +100,15 @@ function initialUnits() {
   _uid = 1;
   return [
     // ── Força Azul (oeste / costa brasileira) ────────────────────
-    mkUnit('blue', 'fragata',     3, 2),   // Águas Rasas
+    mkUnit('blue', 'fragata',     4, 2),   // Águas Rasas
     mkUnit('blue', 'fragata',     2, 6),   // Águas Rasas
-    mkUnit('blue', 'destroier',   3, 3),   // Plataforma Continental
+    mkUnit('blue', 'destroier',   3, 3),   // Águas Rasas
     mkUnit('blue', 'corveta',     2, 8),   // Águas Rasas
-    mkUnit('blue', 'submarino',   4, 4),   // Bacia Petrolífera (água profunda)
-    mkUnit('blue', 'submarino',   3, 7),   // Plataforma Continental
-    mkUnit('blue', 'helicoptero', 3, 1),   // voa sobre qualquer terreno
+    mkUnit('blue', 'submarino',   4, 4),   // Plataforma Continental
+    mkUnit('blue', 'submarino',   3, 7),   // Bacia Petrolífera
+    mkUnit('blue', 'helicoptero', 5, 1),   // voa sobre qualquer terreno
     mkUnit('blue', 'helicoptero', 3, 6),
-    mkUnit('blue', 'patrulha',    4, 0),   // voa sobre qualquer terreno
+    mkUnit('blue', 'patrulha',    6, 0),   // voa sobre qualquer terreno
     // ── Força Vermelha (leste / Atlântico aberto) ─────────────────
     mkUnit('red',  'fragata',    12, 1),   // Águas Profundas
     mkUnit('red',  'fragata',    12, 6),
