@@ -162,47 +162,136 @@ h2 {
 .feature h3 { color: var(--gold-l); font-size: 0.95rem; letter-spacing: 2px; margin-bottom: 0.5rem; }
 .feature p  { color: var(--text-dim); font-size: 0.82rem; }
 
-/* ═══ UNITS ══════════════════════════════════════════════════════════════════ */
-.units-section { padding: 5rem 0; background: var(--navy); }
+/* ═══ ORDER OF BATTLE ════════════════════════════════════════════════════════ */
+.oob-section { padding: 5rem 0; background: var(--navy); }
 
-.units-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1.25rem;
+.oob-intro {
+  text-align: center;
+  max-width: 700px;
+  margin: 0 auto 2.5rem;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  line-height: 1.8;
 }
-.unit-card {
+
+.oob-forces {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.oob-side {
+  flex: 1;
+  min-width: 300px;
   border: 1px solid var(--border);
   padding: 1.25rem;
   background: rgba(10,32,53,0.5);
-  transition: transform 0.2s, border-color 0.2s;
 }
-.unit-card:hover { transform: translateY(-3px); border-color: rgba(100,160,210,0.5); }
-.unit-card.stealth { border-color: rgba(130,100,210,0.4); }
 
-.unit-symbol {
-  display: flex; align-items: center; justify-content: center;
-  height: 60px; margin-bottom: 0.75rem;
+.oob-side-title {
+  font-size: 0.78rem;
+  font-weight: bold;
+  letter-spacing: 2px;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
 }
-.unit-symbol svg { width: 60px; height: 30px; }
-.unit-symbol.air svg { width: 50px; height: 50px; }
-.unit-symbol.surface { color: var(--blue-l); }
-.unit-symbol.sub     { color: #b39ddb; }
-.unit-symbol.air     { color: #80deea; }
+.blue-title { color: var(--blue-l); }
+.red-title  { color: var(--red-l); }
 
-.unit-card h3 {
-  color: var(--text);
-  font-size: 0.95rem;
-  letter-spacing: 1px;
-  margin-bottom: 0.5rem;
+.oob-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
 }
-.tag-stealth {
-  color: #b39ddb;
-  font-size: 0.7rem;
-  vertical-align: middle;
+.oob-table thead th {
+  color: var(--text-dim);
+  font-size: 0.62rem;
+  letter-spacing: 2px;
+  text-align: left;
+  padding: 0 5px 6px;
+  border-bottom: 1px solid var(--border);
+  font-weight: normal;
 }
-.unit-card ul { list-style: none; color: var(--text-dim); font-size: 0.78rem; }
-.unit-card li { padding: 2px 0; }
-.unit-card li.note { color: #b39ddb; }
+.oob-table thead th:nth-child(2) { text-align: right; }
+.oob-table tbody tr {
+  border-bottom: 1px solid rgba(80,120,160,0.08);
+  transition: background 0.15s;
+}
+.oob-table tbody tr:hover { background: rgba(33,150,243,0.05); }
+.oob-table td { padding: 4px 5px; vertical-align: middle; color: var(--text-dim); }
+.oob-table td:nth-child(3) { color: var(--text); }
+
+/* Unit type badge */
+.oc {
+  display: inline-block;
+  font-family: 'Courier New', monospace;
+  font-size: 0.60rem;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  padding: 2px 5px;
+  border-radius: 2px;
+  min-width: 22px;
+  text-align: center;
+  white-space: nowrap;
+}
+.blue-oc { background: #0c2d5a; color: #82b1ff; border: 1px solid rgba(130,177,255,0.35); }
+.red-oc  { background: #5a0c0c; color: #ff8a80; border: 1px solid rgba(255,138,128,0.35); }
+
+/* Platform count column */
+.opl {
+  text-align: right;
+  padding-right: 10px;
+  color: var(--gold-l);
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* Category column */
+.ocat {
+  color: var(--text-dim);
+  font-size: 0.65rem;
+  white-space: nowrap;
+  text-align: right;
+  padding-left: 8px;
+}
+
+.oob-note {
+  margin-top: 0.75rem;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  font-style: italic;
+  text-align: right;
+}
+
+/* Icon legend */
+.oob-legend {
+  margin-top: 2.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  background: rgba(10,32,53,0.4);
+}
+.leg-group-title {
+  font-size: 0.60rem;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+}
+.leg-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+.leg-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.70rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
 
 /* ═══ HOW TO PLAY ════════════════════════════════════════════════════════════ */
 .howto { padding: 5rem 0; background: var(--deep); }

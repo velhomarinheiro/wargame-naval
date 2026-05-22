@@ -233,9 +233,7 @@ body {
 #lobby-screen {
   position: fixed; inset: 0;
   background: var(--navy);
-  display: flex; flex-direction: column; align-items: center;
-  overflow-y: auto;
-  padding: 2rem 1rem 3rem;
+  display: flex; align-items: center; justify-content: center;
   z-index: 50;
 }
 
@@ -396,7 +394,7 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
 .cm-blue      { color: var(--blue-l); }
 .cm-red       { color: var(--red-l); }
 
-/* ═══ ORDER OF BATTLE (lobby) ════════════════════════════════════════════════ */
+/* (OOB styles live in main.css / index page) */
 .oob-wrap {
   margin-top: 2rem;
   max-width: 900px;
