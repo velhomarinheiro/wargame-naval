@@ -276,6 +276,30 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
 .lobby-err { color: var(--red-l); font-size: 0.8rem; padding: 6px; border: 1px solid var(--red); margin-top: 0.5rem; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
+/* ─── Stack picker ───────────────────────────────────────────────────────── */
+.stack-picker {
+  position: absolute;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 8px;
+  min-width: 170px;
+  z-index: 20;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+}
+.sp-title {
+  font-size: 0.62rem; letter-spacing: 2px; color: var(--dim);
+  margin-bottom: 6px; text-align: center;
+}
+.sp-unit-btn {
+  display: block; width: 100%; padding: 6px 10px;
+  font-family: 'Courier New', monospace; font-size: 0.75rem;
+  border: 1px solid var(--border); background: rgba(5,20,40,0.95);
+  color: var(--text); cursor: pointer; margin-bottom: 4px;
+  text-align: left; letter-spacing: 0.5px;
+}
+.sp-unit-btn:hover { background: rgba(21,101,192,0.25); border-color: var(--blue-l); }
+.sp-group { font-size: 0.72rem; padding: 6px 10px; margin-top: 2px; }
+
 /* ─── Terrain tooltip ────────────────────────────────────────────────────── */
 .terrain-tip {
   display: none;

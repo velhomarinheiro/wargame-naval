@@ -30,6 +30,9 @@ const roomInput    = $('room-input');
 const btnCreate    = $('btn-create');
 const btnJoin      = $('btn-join');
 const terrainTip   = $('terrain-tip');
+const stackPicker  = $('stack-picker');
+const spList       = $('sp-list');
+const spGroupBtn   = $('sp-group-btn');
 
 // ─── Canvas setup ─────────────────────────────────────────────────────────────
 canvas.width  = CVS_W;
@@ -50,8 +53,9 @@ let moveHexes   = [];   // valid next-step neighbors for selected unit
 let atkHexes    = [];
 let pendingAtks = [];
 let hoverHex    = null;
-let activePath  = [];          // [{col,row},...] path being traced; [0] = unit start
-let plannedMoves = new Map();  // unitId → [{col,row},...] committed trajectories
+let activePath   = [];          // [{col,row},...] path being traced; [0] = unit start
+let plannedMoves = new Map();   // unitId → [{col,row},...] committed trajectories
+let selGroupIds  = [];          // unit ids acting together as a group (empty = single)
 
 // ─── Socket ───────────────────────────────────────────────────────────────────
 const socket = io();
@@ -79,8 +83,8 @@ socket.on('join_error', msg => showLobbyErr(msg));
 
 socket.on('game_start', ({team, state}) => {
   myTeam = team; gameState = state;
-  selUnitId = null; moveHexes = []; atkHexes = []; pendingAtks = [];
-  activePath = []; plannedMoves.clear();
+  selUnitId = null; selGroupIds = []; moveHexes = []; atkHexes = []; pendingAtks = [];
+  activePath = []; plannedMoves.clear(); hideStackPicker();
   lobbyScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
   gameOver.classList.add('hidden');
@@ -88,16 +92,30 @@ socket.on('game_start', ({team, state}) => {
 });
 
 socket.on('game_update', state => {
-  const prevTurn  = gameState?.turn;
-  const prevPhase = gameState?.phase;
+  const prevTurn   = gameState?.turn;
+  const prevPhase  = gameState?.phase;
+  const prevMyDone = myTeam && gameState
+    ? (myTeam === 'blue' ? gameState.blueDone : gameState.redDone)
+    : false;
   gameState = state;
-  // Reset planning on new turn or when coming back to movement after combat
-  if (state.turn !== prevTurn || (prevPhase === 'combat' && state.phase === 'movement')) {
-    activePath = []; plannedMoves.clear();
+  const myDoneNow = myTeam === 'blue' ? state.blueDone : state.redDone;
+  // Reset on: new turn, combat→movement, or my done flag was reset (new round)
+  if (state.turn !== prevTurn
+      || (prevPhase === 'combat' && state.phase === 'movement')
+      || (state.phase === 'movement' && prevMyDone && !myDoneNow)) {
+    activePath = []; plannedMoves.clear(); selGroupIds = [];
     selUnitId = null; moveHexes = []; atkHexes = [];
+    hideStackPicker();
   } else if (selUnitId) {
     const u = gameState.units.find(u => u.id === selUnitId && u.hp > 0);
-    if (u) recalcHighlights(u); else deselect();
+    if (u) {
+      if (selGroupIds.length > 0) {
+        const gUnits = gameState.units.filter(u => selGroupIds.includes(u.id) && u.hp > 0);
+        if (gUnits.length > 0) recalcHighlightsGroup(gUnits); else deselect();
+      } else {
+        recalcHighlights(u);
+      }
+    } else { deselect(); }
   }
   updateUI(); render();
 });
@@ -110,7 +128,14 @@ socket.on('game_over', ({winner, state}) => {
   gameOver.classList.remove('hidden');
 });
 socket.on('opponent_disconnected', () => disconnected.classList.remove('hidden'));
-socket.on('action_error', msg => flashError(msg));
+socket.on('action_error', msg => {
+  flashError(msg);
+  // Reverse optimistic done flag so the button becomes available again
+  if (gameState?.phase === 'movement') {
+    if (myTeam === 'blue') gameState.blueDone = false; else gameState.redDone = false;
+    updateUI();
+  }
+});
 socket.on('combat_result', data => showCombatModal(data));
 
 // ─── Lobby actions ────────────────────────────────────────────────────────────
@@ -124,17 +149,21 @@ roomInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnJoin.clic
 // ─── Game actions ─────────────────────────────────────────────────────────────
 endPhaseBtn.addEventListener('click', () => {
   if (!isMyTurn()) return;
-  // Save current selection before submitting
+  // Save active path (individual or group) before submitting
   if (selUnitId !== null && activePath.length > 1) {
-    plannedMoves.set(selUnitId, [...activePath]);
+    const ids = selGroupIds.length > 0 ? selGroupIds : [selUnitId];
+    for (const id of ids) plannedMoves.set(id, [...activePath]);
   }
   const moves = [];
   for (const [unitId, path] of plannedMoves) {
     if (path.length > 1) moves.push({ unitId, path });
   }
   socket.emit('commit_moves', { moves });
-  activePath = []; plannedMoves.clear();
+  // Optimistically mark done to prevent double-submission; reversed on action_error
+  if (myTeam === 'blue') gameState.blueDone = true; else gameState.redDone = true;
+  activePath = []; plannedMoves.clear(); selGroupIds = [];
   selUnitId = null; moveHexes = []; atkHexes = [];
+  hideStackPicker();
   updateUI(); render();
 });
 
@@ -146,7 +175,7 @@ combatBtn.addEventListener('click', () => {
 
 undoStepBtn.addEventListener('click', () => undoStep());
 
-cancelBtn.addEventListener('click', () => deselect(false));
+cancelBtn.addEventListener('click', () => { hideStackPicker(); deselect(false); });
 
 $('btn-restart').addEventListener('click', () => { socket.emit('restart'); gameOver.classList.add('hidden'); });
 $('combat-modal-close').addEventListener('click', () => $('combat-modal').classList.add('hidden'));
@@ -191,23 +220,45 @@ function handleClick(col, row) {
   if (col < 0 || col >= GRID_W || row < 0 || row >= GRID_H) return;
   const {phase} = gameState;
 
+  // Dismiss open picker
+  if (!stackPicker.classList.contains('hidden')) { hideStackPicker(); return; }
+
   // ── Combat phase ──
   if (phase === 'combat') {
     if (isMyTurn() && selUnitId !== null) {
       const atk = atkHexes.find(h => h.col === col && h.row === row);
       if (atk) {
-        const idx = pendingAtks.findIndex(a => a.attackerId === selUnitId && a.targetId === atk.unitId);
-        if (idx >= 0) pendingAtks.splice(idx, 1);
-        else pendingAtks.push({attackerId: selUnitId, targetId: atk.unitId});
-        render(); return;
+        if (selGroupIds.length > 0) {
+          // Toggle attacks for all group units that can reach this target
+          const allDeclared = selGroupIds.every(id =>
+            pendingAtks.some(a => a.attackerId === id && a.targetId === atk.unitId));
+          if (allDeclared) {
+            pendingAtks = pendingAtks.filter(a =>
+              !(selGroupIds.includes(a.attackerId) && a.targetId === atk.unitId));
+          } else {
+            for (const id of selGroupIds) {
+              const gu = gameState.units.find(u => u.id === id && u.hp > 0);
+              if (!gu) continue;
+              if (hexDist(gu.col, gu.row, atk.col, atk.row) <= UNIT_DEFS[gu.type].atkRange
+                  && !pendingAtks.some(a => a.attackerId === id && a.targetId === atk.unitId)) {
+                pendingAtks.push({attackerId: id, targetId: atk.unitId});
+              }
+            }
+          }
+        } else {
+          const idx = pendingAtks.findIndex(a => a.attackerId === selUnitId && a.targetId === atk.unitId);
+          if (idx >= 0) pendingAtks.splice(idx, 1);
+          else pendingAtks.push({attackerId: selUnitId, targetId: atk.unitId});
+        }
+        updateUI(); render(); return;
       }
     }
-    const unit = gameState.units.find(u => u.col === col && u.row === row && u.hp > 0);
-    if (unit && unit.team === myTeam) {
-      selUnitId = unit.id; recalcHighlights(unit); updateUI(); render();
-    } else {
-      deselect();
-    }
+    const ownUnits = gameState.units.filter(u => u.col === col && u.row === row && u.hp > 0 && u.team === myTeam);
+    if (ownUnits.length > 1) { showStackPicker(col, row, ownUnits); return; }
+    if (ownUnits.length === 1) {
+      selGroupIds = []; selUnitId = ownUnits[0].id;
+      recalcHighlights(ownUnits[0]); updateUI(); render();
+    } else { deselect(); }
     return;
   }
 
@@ -218,24 +269,27 @@ function handleClick(col, row) {
       const move = moveHexes.find(h => h.col === col && h.row === row);
       if (move) {
         activePath.push({col, row});
-        const u = gameState.units.find(u => u.id === selUnitId && u.hp > 0);
-        if (u) recalcHighlights(u);
+        if (selGroupIds.length > 0) {
+          const gUnits = gameState.units.filter(u => selGroupIds.includes(u.id) && u.hp > 0);
+          recalcHighlightsGroup(gUnits);
+        } else {
+          const u = gameState.units.find(u => u.id === selUnitId && u.hp > 0);
+          if (u) recalcHighlights(u);
+        }
         updateUI(); render(); return;
       }
     }
-    // Click on own unit
-    const unit = gameState.units.find(u => u.col === col && u.row === row && u.hp > 0 && u.team === myTeam);
-    if (unit) {
-      if (selUnitId === unit.id) return; // already selected
-      deselect(true); // save current path first
-      selUnitId = unit.id;
-      const saved = plannedMoves.get(unit.id);
-      activePath = saved ? [...saved] : [{col: unit.col, row: unit.row}];
-      recalcHighlights(unit); updateUI(); render();
-      return;
-    }
-    // Click elsewhere: save and deselect
+    // Click on own unit(s)
+    const ownUnits = gameState.units.filter(u => u.col === col && u.row === row && u.hp > 0 && u.team === myTeam);
+    if (ownUnits.length === 0) { deselect(true); return; }
+    if (ownUnits.length > 1) { deselect(true); showStackPicker(col, row, ownUnits); return; }
+    const unit = ownUnits[0];
+    if (selUnitId === unit.id && selGroupIds.length === 0) return; // already selected alone
     deselect(true);
+    selUnitId = unit.id; selGroupIds = [];
+    const saved = plannedMoves.get(unit.id);
+    activePath = saved ? [...saved] : [{col: unit.col, row: unit.row}];
+    recalcHighlights(unit); updateUI(); render();
     return;
   }
 }
@@ -243,21 +297,111 @@ function handleClick(col, row) {
 // save=true saves activePath to plannedMoves; save=false discards it
 function deselect(save = true) {
   if (selUnitId !== null) {
+    const ids = selGroupIds.length > 0 ? selGroupIds : [selUnitId];
     if (save && activePath.length > 1) {
-      plannedMoves.set(selUnitId, [...activePath]);
+      for (const id of ids) plannedMoves.set(id, [...activePath]);
     } else if (!save) {
-      plannedMoves.delete(selUnitId);
+      for (const id of ids) plannedMoves.delete(id);
     }
   }
-  selUnitId = null; activePath = []; moveHexes = []; atkHexes = [];
+  selUnitId = null; selGroupIds = []; activePath = []; moveHexes = []; atkHexes = [];
   updateUI(); render();
 }
 
 function undoStep() {
   if (activePath.length <= 1) return;
   activePath.pop();
-  const u = gameState?.units.find(u => u.id === selUnitId && u.hp > 0);
-  if (u) recalcHighlights(u);
+  if (selGroupIds.length > 0) {
+    const gUnits = gameState?.units.filter(u => selGroupIds.includes(u.id) && u.hp > 0) || [];
+    if (gUnits.length > 0) recalcHighlightsGroup(gUnits);
+  } else {
+    const u = gameState?.units.find(u => u.id === selUnitId && u.hp > 0);
+    if (u) recalcHighlights(u);
+  }
+  updateUI(); render();
+}
+
+// ─── Group recalc ─────────────────────────────────────────────────────────────
+function recalcHighlightsGroup(units) {
+  const {phase} = gameState;
+  if (phase === 'movement' && isMyTurn()) {
+    const minMov     = Math.min(...units.map(u => UNIT_DEFS[u.type].mov));
+    const stepsTaken = activePath.length - 1;
+    if (stepsTaken < minMov) {
+      const lastHex = activePath[activePath.length - 1];
+      const inPath  = new Set(activePath.map(h => `${h.col},${h.row}`));
+      moveHexes = hexNeighbors(lastHex.col, lastHex.row).filter(nb => {
+        if (inPath.has(`${nb.col},${nb.row}`)) return false;
+        return units.every(u => canEnterTerrain(u.type, TERRAIN_MAP[nb.row][nb.col]));
+      });
+    } else { moveHexes = []; }
+  } else { moveHexes = []; }
+
+  if (phase === 'combat' && isMyTurn()) {
+    atkHexes = [];
+    const enemies = gameState.units.filter(u => u.team !== myTeam && u.hp > 0 && u.detected);
+    for (const e of enemies) {
+      if (units.some(u => hexDist(u.col, u.row, e.col, e.row) <= UNIT_DEFS[u.type].atkRange)) {
+        atkHexes.push({col: e.col, row: e.row, unitId: e.id});
+      }
+    }
+  } else { atkHexes = []; }
+}
+
+// ─── Stack picker ─────────────────────────────────────────────────────────────
+function showStackPicker(col, row, units) {
+  spList.innerHTML = '';
+  for (const u of units) {
+    const def = UNIT_DEFS[u.type];
+    const btn = document.createElement('button');
+    btn.className = 'sp-unit-btn';
+    const c = u.team === 'blue' ? 'var(--blue-l)' : 'var(--red-l)';
+    btn.innerHTML = `<span style="color:${c}">${def.name}</span> · ${u.hp}/${u.maxHp}HP`;
+    btn.addEventListener('click', () => { hideStackPicker(); _selectUnit(u); });
+    spList.appendChild(btn);
+  }
+  spGroupBtn.onclick = () => { hideStackPicker(); _selectGroup(units); };
+
+  const {x, y} = hexToPixel(col, row);
+  const rect  = canvas.getBoundingClientRect();
+  const wrap  = canvas.parentElement.getBoundingClientRect();
+  const scale = rect.width / canvas.width;
+  const sx = rect.left - wrap.left + x * scale;
+  const sy = rect.top  - wrap.top  + (y + HEX_R) * scale + 6;
+  stackPicker.style.left = `${Math.round(sx - 85)}px`;
+  stackPicker.style.top  = `${Math.round(sy)}px`;
+  stackPicker.classList.remove('hidden');
+}
+
+function hideStackPicker() { stackPicker.classList.add('hidden'); }
+
+function _selectUnit(unit) {
+  selGroupIds = [];
+  if (gameState.phase === 'movement') {
+    deselect(true);
+    selUnitId = unit.id;
+    const saved = plannedMoves.get(unit.id);
+    activePath = saved ? [...saved] : [{col: unit.col, row: unit.row}];
+    recalcHighlights(unit);
+  } else {
+    selUnitId = unit.id; recalcHighlights(unit);
+  }
+  updateUI(); render();
+}
+
+function _selectGroup(units) {
+  const ids = units.map(u => u.id);
+  if (gameState.phase === 'movement') {
+    deselect(true);
+    selGroupIds = ids; selUnitId = ids[0];
+    for (const id of ids) plannedMoves.delete(id);
+    const lead = units[0];
+    activePath = [{col: lead.col, row: lead.row}];
+    recalcHighlightsGroup(units);
+  } else {
+    selGroupIds = ids; selUnitId = ids[0];
+    recalcHighlightsGroup(units);
+  }
   updateUI(); render();
 }
 
@@ -345,9 +489,17 @@ function updateUI() {
     const bar   = hpPct > 60 ? '#69f0ae' : hpPct > 30 ? '#ffca28' : '#ff5252';
     const t     = sel.col >= 0 ? TERRAIN_MAP[sel.row][sel.col] : 3;
     const pathSteps = activePath.length - 1;
+    const pathStepsMov = selGroupIds.length > 0
+      ? Math.min(...selGroupIds.map(id => { const u2 = gameState.units.find(u => u.id === id); return u2 ? UNIT_DEFS[u2.type].mov : 99; }))
+      : def.mov;
     const pathHint  = pathSteps > 0
-      ? `<div class="u-hint">Caminho: ${pathSteps}/${def.mov} passo(s)</div>`
+      ? `<div class="u-hint">Caminho: ${pathSteps}/${pathStepsMov} passo(s)</div>`
       : '';
+    const groupHint = selGroupIds.length > 1
+      ? `<div class="u-hint">Grupo: ${selGroupIds.length} unidades em conjunto</div>` : '';
+    const declaredCount = selGroupIds.length > 0
+      ? pendingAtks.filter(a => selGroupIds.includes(a.attackerId)).length
+      : pendingAtks.filter(a => a.attackerId === sel.id).length;
     unitPanel.innerHTML = `
       <div class="u-name ${sel.team}">${def.name}</div>
       <div class="hp-bar"><div class="hp-fill" style="width:${hpPct}%;background:${bar}"></div></div>
@@ -358,9 +510,10 @@ function updateUI() {
         <span>ATK</span><span>${def.atkRange}hex·P${def.atkPower}</span>
         <span>Terreno</span><span style="font-size:0.7em">${T_NAME[t]}</span>
       </div>
+      ${groupHint}
       ${pathHint}
       ${atkHexes.length ? `<div class="u-hint">Clique em alvos vermelhos p/ declarar ataque</div>` : ''}
-      ${pendingAtks.filter(a => a.attackerId === sel.id).length ? `<div class="u-hint atk-declared">${pendingAtks.filter(a => a.attackerId === sel.id).length} ataque(s) declarado(s)</div>` : ''}
+      ${declaredCount ? `<div class="u-hint atk-declared">${declaredCount} ataque(s) declarado(s)</div>` : ''}
     `;
   } else {
     unitPanel.innerHTML = '<p class="no-sel">Clique em uma unidade sua</p>';
@@ -536,7 +689,36 @@ function drawUnits() {
     ctx.arc(x, y, HEX_R * 0.58, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fill();
-    drawUnitCounter(ctx, u, x, y, u.id === selUnitId);
+    const isSelected = u.id === selUnitId || selGroupIds.includes(u.id);
+    drawUnitCounter(ctx, u, x, y, isSelected);
+  }
+
+  // Stack count badges (shown on hexes with 2+ alive units)
+  const hexStacks = {};
+  for (const u of gameState.units) {
+    if (u.hp <= 0) continue;
+    const k = `${u.col},${u.row}`;
+    if (!hexStacks[k]) hexStacks[k] = {col: u.col, row: u.row, count: 0};
+    hexStacks[k].count++;
+  }
+  for (const {col, row, count} of Object.values(hexStacks)) {
+    if (count < 2) continue;
+    const {x, y} = hexToPixel(col, row);
+    const r  = HEX_R * 0.22;
+    const bx = x + HEX_R * 0.38;
+    const by = y - HEX_R * 0.38;
+    ctx.beginPath();
+    ctx.arc(bx, by, r, 0, Math.PI * 2);
+    ctx.fillStyle   = 'rgba(255,200,0,0.92)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.lineWidth   = 1;
+    ctx.stroke();
+    ctx.fillStyle   = '#000';
+    ctx.font        = `bold ${Math.round(r * 1.3)}px sans-serif`;
+    ctx.textAlign   = 'center';
+    ctx.textBaseline= 'middle';
+    ctx.fillText(String(count), bx, by);
   }
 }
 
