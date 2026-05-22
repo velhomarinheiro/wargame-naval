@@ -10,18 +10,18 @@ const GRID_W = 16; // A–P
 const GRID_H = 10; // 1–10
 
 // ─── Geometria da grade ────────────────────────────────────────────────────
-const HEX_R = 49.5;
+const HEX_R = 67.5;
 const HEX_W = HEX_R * 2;
 const HEX_H = HEX_R * Math.sqrt(3);
 
-// ─── Dimensão real da imagem ───────────────────────────────────────────────
-const CVS_W = 1536;
-const CVS_H = 1086;
+// ─── Canvas: imagem 4200×2970 exibida a 50% ───────────────────────────────
+const CVS_W = 2100;
+const CVS_H = 1485;
 
 // ─── Origem da grade sobre o mapa ──────────────────────────────────────────
-// Centro do hexágono A-1
-const OX = 82;
-const OY = 132;
+// Centro do hexágono A-1 (= pixel (224,360) na imagem original ÷ 2)
+const OX = 112;
+const OY = 180;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // CONVERSÕES

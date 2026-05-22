@@ -110,7 +110,8 @@ body {
 #game-canvas {
   display: block;
   cursor: crosshair;
-  image-rendering: pixelated;
+  max-width: 100%;
+  height: auto;
 }
 
 .error-flash {
