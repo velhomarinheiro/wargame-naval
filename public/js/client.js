@@ -39,7 +39,7 @@ const mapImg  = new Image();
 let   mapReady = false;
 mapImg.onload  = () => { mapReady = true;  if (gameState) render(); };
 mapImg.onerror = () => { mapReady = false; if (gameState) render(); };
-mapImg.src = '/mapa.jpg';   // place the map image at public/mapa.jpg
+mapImg.src = '/mapa.jpeg';   // place the map image at public/mapa.jpeg
 
 // ─── Game state ───────────────────────────────────────────────────────────────
 let myTeam     = null;
