@@ -274,7 +274,7 @@ function render() {
   if (!gameState) return;
   ctx.clearRect(0, 0, CVS_W, CVS_H);
   drawBackground();       // 1. Mapa ou gradiente oceânico
-  drawTerrainLayer();     // 2. Terrenos coloridos (sobreposição)
+  // drawTerrainLayer();  // desativado: o mapa já traz a arte e a grade base
   drawHighlights();       // 3. Alcance de movimento / ataque
   drawGrid();             // 4. Grade hexagonal
   drawInfrastructure();   // 5. Portos, bases, plataformas
