@@ -332,3 +332,39 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
 
 .over-actions { display: flex; gap: 1rem; margin-top: 1.5rem; justify-content: center; }
 .disconnect-msg { font-size: 1.2rem; color: var(--dim); margin-bottom: 1.5rem; }
+
+/* ─── Combat Results Modal ───────────────────────────────────────────────── */
+.combat-box {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  padding: 2rem 2.5rem;
+  min-width: 360px;
+  max-width: 520px;
+  box-shadow: 0 0 60px rgba(0,0,0,0.7);
+}
+.cm-header {
+  font-size: 0.82rem;
+  letter-spacing: 2px;
+  color: var(--gold);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+.combat-log {
+  max-height: 360px;
+  overflow-y: auto;
+  margin-bottom: 1.2rem;
+}
+.cm-row {
+  font-size: 0.78rem;
+  padding: 5px 2px;
+  border-bottom: 1px solid rgba(80,120,160,0.12);
+  letter-spacing: 0.5px;
+  color: var(--dim);
+}
+.cm-empty     { color: var(--dim); font-style: italic; padding: 8px 0; }
+.cm-hit       { color: var(--green); }
+.cm-miss      { color: var(--dim); }
+.cm-destroyed { color: var(--red-l); font-weight: bold; }
+.cm-oor       { color: #ff8c00; }
+.cm-blue      { color: var(--blue-l); }
+.cm-red       { color: var(--red-l); }

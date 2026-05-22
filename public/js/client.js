@@ -86,6 +86,7 @@ socket.on('game_over', ({winner, state}) => {
 });
 socket.on('opponent_disconnected', () => disconnected.classList.remove('hidden'));
 socket.on('action_error', msg => flashError(msg));
+socket.on('combat_result', data => showCombatModal(data));
 
 // ─── Lobby actions ────────────────────────────────────────────────────────────
 btnCreate.addEventListener('click', () => socket.emit('create_room'));
@@ -108,6 +109,7 @@ combatBtn.addEventListener('click', () => {
 });
 cancelBtn.addEventListener('click', deselect);
 $('btn-restart').addEventListener('click', () => { socket.emit('restart'); gameOver.classList.add('hidden'); });
+$('combat-modal-close').addEventListener('click', () => $('combat-modal').classList.add('hidden'));
 $('btn-back').addEventListener('click', () => location.reload());
 
 // ─── Canvas input ─────────────────────────────────────────────────────────────
@@ -409,4 +411,28 @@ function showLobbyErr(msg) {
   lobbyErr.textContent = msg;
   lobbyErr.classList.remove('hidden');
   setTimeout(() => lobbyErr.classList.add('hidden'), 4000);
+}
+
+function showCombatModal(data) {
+  const body = $('combat-modal-body');
+  let html = `<div class="cm-header">── Resolução de Combate · Turno ${data.turn} ──</div>`;
+  if (!data.results || data.results.length === 0) {
+    html += '<div class="cm-empty">Nenhum ataque declarado neste turno.</div>';
+  } else {
+    for (const r of data.results) {
+      const aC = r.attackerTeam === 'blue' ? 'cm-blue' : 'cm-red';
+      const tC = r.targetTeam  === 'blue' ? 'cm-blue' : 'cm-red';
+      if (r.outOfRange) {
+        html += `<div class="cm-row cm-oor">⚠ <span class="${aC}">${r.attacker}</span> → <span class="${tC}">${r.target}</span> — fora de alcance</div>`;
+      } else if (r.hit) {
+        const dest = r.destroyed ? ' <strong>DESTRUÍDO!</strong>' : '';
+        const cls  = r.destroyed ? 'cm-destroyed' : 'cm-hit';
+        html += `<div class="cm-row ${cls}">✓ <span class="${aC}">${r.attacker}</span> → <span class="${tC}">${r.target}</span> −${r.damage}HP${dest} <small>[${r.roll}/${r.chance}%]</small></div>`;
+      } else {
+        html += `<div class="cm-row cm-miss">✗ <span class="${aC}">${r.attacker}</span> → <span class="${tC}">${r.target}</span> — errou <small>[${r.roll}/${r.chance}%]</small></div>`;
+      }
+    }
+  }
+  body.innerHTML = html;
+  $('combat-modal').classList.remove('hidden');
 }

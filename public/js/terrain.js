@@ -1,87 +1,85 @@
 'use strict';
 
 // ─── Terrain type constants ──────────────────────────────────────────────────
-const T_LAND    = 0;  // Área Terrestre — impassável
-const T_SHALLOW = 1;  // Águas Rasas < 200m — navios ok, submarinos não
+const T_LAND    = 0;  // Área Terrestre       — impassável
+const T_SHALLOW = 1;  // Águas Rasas <200m    — sem submarinos
 const T_SHELF   = 2;  // Plataforma Continental
-const T_DEEP    = 3;  // Águas Profundas — bônus de furtividade para subs
-const T_OIL     = 4;  // Bacia Petrolífera — objetivo estratégico
+const T_DEEP    = 3;  // Águas Profundas      — subs ganham furtividade
+const T_OIL     = 4;  // Bacia Petrolífera    — objetivo estratégico
 
-// ─── 14 colunas × 10 linhas (col = O→L, row = N→S) ─────────────────────────
-//   Baseado na Carta Náutica OAS-MAP-001 (~19°S a ~30°S / ~39°W a ~52°W)
+// ─── Terrain map 14 × 10 ────────────────────────────────────────────────────
+//  Calibrado com a Carta Náutica OAS-MAP-001
+//  Colunas: O → L (0=interior, 13=Atlântico aberto)
+//  Linhas:  N → S (0≈18°S/Vitória, 9≈30°S/Sul)
 //
-//   col:  0  1  2  3  4  5  6  7  8  9 10 11 12 13
+//   0  1  2  3  4  5  6  7  8  9 10 11 12 13   ← col
 const TERRAIN_MAP = [
-  [0, 0, 1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],  // row 0  ~19°S  Vitória / ES
-  [0, 0, 1, 1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],  // row 1
-  [0, 0, 1, 1, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3],  // row 2         Vitória / Campos
-  [0, 0, 1, 2, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3],  // row 3  ~22°S  Bacia de Campos  ★ PLT
-  [0, 0, 1, 1, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3],  // row 4         Rio de Janeiro
-  [0, 0, 1, 1, 2, 4, 3, 3, 3, 3, 3, 3, 3, 3],  // row 5  ~24°S  Santos / RJ       ★ PLT
-  [0, 0, 1, 1, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3],  // row 6         São Paulo
-  [0, 0, 1, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],  // row 7
-  [0, 0, 1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],  // row 8
-  [0, 1, 1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],  // row 9  ~30°S  Sul
+  [0, 0, 0, 1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],  // row 0  ~18°S Vitória/ES
+  [0, 0, 0, 1, 2, 4, 3, 3, 3, 3, 3, 3, 3, 3],  // row 1        Campos N  ★PLT-05
+  [0, 0, 1, 1, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3],  // row 2  ~21°S Campos    ★PLT-04
+  [0, 0, 1, 2, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3],  // row 3  ~22°S Campos S / RJ  ★PLT-03
+  [0, 0, 1, 1, 2, 4, 3, 3, 3, 3, 3, 3, 3, 3],  // row 4  ~23°S RJ / Santos N  ★PLT-02
+  [0, 0, 1, 4, 4, 2, 3, 3, 3, 3, 3, 3, 3, 3],  // row 5  ~24°S Santos    ★PLT-01
+  [0, 0, 1, 4, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3],  // row 6  ~25°S Santos S
+  [0, 0, 1, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],  // row 7  ~26°S SP / Paraná
+  [0, 0, 1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],  // row 8  ~27°S
+  [0, 1, 1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],  // row 9  ~30°S Sul
 ];
 
-// ─── Cores — sem imagem de fundo (sólidas) ───────────────────────────────────
+// ─── Colors — solid (sem imagem de fundo) ────────────────────────────────────
 const T_COLOR_SOLID = {
-  [T_LAND]:    '#c8a15a',
-  [T_SHALLOW]: '#3aadcc',
-  [T_SHELF]:   '#1e72a0',
-  [T_DEEP]:    '#0d3c68',
-  [T_OIL]:     '#c07820',
+  [T_LAND]:    '#c9a45e',
+  [T_SHALLOW]: '#3db8d4',
+  [T_SHELF]:   '#1b6e9e',
+  [T_DEEP]:    '#0c3d6c',
+  [T_OIL]:     '#c07418',
 };
 
-// ─── Cores — sobreposição sobre o mapa (semi-transparentes) ──────────────────
+// ─── Colors — overlay sobre imagem do mapa (semi-transparentes) ───────────────
 const T_COLOR_OVERLAY = {
-  [T_LAND]:    'rgba(200, 161, 90, 0.55)',
-  [T_SHALLOW]: 'rgba(58, 173, 204, 0.38)',
-  [T_SHELF]:   'rgba(30, 114, 160, 0.28)',
-  [T_DEEP]:    'rgba(13,  60, 104, 0.18)',
-  [T_OIL]:     'rgba(192, 120,  32, 0.52)',
+  [T_LAND]:    'rgba(190,155,70, 0.50)',
+  [T_SHALLOW]: 'rgba(50,180,210, 0.35)',
+  [T_SHELF]:   'rgba(20,100,160, 0.28)',
+  [T_DEEP]:    'rgba(8,  50,100, 0.14)',
+  [T_OIL]:     'rgba(190,110,20, 0.52)',
 };
 
-// ─── Border colors per terrain (grid lines) ───────────────────────────────────
+// ─── Grid border per terrain ─────────────────────────────────────────────────
 const T_BORDER = {
-  [T_LAND]:    'rgba(140, 100, 40, 0.45)',
-  [T_SHALLOW]: 'rgba(80, 180, 210, 0.35)',
-  [T_SHELF]:   'rgba(50, 140, 190, 0.30)',
-  [T_DEEP]:    'rgba(60, 120, 180, 0.22)',
-  [T_OIL]:     'rgba(210, 140, 40, 0.50)',
+  [T_LAND]:    'rgba(140,100,40, 0.50)',
+  [T_SHALLOW]: 'rgba(80,190,220, 0.35)',
+  [T_SHELF]:   'rgba(50,140,200, 0.28)',
+  [T_DEEP]:    'rgba(40,100,180, 0.20)',
+  [T_OIL]:     'rgba(210,140,30, 0.55)',
 };
 
-// ─── Terrain names (for tooltip) ─────────────────────────────────────────────
+// ─── Terrain names ────────────────────────────────────────────────────────────
 const T_NAME = {
   [T_LAND]:    'Área Terrestre',
   [T_SHALLOW]: 'Águas Rasas (<200m)',
   [T_SHELF]:   'Plataforma Continental',
   [T_DEEP]:    'Águas Profundas',
-  [T_OIL]:     'Bacia Petrolífera',
+  [T_OIL]:     'Bacia Petrolífera ★',
 };
 
-// ─── Infrastructure ──────────────────────────────────────────────────────────
-//  type: 'naval' | 'port' | 'aero' | 'oil'
-//  drawn on the hex (even if on land col) for visual reference
+// ─── Infrastructure markers (posições visuais no mapa) ───────────────────────
 const INFRA = [
-  { col: 1, row: 0, type: 'naval', label: '✛', name: 'BN Vitória'          },
-  { col: 1, row: 2, type: 'naval', label: '✛', name: 'BN Rio de Janeiro'    },
-  { col: 1, row: 3, type: 'port',  label: '⚓', name: 'Porto do Rio'         },
-  { col: 1, row: 4, type: 'aero',  label: '✈', name: 'BA Galeão'            },
-  { col: 1, row: 5, type: 'port',  label: '⚓', name: 'Porto de Santos'      },
-  { col: 1, row: 5, type: 'aero',  label: '✈', name: 'BA Guaratinguetá'     },
-  { col: 3, row: 3, type: 'oil',   label: '▲', name: 'PLT-Campos'           },
-  { col: 4, row: 3, type: 'oil',   label: '▲', name: 'PLT-Campos 2'         },
-  { col: 4, row: 5, type: 'oil',   label: '▲', name: 'PLT-Santos'           },
-  { col: 5, row: 5, type: 'oil',   label: '▲', name: 'PLT-Santos 2'         },
+  { col: 2, row: 0, type: 'naval', label: '✛', name: 'BN Vitória'          },
+  { col: 2, row: 2, type: 'naval', label: '✛', name: 'BN Rio de Janeiro'    },
+  { col: 2, row: 3, type: 'port',  label: '⚓', name: 'Porto do Rio'         },
+  { col: 2, row: 4, type: 'aero',  label: '✈', name: 'BA Galeão / Santa Cruz'},
+  { col: 2, row: 5, type: 'port',  label: '⚓', name: 'Porto de Santos'      },
+  { col: 4, row: 1, type: 'oil',   label: '▲', name: 'PLT-05'               },
+  { col: 4, row: 2, type: 'oil',   label: '▲', name: 'PLT-04'               },
+  { col: 4, row: 3, type: 'oil',   label: '▲', name: 'PLT-03'               },
+  { col: 3, row: 4, type: 'oil',   label: '▲', name: 'PLT-02'               },
+  { col: 3, row: 5, type: 'oil',   label: '▲', name: 'PLT-01'               },
 ];
 
 // ─── Movement rules ───────────────────────────────────────────────────────────
 function canEnterTerrain(unitType, terrain) {
   if (terrain === T_LAND) return false;
-  // Helicopters and patrol aircraft fly over everything (including land)
-  if (unitType === 'helicoptero' || unitType === 'patrulha') return true;
-  // Submarines can't navigate shallow waters
+  if (unitType === 'helicoptero' || unitType === 'patrulha') return true; // voo
   if (unitType === 'submarino' && terrain === T_SHALLOW) return false;
   return true;
 }

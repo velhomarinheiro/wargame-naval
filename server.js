@@ -11,16 +11,16 @@ const GRID_H = 10;
 // ─── Terrain (mirror of public/js/terrain.js) ────────────────────────────────
 const T_LAND = 0, T_SHALLOW = 1, T_SHELF = 2, T_DEEP = 3, T_OIL = 4;
 const TERRAIN_MAP = [
-  [0,0,1,2,3,3,3,3,3,3,3,3,3,3],
-  [0,0,1,1,2,3,3,3,3,3,3,3,3,3],
-  [0,0,1,1,2,2,3,3,3,3,3,3,3,3],
-  [0,0,1,2,4,4,3,3,3,3,3,3,3,3],
-  [0,0,1,1,4,3,3,3,3,3,3,3,3,3],
-  [0,0,1,1,2,4,3,3,3,3,3,3,3,3],
-  [0,0,1,1,2,2,3,3,3,3,3,3,3,3],
-  [0,0,1,2,2,3,3,3,3,3,3,3,3,3],
-  [0,0,1,2,3,3,3,3,3,3,3,3,3,3],
-  [0,1,1,2,3,3,3,3,3,3,3,3,3,3],
+  [0,0,0,1,2,3,3,3,3,3,3,3,3,3],  // row 0
+  [0,0,0,1,2,4,3,3,3,3,3,3,3,3],  // row 1  PLT-05
+  [0,0,1,1,4,4,3,3,3,3,3,3,3,3],  // row 2  PLT-04
+  [0,0,1,2,4,4,3,3,3,3,3,3,3,3],  // row 3  PLT-03
+  [0,0,1,1,2,4,3,3,3,3,3,3,3,3],  // row 4  PLT-02
+  [0,0,1,4,4,2,3,3,3,3,3,3,3,3],  // row 5  PLT-01
+  [0,0,1,4,2,2,3,3,3,3,3,3,3,3],  // row 6
+  [0,0,1,2,2,3,3,3,3,3,3,3,3,3],  // row 7
+  [0,0,1,2,3,3,3,3,3,3,3,3,3,3],  // row 8
+  [0,1,1,2,3,3,3,3,3,3,3,3,3,3],  // row 9
 ];
 function getTerrain(col, row) {
   if (row < 0 || row >= GRID_H || col < 0 || col >= GRID_W) return T_LAND;
@@ -100,7 +100,7 @@ function initialUnits() {
   _uid = 1;
   return [
     // ── Força Azul (oeste / costa brasileira) ────────────────────
-    mkUnit('blue', 'fragata',     2, 1),   // Águas Rasas
+    mkUnit('blue', 'fragata',     3, 2),   // Águas Rasas
     mkUnit('blue', 'fragata',     2, 6),   // Águas Rasas
     mkUnit('blue', 'destroier',   3, 3),   // Plataforma Continental
     mkUnit('blue', 'corveta',     2, 8),   // Águas Rasas
@@ -135,6 +135,7 @@ function newGame() {
 
 // ─── Combat resolution ────────────────────────────────────────────────────────
 function resolveCombat(state) {
+  const results = [];
   const all = [...(state.blueAttacks||[]), ...(state.redAttacks||[])];
   const dmg = {};
   for (const atk of all) {
@@ -143,24 +144,35 @@ function resolveCombat(state) {
     if (!att || !tgt) continue;
     const def  = UNIT_DEFS[att.type];
     const dist = hexDist(att.col, att.row, tgt.col, tgt.row);
-    if (dist > def.atkRange) { state.log.unshift(`⚠ ${att.name} fora de alcance de ${tgt.name}.`); continue; }
-    const hit  = Math.max(20, Math.min(90, 70-(dist-1)*10));
+    const r = { attacker: att.name, attackerTeam: att.team, target: tgt.name, targetTeam: tgt.team, targetId: tgt.id, hit: false, damage: 0, destroyed: false };
+    if (dist > def.atkRange) {
+      state.log.unshift(`⚠ ${att.name} fora de alcance de ${tgt.name}.`);
+      r.outOfRange = true; results.push(r); continue;
+    }
+    const hitChance = Math.max(20, Math.min(90, 70-(dist-1)*10));
     const roll = Math.ceil(Math.random()*100);
-    if (roll <= hit) {
+    r.roll = roll; r.chance = hitChance;
+    if (roll <= hitChance) {
       const d = Math.ceil(def.atkPower/2);
       dmg[tgt.id] = (dmg[tgt.id]||0) + d;
-      state.log.unshift(`✓ ${att.name}(${att.team}) → ${tgt.name}(${tgt.team}) −${d}HP [${roll}≤${hit}]`);
+      state.log.unshift(`✓ ${att.name}(${att.team}) → ${tgt.name}(${tgt.team}) −${d}HP [${roll}≤${hitChance}]`);
+      r.hit = true; r.damage = d;
     } else {
-      state.log.unshift(`✗ ${att.name}(${att.team}) errou ${tgt.name}(${tgt.team}) [${roll}>${hit}]`);
+      state.log.unshift(`✗ ${att.name}(${att.team}) errou ${tgt.name}(${tgt.team}) [${roll}>${hitChance}]`);
     }
+    results.push(r);
   }
   for (const [id, d] of Object.entries(dmg)) {
     const u = state.units.find(u => u.id===+id);
     if (!u) continue;
     u.hp = Math.max(0, u.hp-d);
-    if (u.hp===0) state.log.unshift(`💥 ${u.name}(${u.team}) DESTRUÍDO!`);
+    if (u.hp===0) {
+      state.log.unshift(`💥 ${u.name}(${u.team}) DESTRUÍDO!`);
+      results.filter(r => r.targetId === u.id).forEach(r => r.destroyed = true);
+    }
   }
   if (state.log.length > 30) state.log = state.log.slice(0,30);
+  return results;
 }
 function checkWinner(state) {
   const b=state.units.some(u=>u.team==='blue'&&u.hp>0);
@@ -275,7 +287,10 @@ io.on('connection', socket => {
     state.log.unshift(`${team==='blue'?'Força Azul':'Força Vermelha'} confirmou ${(attacks||[]).length} ataque(s).`);
     if (state.blueAttacks!==null&&state.redAttacks!==null) {
       state.log.unshift('── Resolução de Combate ──');
-      resolveCombat(state);
+      const combatResults = resolveCombat(state);
+      const payload = { turn: state.turn, results: combatResults };
+      if (room.players.blue) io.to(room.players.blue).emit('combat_result', payload);
+      if (room.players.red)  io.to(room.players.red ).emit('combat_result', payload);
       const winner=checkWinner(state);
       if (winner) {
         state.winner=winner;
