@@ -232,39 +232,39 @@ io.on('connection', socket => {
   });
 
   // ── Movement ──────────────────────────────────────────────────────────────
-  socket.on('move_unit', ({unitId,toCol,toRow}) => {
+  socket.on('commit_moves', ({moves}) => {
     const room=rooms.get(socket.data.roomId);
     if (!room?.state) return;
     const {state}=room, {team}=socket.data;
 
-    if (state.phase!=='movement')                       { socket.emit('action_error','Não é a fase de movimentação.'); return; }
-    if (state[team==='blue'?'blueDone':'redDone'])      { socket.emit('action_error','Você já encerrou a movimentação.'); return; }
-    const unit=state.units.find(u=>u.id===unitId&&u.team===team&&u.hp>0);
-    if (!unit)     { socket.emit('action_error','Unidade inválida.'); return; }
-    if (unit.moved){ socket.emit('action_error','Esta unidade já se moveu neste turno.'); return; }
-    if (toCol<0||toCol>=GRID_W||toRow<0||toRow>=GRID_H){ socket.emit('action_error','Fora do tabuleiro.'); return; }
+    if (state.phase!=='movement')                  { socket.emit('action_error','Não é a fase de movimentação.'); return; }
+    if (state[team==='blue'?'blueDone':'redDone']) { socket.emit('action_error','Você já encerrou a movimentação.'); return; }
 
-    // Terrain check
-    const terrain=getTerrain(toCol,toRow);
-    if (!canEnterTerrain(unit.type, terrain)){
-      const msgs={ [T_LAND]:'Hexágono terrestre — não navegável.', [T_SHALLOW]:'Águas rasas — submarinos não podem navegar aqui.' };
-      socket.emit('action_error', msgs[terrain]||'Terreno intransponível.'); return;
+    // Validate all paths before applying any
+    for (const {unitId, path} of (moves||[])) {
+      if (!Array.isArray(path)||path.length<2) continue;
+      const unit=state.units.find(u=>u.id===unitId&&u.team===team&&u.hp>0);
+      if (!unit) { socket.emit('action_error',`Unidade ${unitId} inválida.`); return; }
+      if (path[0].col!==unit.col||path[0].row!==unit.row) { socket.emit('action_error',`Caminho inválido para ${unit.name}.`); return; }
+      if (path.length-1>UNIT_DEFS[unit.type].mov) { socket.emit('action_error',`${unit.name}: caminho excede alcance máximo.`); return; }
+      for (let i=1;i<path.length;i++) {
+        const {col,row}=path[i];
+        if (col<0||col>=GRID_W||row<0||row>=GRID_H) { socket.emit('action_error',`${unit.name}: posição fora do tabuleiro.`); return; }
+        if (hexDist(path[i-1].col,path[i-1].row,col,row)!==1) { socket.emit('action_error',`${unit.name}: passo não adjacente.`); return; }
+        if (!canEnterTerrain(unit.type,getTerrain(col,row))) { socket.emit('action_error',`${unit.name}: terreno intransponível em ${String.fromCharCode(65+col)}${row+1}.`); return; }
+      }
     }
-    if (state.units.some(u=>u.col===toCol&&u.row===toRow&&u.hp>0)) { socket.emit('action_error','Hexágono ocupado.'); return; }
-    if (hexDist(unit.col,unit.row,toCol,toRow)>UNIT_DEFS[unit.type].mov) { socket.emit('action_error',`Alcance máx: ${UNIT_DEFS[unit.type].mov} hex.`); return; }
 
-    unit.col=toCol; unit.row=toRow; unit.moved=true;
-    const lbl=String.fromCharCode(65+toCol);
-    state.log.unshift(`${unit.name}(${team}) → ${lbl}${toRow+1}`);
-    if (state.log.length>30) state.log=state.log.slice(0,30);
-    broadcast(room);
-  });
+    // Apply all moves
+    for (const {unitId, path} of (moves||[])) {
+      if (!Array.isArray(path)||path.length<2) continue;
+      const unit=state.units.find(u=>u.id===unitId&&u.team===team&&u.hp>0);
+      if (!unit) continue;
+      const dest=path[path.length-1];
+      unit.col=dest.col; unit.row=dest.row; unit.moved=true;
+      state.log.unshift(`${unit.name}(${team}) → ${String.fromCharCode(65+dest.col)}${dest.row+1}`);
+    }
 
-  socket.on('end_movement', () => {
-    const room=rooms.get(socket.data.roomId);
-    if (!room?.state) return;
-    const {state}=room, {team}=socket.data;
-    if (state.phase!=='movement') return;
     if (team==='blue') state.blueDone=true; else state.redDone=true;
     if (state.blueDone&&state.redDone) {
       state.phase='combat';

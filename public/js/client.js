@@ -14,6 +14,7 @@ const myTurnBanner = $('my-turn-banner');
 const unitPanel    = $('unit-panel');
 const endPhaseBtn  = $('end-phase-btn');
 const combatBtn    = $('combat-btn');
+const undoStepBtn  = $('undo-step-btn');
 const cancelBtn    = $('cancel-btn');
 const fleetBlue    = $('fleet-blue');
 const fleetRed     = $('fleet-red');
@@ -39,21 +40,22 @@ const mapImg  = new Image();
 let   mapReady = false;
 mapImg.onload  = () => { mapReady = true;  if (gameState) render(); };
 mapImg.onerror = () => { mapReady = false; if (gameState) render(); };
-mapImg.src = '/mapa.jpeg';   // place the map image at public/mapa.jpeg
+mapImg.src = '/mapa.jpeg';
 
 // ─── Game state ───────────────────────────────────────────────────────────────
-let myTeam     = null;
-let gameState  = null;
-let selUnitId  = null;
-let moveHexes  = [];
-let atkHexes   = [];
+let myTeam      = null;
+let gameState   = null;
+let selUnitId   = null;
+let moveHexes   = [];   // valid next-step neighbors for selected unit
+let atkHexes    = [];
 let pendingAtks = [];
-let hoverHex   = null;
+let hoverHex    = null;
+let activePath  = [];          // [{col,row},...] path being traced; [0] = unit start
+let plannedMoves = new Map();  // unitId → [{col,row},...] committed trajectories
 
 // ─── Socket ───────────────────────────────────────────────────────────────────
 const socket = io();
 
-// Auto-trigger when arriving from the index.html landing page
 socket.on('connect', () => {
   const action = sessionStorage.getItem('pendingAction');
   if (action === 'create') {
@@ -78,19 +80,28 @@ socket.on('join_error', msg => showLobbyErr(msg));
 socket.on('game_start', ({team, state}) => {
   myTeam = team; gameState = state;
   selUnitId = null; moveHexes = []; atkHexes = []; pendingAtks = [];
+  activePath = []; plannedMoves.clear();
   lobbyScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
   gameOver.classList.add('hidden');
   updateUI(); render();
 });
+
 socket.on('game_update', state => {
+  const prevTurn  = gameState?.turn;
+  const prevPhase = gameState?.phase;
   gameState = state;
-  if (selUnitId) {
+  // Reset planning on new turn or when coming back to movement after combat
+  if (state.turn !== prevTurn || (prevPhase === 'combat' && state.phase === 'movement')) {
+    activePath = []; plannedMoves.clear();
+    selUnitId = null; moveHexes = []; atkHexes = [];
+  } else if (selUnitId) {
     const u = gameState.units.find(u => u.id === selUnitId && u.hp > 0);
     if (u) recalcHighlights(u); else deselect();
   }
   updateUI(); render();
 });
+
 socket.on('game_over', ({winner, state}) => {
   gameState = state; updateUI(); render();
   const mine = winner === myTeam;
@@ -113,15 +124,30 @@ roomInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnJoin.clic
 // ─── Game actions ─────────────────────────────────────────────────────────────
 endPhaseBtn.addEventListener('click', () => {
   if (!isMyTurn()) return;
-  socket.emit('end_movement');
-  deselect();
+  // Save current selection before submitting
+  if (selUnitId !== null && activePath.length > 1) {
+    plannedMoves.set(selUnitId, [...activePath]);
+  }
+  const moves = [];
+  for (const [unitId, path] of plannedMoves) {
+    if (path.length > 1) moves.push({ unitId, path });
+  }
+  socket.emit('commit_moves', { moves });
+  activePath = []; plannedMoves.clear();
+  selUnitId = null; moveHexes = []; atkHexes = [];
+  updateUI(); render();
 });
+
 combatBtn.addEventListener('click', () => {
   if (!isMyTurn()) return;
   socket.emit('declare_attacks', pendingAtks);
   pendingAtks = []; deselect();
 });
-cancelBtn.addEventListener('click', deselect);
+
+undoStepBtn.addEventListener('click', () => undoStep());
+
+cancelBtn.addEventListener('click', () => deselect(false));
+
 $('btn-restart').addEventListener('click', () => { socket.emit('restart'); gameOver.classList.add('hidden'); });
 $('combat-modal-close').addEventListener('click', () => $('combat-modal').classList.add('hidden'));
 $('btn-back').addEventListener('click', () => location.reload());
@@ -133,7 +159,6 @@ canvas.addEventListener('mousemove', e => {
   const sy = canvas.height / r.height;
   const h  = pixelToHex((e.clientX - r.left) * sx, (e.clientY - r.top) * sy);
   hoverHex = h;
-  // Show terrain tooltip
   if (h.col >= 0 && h.col < GRID_W && h.row >= 0 && h.row < GRID_H) {
     const t = TERRAIN_MAP[h.row][h.col];
     const inf = INFRA.filter(i => i.col === h.col && i.row === h.row);
@@ -166,51 +191,95 @@ function handleClick(col, row) {
   if (col < 0 || col >= GRID_W || row < 0 || row >= GRID_H) return;
   const {phase} = gameState;
 
-  if (phase === 'movement' && isMyTurn() && selUnitId !== null) {
-    const move = moveHexes.find(h => h.col === col && h.row === row);
-    if (move) { socket.emit('move_unit', {unitId: selUnitId, toCol: col, toRow: row}); deselect(); return; }
-  }
-  if (phase === 'combat' && isMyTurn() && selUnitId !== null) {
-    const atk = atkHexes.find(h => h.col === col && h.row === row);
-    if (atk) {
-      const idx = pendingAtks.findIndex(a => a.attackerId === selUnitId && a.targetId === atk.unitId);
-      if (idx >= 0) pendingAtks.splice(idx, 1); else pendingAtks.push({attackerId: selUnitId, targetId: atk.unitId});
-      render(); return;
+  // ── Combat phase ──
+  if (phase === 'combat') {
+    if (isMyTurn() && selUnitId !== null) {
+      const atk = atkHexes.find(h => h.col === col && h.row === row);
+      if (atk) {
+        const idx = pendingAtks.findIndex(a => a.attackerId === selUnitId && a.targetId === atk.unitId);
+        if (idx >= 0) pendingAtks.splice(idx, 1);
+        else pendingAtks.push({attackerId: selUnitId, targetId: atk.unitId});
+        render(); return;
+      }
     }
+    const unit = gameState.units.find(u => u.col === col && u.row === row && u.hp > 0);
+    if (unit && unit.team === myTeam) {
+      selUnitId = unit.id; recalcHighlights(unit); updateUI(); render();
+    } else {
+      deselect();
+    }
+    return;
   }
-  const unit = gameState.units.find(u => u.col === col && u.row === row && u.hp > 0);
-  if (unit && unit.team === myTeam) {
-    selUnitId = unit.id; recalcHighlights(unit); updateUI(); render();
-  } else { deselect(); }
+
+  // ── Movement phase ──
+  if (phase === 'movement' && isMyTurn()) {
+    // Extend current path with a valid next step
+    if (selUnitId !== null) {
+      const move = moveHexes.find(h => h.col === col && h.row === row);
+      if (move) {
+        activePath.push({col, row});
+        const u = gameState.units.find(u => u.id === selUnitId && u.hp > 0);
+        if (u) recalcHighlights(u);
+        updateUI(); render(); return;
+      }
+    }
+    // Click on own unit
+    const unit = gameState.units.find(u => u.col === col && u.row === row && u.hp > 0 && u.team === myTeam);
+    if (unit) {
+      if (selUnitId === unit.id) return; // already selected
+      deselect(true); // save current path first
+      selUnitId = unit.id;
+      const saved = plannedMoves.get(unit.id);
+      activePath = saved ? [...saved] : [{col: unit.col, row: unit.row}];
+      recalcHighlights(unit); updateUI(); render();
+      return;
+    }
+    // Click elsewhere: save and deselect
+    deselect(true);
+    return;
+  }
 }
 
-function deselect() { selUnitId = null; moveHexes = []; atkHexes = []; updateUI(); render(); }
+// save=true saves activePath to plannedMoves; save=false discards it
+function deselect(save = true) {
+  if (selUnitId !== null) {
+    if (save && activePath.length > 1) {
+      plannedMoves.set(selUnitId, [...activePath]);
+    } else if (!save) {
+      plannedMoves.delete(selUnitId);
+    }
+  }
+  selUnitId = null; activePath = []; moveHexes = []; atkHexes = [];
+  updateUI(); render();
+}
+
+function undoStep() {
+  if (activePath.length <= 1) return;
+  activePath.pop();
+  const u = gameState?.units.find(u => u.id === selUnitId && u.hp > 0);
+  if (u) recalcHighlights(u);
+  updateUI(); render();
+}
 
 function recalcHighlights(unit) {
   const def = UNIT_DEFS[unit.type];
   const {phase} = gameState;
 
-  if (phase === 'movement' && !unit.moved && isMyTurn()) {
-    // BFS respecting terrain and occupied hexes
-    const occ  = new Set(gameState.units.filter(u => u.hp > 0 && u.id !== unit.id).map(u => `${u.col},${u.row}`));
-    const seen = new Set([`${unit.col},${unit.row}`]);
-    let front  = [{col: unit.col, row: unit.row}];
-    moveHexes  = [];
-    for (let d = 0; d < def.mov; d++) {
-      const next = [];
-      for (const h of front) {
-        for (const nb of hexNeighbors(h.col, h.row)) {
-          const k = `${nb.col},${nb.row}`;
-          if (seen.has(k)) continue;
-          seen.add(k);
-          const t = TERRAIN_MAP[nb.row][nb.col];
-          if (!canEnterTerrain(unit.type, t)) continue;
-          if (!occ.has(k)) { moveHexes.push(nb); next.push(nb); }
-        }
-      }
-      front = next;
+  if (phase === 'movement' && isMyTurn()) {
+    const stepsTaken = activePath.length - 1;
+    if (stepsTaken < def.mov) {
+      const lastHex = activePath[activePath.length - 1];
+      const inPath  = new Set(activePath.map(h => `${h.col},${h.row}`));
+      moveHexes = hexNeighbors(lastHex.col, lastHex.row).filter(nb => {
+        if (inPath.has(`${nb.col},${nb.row}`)) return false;
+        return canEnterTerrain(unit.type, TERRAIN_MAP[nb.row][nb.col]);
+      });
+    } else {
+      moveHexes = [];
     }
-  } else { moveHexes = []; }
+  } else {
+    moveHexes = [];
+  }
 
   if (phase === 'combat' && isMyTurn()) {
     atkHexes = [];
@@ -220,7 +289,9 @@ function recalcHighlights(unit) {
         atkHexes.push({col: e.col, row: e.row, unitId: e.id});
       }
     }
-  } else { atkHexes = []; }
+  } else {
+    atkHexes = [];
+  }
 }
 
 function isMyTurn() {
@@ -243,12 +314,22 @@ function updateUI() {
   phaseLabel.textContent = phase === 'movement' ? 'Movimentação' : 'Combate';
 
   myTurnBanner.classList.toggle('visible', isMyTurn() && !winner);
+
   endPhaseBtn.classList.add('hidden');
   combatBtn.classList.add('hidden');
+  undoStepBtn.classList.add('hidden');
   cancelBtn.classList.toggle('hidden', selUnitId === null);
+
   if (isMyTurn() && !winner) {
-    if (phase === 'movement') endPhaseBtn.classList.remove('hidden');
-    if (phase === 'combat')   combatBtn.classList.remove('hidden');
+    if (phase === 'movement') {
+      endPhaseBtn.classList.remove('hidden');
+      const n = plannedMoves.size + (selUnitId !== null && activePath.length > 1 && !plannedMoves.has(selUnitId) ? 1 : 0);
+      endPhaseBtn.textContent = n > 0 ? `Encerrar Movimentação (${n})` : 'Encerrar Movimentação';
+      if (selUnitId !== null && activePath.length > 1) {
+        undoStepBtn.classList.remove('hidden');
+      }
+    }
+    if (phase === 'combat') combatBtn.classList.remove('hidden');
   }
   combatBtn.textContent = `Confirmar Ataques (${pendingAtks.length})`;
 
@@ -259,10 +340,14 @@ function updateUI() {
 
   const sel = selUnitId ? gameState.units.find(u => u.id === selUnitId && u.hp > 0) : null;
   if (sel) {
-    const def  = UNIT_DEFS[sel.type];
-    const hpPct= sel.hp / sel.maxHp * 100;
-    const bar  = hpPct > 60 ? '#69f0ae' : hpPct > 30 ? '#ffca28' : '#ff5252';
-    const t    = sel.col >= 0 ? TERRAIN_MAP[sel.row][sel.col] : 3;
+    const def   = UNIT_DEFS[sel.type];
+    const hpPct = sel.hp / sel.maxHp * 100;
+    const bar   = hpPct > 60 ? '#69f0ae' : hpPct > 30 ? '#ffca28' : '#ff5252';
+    const t     = sel.col >= 0 ? TERRAIN_MAP[sel.row][sel.col] : 3;
+    const pathSteps = activePath.length - 1;
+    const pathHint  = pathSteps > 0
+      ? `<div class="u-hint">Caminho: ${pathSteps}/${def.mov} passo(s)</div>`
+      : '';
     unitPanel.innerHTML = `
       <div class="u-name ${sel.team}">${def.name}</div>
       <div class="hp-bar"><div class="hp-fill" style="width:${hpPct}%;background:${bar}"></div></div>
@@ -271,11 +356,11 @@ function updateUI() {
         <span>MOV</span><span>${def.mov}</span>
         <span>DET</span><span>${def.detect}/${def.subDetect}★</span>
         <span>ATK</span><span>${def.atkRange}hex·P${def.atkPower}</span>
-        <span>Moveu</span><span>${sel.moved?'✓':'–'}</span>
         <span>Terreno</span><span style="font-size:0.7em">${T_NAME[t]}</span>
       </div>
+      ${pathHint}
       ${atkHexes.length ? `<div class="u-hint">Clique em alvos vermelhos p/ declarar ataque</div>` : ''}
-      ${pendingAtks.filter(a=>a.attackerId===sel.id).length ? `<div class="u-hint atk-declared">${pendingAtks.filter(a=>a.attackerId===sel.id).length} ataque(s) declarado(s)</div>` : ''}
+      ${pendingAtks.filter(a => a.attackerId === sel.id).length ? `<div class="u-hint atk-declared">${pendingAtks.filter(a => a.attackerId === sel.id).length} ataque(s) declarado(s)</div>` : ''}
     `;
   } else {
     unitPanel.innerHTML = '<p class="no-sel">Clique em uma unidade sua</p>';
@@ -287,14 +372,13 @@ function updateUI() {
 function render() {
   if (!gameState) return;
   ctx.clearRect(0, 0, CVS_W, CVS_H);
-  drawBackground();       // 1. Mapa ou gradiente oceânico
-  // drawTerrainLayer();  // desativado: o mapa já traz a arte e a grade base
-  drawHighlights();       // 3. Alcance de movimento / ataque
-  drawGrid();             // 4. Grade hexagonal
-  drawInfrastructure();   // 5. Portos, bases, plataformas
-  drawUnits();            // 6. Fichas de unidade
-  drawCoordLabels();      // 7. Coordenadas A-N / 1-10
-  if (hoverHex) drawHover(); // 8. Efeito de hover
+  drawBackground();
+  drawHighlights();
+  drawGrid();
+  drawInfrastructure();
+  drawUnits();
+  drawCoordLabels();
+  if (hoverHex) drawHover();
 }
 
 // ── Layer 1: Background ───────────────────────────────────────────────────────
@@ -302,7 +386,6 @@ function drawBackground() {
   if (mapReady) {
     ctx.drawImage(mapImg, 0, 0, CVS_W, CVS_H);
   } else {
-    // Fallback gradient when mapa.jpg is not available
     const g = ctx.createLinearGradient(0, 0, CVS_W, CVS_H);
     g.addColorStop(0.0, '#0d2a45');
     g.addColorStop(0.2, '#0a2238');
@@ -312,7 +395,7 @@ function drawBackground() {
   }
 }
 
-// ── Layer 2: Terrain colored hexes ───────────────────────────────────────────
+// ── Layer 2: Terrain colored hexes (disabled — map image provides art) ────────
 function drawTerrainLayer() {
   for (let r = 0; r < GRID_H; r++) {
     for (let c = 0; c < GRID_W; c++) {
@@ -326,16 +409,53 @@ function drawTerrainLayer() {
 
 // ── Layer 3: Highlights ───────────────────────────────────────────────────────
 function drawHighlights() {
+  // Other units' planned paths (blue tint)
+  for (const [unitId, path] of plannedMoves) {
+    if (unitId === selUnitId) continue;
+    drawPathTrail(path,
+      'rgba(100,180,255,0.18)', 'rgba(100,180,255,0.55)',
+      'rgba(100,180,255,0.35)', 'rgba(100,180,255,0.85)');
+  }
+  // Active path (yellow)
+  if (selUnitId !== null && activePath.length > 1) {
+    drawPathTrail(activePath,
+      'rgba(255,220,0,0.20)', 'rgba(255,220,0,0.65)',
+      'rgba(255,220,0,0.40)', 'rgba(255,220,0,0.95)');
+  }
+  // Valid next steps (green)
   for (const h of moveHexes) {
     const {x, y} = hexToPixel(h.col, h.row);
-    drawHex(ctx, x, y, 'rgba(0,230,118,0.25)', 'rgba(0,230,118,0.75)', 1.8);
+    drawHex(ctx, x, y, 'rgba(0,230,118,0.22)', 'rgba(0,230,118,0.70)', 1.8);
   }
+  // Attack hexes (red)
   for (const h of atkHexes) {
     const {x, y} = hexToPixel(h.col, h.row);
     const declared = pendingAtks.some(a => a.targetId === h.unitId);
     drawHex(ctx, x, y,
-      declared ? 'rgba(255,60,60,0.50)' : 'rgba(255,60,60,0.22)',
-      declared ? 'rgba(255,120,120,1)'  : 'rgba(255,80,80,0.75)', 2.0);
+      declared ? 'rgba(255,60,60,0.50)'  : 'rgba(255,60,60,0.22)',
+      declared ? 'rgba(255,120,120,1.0)' : 'rgba(255,80,80,0.75)', 2.0);
+  }
+}
+
+// Draw a step-numbered path trail (skips index 0 = starting hex)
+function drawPathTrail(path, fillMid, strokeMid, fillLast, strokeLast) {
+  for (let i = 1; i < path.length; i++) {
+    const {col, row} = path[i];
+    const {x, y}     = hexToPixel(col, row);
+    const isLast     = i === path.length - 1;
+    drawHex(ctx, x, y,
+      isLast ? fillLast  : fillMid,
+      isLast ? strokeLast : strokeMid,
+      isLast ? 2.2 : 1.6);
+    ctx.save();
+    ctx.fillStyle    = 'rgba(255,255,255,0.92)';
+    ctx.font         = `bold ${Math.round(HEX_R * 0.30)}px sans-serif`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor  = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur   = 3;
+    ctx.fillText(String(i), x, y);
+    ctx.restore();
   }
 }
 
@@ -357,17 +477,16 @@ function drawInfrastructure() {
   for (const inf of INFRA) {
     const {x, y} = hexToPixel(inf.col, inf.row);
     const col = INFRA_COLORS[inf.type] || '#fff';
-    // Shadow for visibility
     ctx.shadowColor = 'rgba(0,0,0,0.8)';
     ctx.shadowBlur  = 4;
-    ctx.fillStyle    = col;
-    ctx.font         = `bold ${Math.round(HEX_R * 0.38)}px sans-serif`;
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.fillStyle   = col;
+    ctx.font        = `bold ${Math.round(HEX_R * 0.38)}px sans-serif`;
+    ctx.textAlign   = 'center';
+    ctx.textBaseline= 'middle';
     ctx.fillText(inf.label, x, y - HEX_R * 0.1);
-    ctx.shadowBlur = 0;
-    ctx.fillStyle  = 'rgba(255,255,200,0.7)';
-    ctx.font       = `${Math.round(HEX_R * 0.2)}px 'Courier New', monospace`;
+    ctx.shadowBlur  = 0;
+    ctx.fillStyle   = 'rgba(255,255,200,0.7)';
+    ctx.font        = `${Math.round(HEX_R * 0.2)}px 'Courier New', monospace`;
     ctx.fillText(inf.name, x, y + HEX_R * 0.38);
   }
 }
@@ -376,19 +495,51 @@ function drawInfrastructure() {
 function drawUnits() {
   if (!gameState) return;
 
-  for (const u of gameState.units) {
-    if (u.hp <= 0) continue;
-
-    const {x, y} = hexToPixel(u.col, u.row);
-
+  // Ghost units at planned destinations (semi-transparent)
+  for (const [unitId, path] of plannedMoves) {
+    if (path.length <= 1) continue;
+    const unit = gameState.units.find(u => u.id === unitId && u.hp > 0);
+    if (!unit) continue;
+    const dest = path[path.length - 1];
+    const {x, y} = hexToPixel(dest.col, dest.row);
+    ctx.save();
+    ctx.globalAlpha = 0.35;
     ctx.beginPath();
     ctx.arc(x, y, HEX_R * 0.58, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fill();
+    drawUnitCounter(ctx, unit, x, y, false);
+    ctx.restore();
+  }
+  // Ghost for the currently-being-traced path (if not yet saved)
+  if (selUnitId !== null && activePath.length > 1) {
+    const unit = gameState.units.find(u => u.id === selUnitId && u.hp > 0);
+    if (unit) {
+      const dest = activePath[activePath.length - 1];
+      const {x, y} = hexToPixel(dest.col, dest.row);
+      ctx.save();
+      ctx.globalAlpha = 0.40;
+      ctx.beginPath();
+      ctx.arc(x, y, HEX_R * 0.58, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fill();
+      drawUnitCounter(ctx, unit, x, y, false);
+      ctx.restore();
+    }
+  }
 
+  // Actual units at current (server-confirmed) positions
+  for (const u of gameState.units) {
+    if (u.hp <= 0) continue;
+    const {x, y} = hexToPixel(u.col, u.row);
+    ctx.beginPath();
+    ctx.arc(x, y, HEX_R * 0.58, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fill();
     drawUnitCounter(ctx, u, x, y, u.id === selUnitId);
   }
 }
+
 // ── Layer 7: Coordinate labels ────────────────────────────────────────────────
 function drawCoordLabels() {
   ctx.shadowColor = 'rgba(0,0,0,0.8)';
@@ -442,7 +593,7 @@ function showCombatModal(data) {
   } else {
     for (const r of data.results) {
       const aC = r.attackerTeam === 'blue' ? 'cm-blue' : 'cm-red';
-      const tC = r.targetTeam  === 'blue' ? 'cm-blue' : 'cm-red';
+      const tC = r.targetTeam   === 'blue' ? 'cm-blue' : 'cm-red';
       if (r.outOfRange) {
         html += `<div class="cm-row cm-oor">⚠ <span class="${aC}">${r.attacker}</span> → <span class="${tC}">${r.target}</span> — fora de alcance</div>`;
       } else if (r.hit) {
