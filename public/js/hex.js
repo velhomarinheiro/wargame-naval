@@ -14,14 +14,14 @@ const HEX_R = 67.5;
 const HEX_W = HEX_R * 2;
 const HEX_H = HEX_R * Math.sqrt(3);
 
-// ─── Canvas: imagem 4200×2970 exibida a 50% ───────────────────────────────
-const CVS_W = 2100;
-const CVS_H = 1485;
+// ─── Canvas: imagem 3446×2832 exibida a 50% ───────────────────────────────
+const CVS_W = 1723;
+const CVS_H = 1416;
 
 // ─── Origem da grade sobre o mapa ──────────────────────────────────────────
-// Centro do hexágono A-1 (= pixel (224,360) na imagem original ÷ 2)
-const OX = 112;
-const OY = 180;
+// Centro do hexágono A-1 (= pixel (238,372) na imagem original ÷ 2)
+const OX = 119;
+const OY = 186;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // CONVERSÕES
