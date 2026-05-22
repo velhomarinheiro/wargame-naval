@@ -486,7 +486,6 @@ function updateUI() {
   fleetRed.textContent  = `Verm: ${r}`;
 
   const sel = selUnitId ? gameState.units.find(u => u.id === selUnitId && u.hp > 0) : null;
-  const sel = selUnitId ? gameState.units.find(u => u.id === selUnitId && u.hp > 0) : null;
   if (sel) {
     const hpPct = sel.hp / sel.maxHp * 100;
     const bar   = hpPct > 60 ? '#69f0ae' : hpPct > 30 ? '#ffca28' : '#ff5252';
