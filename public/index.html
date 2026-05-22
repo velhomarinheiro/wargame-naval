@@ -207,49 +207,37 @@
   <p>OPERAÇÃO ATLÂNTICO SUL · Wargame Naval © 2026 · <a href="game.html">Entrar no Teatro de Operações</a></p>
 </footer>
 
-<script src="/socket.io/socket.io.js"></script>
 <script>
-  // Lobby logic embedded (redirects to game.html on match)
-  const socket = io();
-  const btnCreate    = document.getElementById('btn-create');
-  const btnJoin      = document.getElementById('btn-join');
-  const roomInput    = document.getElementById('room-input');
-  const lobbyMenu    = document.getElementById('lobby-menu');
-  const lobbyWaiting = document.getElementById('lobby-waiting');
-  const roomDisplay  = document.getElementById('room-display');
-  const lobbyErr     = document.getElementById('lobby-err');
+  const btnCreate = document.getElementById('btn-create');
+  const btnJoin   = document.getElementById('btn-join');
+  const roomInput = document.getElementById('room-input');
+  const lobbyErr  = document.getElementById('lobby-err');
 
-  btnCreate.addEventListener('click', () => socket.emit('create_room'));
+  btnCreate.addEventListener('click', () => {
+    sessionStorage.setItem('pendingAction', 'create');
+    location.href = '/game';
+  });
+
   btnJoin.addEventListener('click', () => {
     const c = roomInput.value.trim().toUpperCase();
-    if (c) socket.emit('join_room', { roomId: c });
+    if (!c) { showErr('Digite o código da sala.'); return; }
+    sessionStorage.setItem('pendingAction', 'join');
+    sessionStorage.setItem('pendingCode', c);
+    location.href = '/game';
   });
+
   roomInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnJoin.click(); });
-
-  socket.on('room_created', ({ roomId, team }) => {
-    sessionStorage.setItem('team', team);
-    sessionStorage.setItem('roomId', roomId);
-    roomDisplay.textContent = roomId;
-    lobbyMenu.classList.add('hidden');
-    lobbyWaiting.classList.remove('hidden');
-    document.getElementById('lobby').scrollIntoView({ behavior: 'smooth' });
-  });
-
-  socket.on('game_start', ({ team, state }) => {
-    sessionStorage.setItem('team', team);
-    window.location.href = '/game';
-  });
-
-  socket.on('join_error', msg => {
-    lobbyErr.textContent = msg;
-    lobbyErr.classList.remove('hidden');
-    setTimeout(() => lobbyErr.classList.add('hidden'), 4000);
-  });
 
   document.querySelector('.scroll-down').addEventListener('click', e => {
     e.preventDefault();
     document.getElementById('lobby').scrollIntoView({ behavior: 'smooth' });
   });
+
+  function showErr(msg) {
+    lobbyErr.textContent = msg;
+    lobbyErr.classList.remove('hidden');
+    setTimeout(() => lobbyErr.classList.add('hidden'), 4000);
+  }
 </script>
 </body>
 </html>

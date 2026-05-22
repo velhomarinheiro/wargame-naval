@@ -53,6 +53,20 @@ let hoverHex   = null;
 // ─── Socket ───────────────────────────────────────────────────────────────────
 const socket = io();
 
+// Auto-trigger when arriving from the index.html landing page
+socket.on('connect', () => {
+  const action = sessionStorage.getItem('pendingAction');
+  if (action === 'create') {
+    sessionStorage.removeItem('pendingAction');
+    socket.emit('create_room');
+  } else if (action === 'join') {
+    const code = sessionStorage.getItem('pendingCode');
+    sessionStorage.removeItem('pendingAction');
+    sessionStorage.removeItem('pendingCode');
+    if (code) socket.emit('join_room', { roomId: code });
+  }
+});
+
 socket.on('room_created', ({roomId, team}) => {
   myTeam = team;
   roomDisplay.textContent = roomId;
