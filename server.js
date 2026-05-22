@@ -5,7 +5,7 @@ const { Server } = require('socket.io');
 const path     = require('path');
 
 const PORT   = process.env.PORT || 3000;
-const GRID_W = 14;
+const GRID_W = 16;
 const GRID_H = 10;
 
 // ─── Terrain (mirror of public/js/terrain.js) ────────────────────────────────
