@@ -277,30 +277,40 @@ function checkWinner(state) {
 }
 
 function nextTurn(state) {
-  // ── Reload check (blue only, before moved flags are cleared) ────────────────
+  // ── Reload check (before moved flags are cleared) ────────────────────────────
   const portHexes = new Set(
     state.units.filter(u => u.team === 'blue' && u.hp > 0 && u.type === 'porto')
                .map(u => `${u.col},${u.row}`)
   );
-  const carrierHexes = new Set(
+  const blueCarrierHexes = new Set(
     state.units.filter(u => u.team === 'blue' && u.hp > 0 && u.type === 'carrier')
+               .map(u => `${u.col},${u.row}`)
+  );
+  const redCarrierHexes = new Set(
+    state.units.filter(u => u.team === 'red' && u.hp > 0 && u.type === 'carrier')
                .map(u => `${u.col},${u.row}`)
   );
 
   for (const u of state.units) {
-    if (u.team !== 'blue' || u.hp <= 0) continue;
+    if (u.hp <= 0) continue;
     if (!u.initWeapons || Object.keys(u.initWeapons).length === 0) continue;
 
     const hexKey = `${u.col},${u.row}`;
     let reload = false;
 
-    if (u.category === 'land') {
-      reload = true; // land batteries always reload from fixed supply
-    } else if (!u.moved) {
-      if (u.category === 'surface' || u.category === 'submarine') {
-        reload = portHexes.has(hexKey);
-      } else if (u.category === 'air') {
-        reload = getTerrain(u.col, u.row) === T_LAND || carrierHexes.has(hexKey);
+    if (u.team === 'blue') {
+      if (u.category === 'land') {
+        reload = true;
+      } else if (!u.moved) {
+        if (u.category === 'surface' || u.category === 'submarine') {
+          reload = portHexes.has(hexKey);
+        } else if (u.category === 'air') {
+          reload = getTerrain(u.col, u.row) === T_LAND || blueCarrierHexes.has(hexKey);
+        }
+      }
+    } else if (u.team === 'red') {
+      if (u.category === 'air' && !u.moved) {
+        reload = redCarrierHexes.has(hexKey);
       }
     }
 
