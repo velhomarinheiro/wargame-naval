@@ -94,27 +94,44 @@ function hexDist(c1,r1,c2,r2) {
 }
 
 // ─── Fog of war ──────────────────────────────────────────────────────────────
-function detectedEnemies(state, team) {
-  const night   = state.period === 'night';
-  const mine    = state.units.filter(u => u.team === team && u.hp > 0);
-  const enemies = state.units.filter(u => u.team !== team && u.hp > 0);
-  return enemies.filter(enemy => {
-    const stealthy = !!enemy.stealthy;
+function saveMovementSnapshot(state) {
+  state.movementSnapshot = {};
+  for (const u of state.units) {
+    state.movementSnapshot[u.id] = { col: u.col, row: u.row };
+  }
+}
+
+function stateFor(state, team) {
+  const night = state.period === 'night';
+
+  // During movement phase, show enemy units at their pre-movement positions
+  // so moves are hidden until both sides commit (simultaneous movement reveal).
+  const enemyActual = state.units.filter(u => u.team !== team && u.hp > 0);
+  const enemies = (state.phase === 'movement' && state.movementSnapshot)
+    ? enemyActual.map(u => {
+        const snap = state.movementSnapshot[u.id];
+        return snap ? { ...u, col: snap.col, row: snap.row } : u;
+      })
+    : enemyActual;
+
+  const mine = state.units.filter(u => u.team === team && u.hp > 0);
+
+  const detected = enemies.filter(enemy => {
+    const stealthy  = !!enemy.stealthy;
     const deepBonus = getTerrain(enemy.col, enemy.row) === T_DEEP ? 1 : 0;
     return mine.some(f => {
       let range = stealthy
         ? rangeAgainst(f.detectionRange, 'submarine') - deepBonus
         : rangeAgainst(f.detectionRange, enemy.category);
-      if (night) range -= stealthy ? 1 : 2;
+      // Submarines use sonar — unaffected by daylight
+      if (night && f.category !== 'submarine') range -= stealthy ? 1 : 2;
       return range >= 1 && hexDist(f.col, f.row, enemy.col, enemy.row) <= range;
     });
   }).map(e => ({ ...e, detected: true }));
-}
 
-function stateFor(state, team) {
   return {
     ...state,
-    units:       [...state.units.filter(u => u.team === team), ...detectedEnemies(state, team)],
+    units:       [...state.units.filter(u => u.team === team), ...detected],
     blueAttacks: team === 'blue' ? state.blueAttacks : (state.blueAttacks !== null ? '✓' : null),
     redAttacks:  team === 'red'  ? state.redAttacks  : (state.redAttacks  !== null ? '✓' : null),
   };
@@ -180,14 +197,17 @@ function initialUnits() {
 }
 
 function newGame() {
-  return {
+  const state = {
     turn: 1, period: 'day', phase: 'movement',
     blueDone: false, redDone: false,
     blueAttacks: null, redAttacks: null,
     units: initialUnits(),
     log: ['──── Turno 1 · Período Diurno ────', 'Fase de Movimentação iniciada.'],
     winner: null,
+    movementSnapshot: {},
   };
+  saveMovementSnapshot(state);
+  return state;
 }
 
 // ─── Combat resolution ────────────────────────────────────────────────────────
@@ -310,6 +330,7 @@ function nextTurn(state) {
   state.log.unshift(`──── Turno ${state.turn} · Período ${per} ────`);
   state.log.unshift('Fase de Movimentação iniciada.');
   if (state.log.length > 50) state.log = state.log.slice(0, 50);
+  saveMovementSnapshot(state);
 }
 
 // ─── Server ───────────────────────────────────────────────────────────────────
