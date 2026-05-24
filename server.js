@@ -303,16 +303,53 @@ function startCurrentEngagement(room) {
 
   const result = resolveBattleRound(state, engagement);
 
-  // Single-round weapons (LACM, ASBM) or invalid result: no decision needed
-  if (!result || !result.ok || engagement.maxBattleRounds === 1) {
+  // Immediate resolution: single-round weapon, invalid result, OR target destroyed in BR#1.
+  // If destroyed, server must NOT request decisions — client shows OK but never sends
+  // battle_round_decision, causing a permanent stall.
+  if (!result || !result.ok || engagement.maxBattleRounds === 1 || result.destroyed) {
     emitBrResult(room, engagement, result, false);
     finishCurrentEngagement(room);
     return;
   }
 
-  // Multi-round weapon: ask both players
+  // Multi-round weapon, target survived: ask both players
   state.battleRoundDecisions = { blue: null, red: null };
   emitBrResult(room, engagement, result, true);
+}
+
+function resolveCounterAttack(state, engagement, blue, red) {
+  // Original defender fires back at the original attacker in BR#2.
+  // Restricted to close-range weapons (no LACM / ASBM strategic strikes).
+  const att = state.units.find(u => u.id === engagement.attackerId && u.hp > 0);
+  const def = state.units.find(u => u.id === engagement.targetId   && u.hp > 0);
+  if (!att || !def) return null;
+
+  const dist       = hexDist(def.col, def.row, att.col, att.row);
+  const counterWpn = selectBestWeapon(def, att, dist);
+  if (!counterWpn || isSingleRoundWeapon(counterWpn)) return null;
+
+  const profile      = COMBAT_CONFIG.weaponProfiles?.[counterWpn];
+  const qty          = getWeaponQuantity(def, counterWpn);
+  const counterAmt   = profile?.expendable ? Math.min(qty, SALVO_SIZE[counterWpn] || 1) : 1;
+
+  // Initiative for the counter: if the defending team chose continue and attacker chose stop
+  const defDecision  = def.team === 'blue' ? blue : red;
+  const attDecision  = att.team === 'blue' ? blue : red;
+  const counterInit  = (defDecision === 'continue' && attDecision === 'stop') ? def.team : null;
+
+  const counterEng = {
+    id: `${engagement.id}-CTR`,
+    attackerId:      def.id,
+    targetId:        att.id,
+    weaponType:      counterWpn,
+    amount:          counterAmt,
+    battleRound:     2,
+    maxBattleRounds: 2,
+    status:          'pending',
+    results:         [],
+  };
+
+  return resolveBattleRound(state, counterEng, counterInit);
 }
 
 function processBattleRoundDecision(room) {
@@ -335,8 +372,11 @@ function processBattleRoundDecision(room) {
   if (red  === 'continue' && blue === 'stop') initiativeBonusTeam = 'red';
 
   engagement.battleRound = 2;
-  const result = resolveBattleRound(state, engagement, initiativeBonusTeam);
-  emitBrResult(room, engagement, result, false, { decisions: { blue, red }, initiativeBonusTeam });
+  const result        = resolveBattleRound(state, engagement, initiativeBonusTeam);
+  const counterResult = resolveCounterAttack(state, engagement, blue, red);
+
+  emitBrResult(room, engagement, result, false,
+    { decisions: { blue, red }, initiativeBonusTeam, counterResult });
   finishCurrentEngagement(room);
 }
 

@@ -427,6 +427,7 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
 .br-wpn-tag    { color: var(--gold); font-size: 0.75rem; }
 .br-single-label { font-size: 0.72rem; color: #80cbc4; margin-bottom: 6px; letter-spacing: 1px; }
 .br-init-bonus { font-size: 0.75rem; color: #ffd54f; margin-bottom: 8px; }
+.br-counter-header { font-size: 0.72rem; color: #ff8a80; letter-spacing: 1px; margin: 10px 0 6px; text-align: center; border-top: 1px solid rgba(183,28,28,0.3); padding-top: 8px; }
 .br-row {
   font-size: 0.78rem;
   padding: 6px 4px;
