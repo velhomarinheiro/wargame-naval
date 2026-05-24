@@ -190,6 +190,20 @@ $('br-btn-stop'    ).addEventListener('click', () => sendBrDecision('stop'));
 $('br-btn-ok'      ).addEventListener('click', () => onBrOk());
 $('btn-back').addEventListener('click', () => location.reload());
 
+// Amount +/- controls in unit panel (event delegation)
+$('unit-panel').addEventListener('click', e => {
+  const btn = e.target.closest('[data-atk-adj]');
+  if (!btn) return;
+  const attackerId = btn.dataset.attacker;
+  const targetId   = btn.dataset.target;
+  const delta      = Number(btn.dataset.atk_adj);
+  const atk = pendingAtks.find(a => a.attackerId === attackerId && a.targetId === targetId);
+  if (!atk) return;
+  const maxAmt = Number(btn.dataset.max) || 4;
+  atk.amount = Math.max(1, Math.min(maxAmt, (atk.amount || 1) + delta));
+  updateUI(); render();
+});
+
 // ─── Canvas input ─────────────────────────────────────────────────────────────
 canvas.addEventListener('mousemove', e => {
   const r  = canvas.getBoundingClientRect();
@@ -250,14 +264,14 @@ function handleClick(col, row) {
               if (!gu) continue;
               if (rangeAgainst(gu.attackRange, atk.category) >= 1 && hexDist(gu.col, gu.row, atk.col, atk.row) <= rangeAgainst(gu.attackRange, atk.category)
                   && !pendingAtks.some(a => a.attackerId === id && a.targetId === atk.unitId)) {
-                pendingAtks.push({attackerId: id, targetId: atk.unitId});
+                pendingAtks.push({attackerId: id, targetId: atk.unitId, amount: 1});
               }
             }
           }
         } else {
           const idx = pendingAtks.findIndex(a => a.attackerId === selUnitId && a.targetId === atk.unitId);
           if (idx >= 0) pendingAtks.splice(idx, 1);
-          else pendingAtks.push({attackerId: selUnitId, targetId: atk.unitId});
+          else pendingAtks.push({attackerId: selUnitId, targetId: atk.unitId, amount: 1});
         }
         updateUI(); render(); return;
       }
@@ -453,6 +467,27 @@ function isMyTurn() {
   return false;
 }
 
+function buildAtkListHtml(atks) {
+  if (!atks.length) return '';
+  const items = atks.map(a => {
+    const tgt = gameState?.units.find(u => u.id === a.targetId);
+    const tgtName = tgt?.name || a.targetId;
+    // Max amount: largest weapon quantity on the attacker (server will cap anyway)
+    const attUnit = gameState?.units.find(u => u.id === a.attackerId);
+    const maxAmt  = attUnit ? Math.max(1, ...Object.values(attUnit.weapons || {}).map(w => w.quantity || 0)) : 4;
+    const amt = a.amount || 1;
+    return `<div class="atk-entry">
+      <span class="atk-target">→ ${tgtName}</span>
+      <span class="atk-amt-ctrl">
+        <button class="atk-adj-btn" data-atk-adj data-attacker="${a.attackerId}" data-target="${a.targetId}" data-atk_adj="-1" data-max="${maxAmt}">−</button>
+        <span class="atk-amt-val">${amt}</span>
+        <button class="atk-adj-btn" data-atk-adj data-attacker="${a.attackerId}" data-target="${a.targetId}" data-atk_adj="1" data-max="${maxAmt}">+</button>
+      </span>
+    </div>`;
+  }).join('');
+  return `<div class="atk-list"><div class="atk-list-title">Ataques declarados:</div>${items}</div>`;
+}
+
 // ─── UI update ────────────────────────────────────────────────────────────────
 function updateUI() {
   if (!gameState) return;
@@ -502,9 +537,9 @@ function updateUI() {
       ? `<div class="u-hint">Caminho: ${pathSteps}/${pathStepsMov} passo(s)</div>` : '';
     const groupHint = selGroupIds.length > 1
       ? `<div class="u-hint">Grupo: ${selGroupIds.length} unidades em conjunto</div>` : '';
-    const declaredCount = selGroupIds.length > 0
-      ? pendingAtks.filter(a => selGroupIds.includes(a.attackerId)).length
-      : pendingAtks.filter(a => a.attackerId === sel.id).length;
+    const myAtks = selGroupIds.length > 0
+      ? pendingAtks.filter(a => selGroupIds.includes(a.attackerId))
+      : pendingAtks.filter(a => a.attackerId === sel.id);
     const det  = sel.detectionRange || {};
     const comp = (sel.composition||[]).map(c=>`${c.quantity}× ${c.type}`).join(' · ');
 
@@ -537,7 +572,7 @@ function updateUI() {
       ${groupHint}
       ${pathHint}
       ${atkHexes.length ? '<div class="u-hint">Clique em alvos vermelhos p/ declarar ataque</div>' : ''}
-      ${declaredCount ? `<div class="u-hint atk-declared">${declaredCount} ataque(s) declarado(s)</div>` : ''}
+      ${myAtks.length ? buildAtkListHtml(myAtks) : ''}
     `;
   } else {
     unitPanel.innerHTML = '<p class="no-sel">Clique em uma unidade sua</p>';
@@ -913,7 +948,9 @@ function renderBrPanel({ engagement, result, mustDecide, decisions, initiativeBo
     html += `<div class="br-row br-decision-summary">
       Azul: ${blueDecided} · Vermelho: ${redDecided} — combate encerrado.
     </div>`;
-  } else if (result) {
+  } else if (result === null) {
+    html += `<div class="br-row br-miss">⚠ Unidade já destruída — engajamento cancelado.</div>`;
+  } else {
     html += buildResultHtml(result);
   }
 

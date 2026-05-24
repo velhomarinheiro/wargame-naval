@@ -119,10 +119,19 @@ function stateFor(state, team) {
 
   const mine = state.units.filter(u => u.team === team && u.hp > 0);
 
+  // Detection during movement uses pre-movement positions for both sides so the
+  // first player to commit cannot see enemies they only approached this turn.
+  const mineForDetection = (state.phase === 'movement' && state.movementSnapshot)
+    ? mine.map(u => {
+        const snap = state.movementSnapshot[u.id];
+        return snap ? { ...u, col: snap.col, row: snap.row } : u;
+      })
+    : mine;
+
   const detected = enemies.filter(enemy => {
     const stealthy  = !!enemy.stealthy;
     const deepBonus = getTerrain(enemy.col, enemy.row) === T_DEEP ? 1 : 0;
-    return mine.some(f => {
+    return mineForDetection.some(f => {
       let range = stealthy
         ? rangeAgainst(f.detectionRange, 'submarine') - deepBonus
         : rangeAgainst(f.detectionRange, enemy.category);
@@ -217,8 +226,8 @@ function newGame() {
 }
 
 // ─── Battle-round system ─────────────────────────────────────────────────────
-// Salvo sizes: expendable weapons fire up to N shots per battle round
-const SALVO_SIZE = { ascm: 4, mss: 4, torpedo: 2, lacm: 2, asbm: 2 };
+// Default salvo sizes (conservative); client may request a specific amount
+const SALVO_SIZE = { ascm: 2, mss: 2, torpedo: 1, lacm: 1, asbm: 1 };
 
 function isSingleRoundWeapon(weaponType) {
   return ['lacm', 'asbm'].includes(weaponType);
@@ -235,7 +244,9 @@ function buildCombatQueue(state) {
     if (!wpnType) return null;
     const profile   = COMBAT_CONFIG.weaponProfiles?.[wpnType];
     const qty       = getWeaponQuantity(att, wpnType);
-    const amount    = profile?.expendable ? Math.min(qty, SALVO_SIZE[wpnType] || 1) : 1;
+    // Use client-requested amount if provided, capped at available quantity
+    const requested = atk.amount ?? (SALVO_SIZE[wpnType] || 1);
+    const amount    = profile?.expendable ? Math.min(qty, Math.max(1, requested)) : 1;
     return {
       id:              `ENG-${String(i + 1).padStart(2, '0')}`,
       attackerId:      atk.attackerId,
