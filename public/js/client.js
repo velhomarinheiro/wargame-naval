@@ -90,6 +90,7 @@ socket.on('game_start', ({team, state}) => {
   myTeam = team; gameState = state;
   selUnitId = null; selGroupIds = []; moveHexes = []; atkHexes = []; pendingAtks = [];
   activePath = []; plannedMoves.clear(); hideStackPicker();
+  closeBrPanel();
   lobbyScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
   gameOver.classList.add('hidden');
@@ -111,6 +112,7 @@ socket.on('game_update', state => {
     activePath = []; plannedMoves.clear(); selGroupIds = [];
     selUnitId = null; moveHexes = []; atkHexes = [];
     hideStackPicker();
+    closeBrPanel(); // hide BR panel when new movement phase begins
   } else if (selUnitId) {
     const u = gameState.units.find(u => u.id === selUnitId && u.hp > 0);
     if (u) {
@@ -141,7 +143,7 @@ socket.on('action_error', msg => {
     updateUI();
   }
 });
-socket.on('combat_result', data => showCombatModal(data));
+socket.on('battle_round_result', data => handleBrResult(data));
 
 // ─── Lobby actions ────────────────────────────────────────────────────────────
 btnCreate.addEventListener('click', () => socket.emit('create_room'));
@@ -183,7 +185,8 @@ undoStepBtn.addEventListener('click', () => undoStep());
 cancelBtn.addEventListener('click', () => { hideStackPicker(); deselect(false); });
 
 $('btn-restart').addEventListener('click', () => { socket.emit('restart'); gameOver.classList.add('hidden'); });
-$('combat-modal-close').addEventListener('click', () => $('combat-modal').classList.add('hidden'));
+$('br-btn-continue').addEventListener('click', () => sendBrDecision('continue'));
+$('br-btn-stop'    ).addEventListener('click', () => sendBrDecision('stop'));
 $('btn-back').addEventListener('click', () => location.reload());
 
 // ─── Canvas input ─────────────────────────────────────────────────────────────
@@ -787,38 +790,122 @@ function showLobbyErr(msg) {
   setTimeout(() => lobbyErr.classList.add('hidden'), 4000);
 }
 
-function showCombatModal(data) {
-  const body = $('combat-modal-body');
-  let html = `<div class="cm-header">── Resolução de Combate · Turno ${data.turn} ──</div>`;
-  if (!data.results || data.results.length === 0) {
-    html += '<div class="cm-empty">Nenhum ataque declarado neste turno.</div>';
-  } else {
-    for (const r of data.results) {
-      const aC = r.attackerTeam === 'blue' ? 'cm-blue' : 'cm-red';
-      const tC = r.targetTeam   === 'blue' ? 'cm-blue' : 'cm-red';
-      if (r.outOfRange) {
-        html += `<div class="cm-row cm-oor">⚠ <span class="${aC}">${r.attacker}</span> → <span class="${tC}">${r.target}</span> — sem armamento válido</div>`;
-        continue;
-      }
-      // Build roll description
-      const rollsDesc = (r.attackRolls || []).map(roll => {
-        if (roll.reroll != null) return `d6=${roll.roll}→${roll.reroll}(${roll.damage}SP)`;
-        return `d6=${roll.roll}(${roll.damage}SP)`;
-      }).join(', ') || '—';
+// ─── Battle Round Panel ───────────────────────────────────────────────────────
+let brDecisionMade = false;
 
-      const intStr = r.interception?.intercepted > 0
-        ? ` <small class="cm-int">[${r.interception.intercepted} intercept.]</small>` : '';
-      const wpnTag = r.weaponLabel ? `<small class="cm-wpn">[${r.weaponLabel}]</small> ` : '';
+function closeBrPanel() {
+  $('br-panel').classList.add('hidden');
+  brDecisionMade = false;
+}
 
-      if (r.destroyed) {
-        html += `<div class="cm-row cm-destroyed">💥 ${wpnTag}<span class="${aC}">${r.attacker}</span> → <span class="${tC}">${r.target}</span>${intStr} −${r.damage}SP <strong>DESTRUÍDO!</strong> <small>${rollsDesc}</small></div>`;
-      } else if (r.hit) {
-        html += `<div class="cm-row cm-hit">✓ ${wpnTag}<span class="${aC}">${r.attacker}</span> → <span class="${tC}">${r.target}</span>${intStr} −${r.damage}SP <small>${rollsDesc}</small></div>`;
-      } else {
-        html += `<div class="cm-row cm-miss">✗ ${wpnTag}<span class="${aC}">${r.attacker}</span> → <span class="${tC}">${r.target}</span>${intStr} sem dano <small>${rollsDesc}</small></div>`;
-      }
-    }
+function sendBrDecision(decision) {
+  if (brDecisionMade) return;
+  brDecisionMade = true;
+  socket.emit('battle_round_decision', { decision });
+  // Show waiting state while opponent decides
+  $('br-decision').classList.add('hidden');
+  $('br-waiting').classList.remove('hidden');
+  const chosen = decision === 'continue' ? 'Você escolheu CONTINUAR.' : 'Você escolheu PARAR.';
+  $('br-panel-body').insertAdjacentHTML('beforeend',
+    `<div class="br-row br-decision-made">${chosen}</div>`);
+}
+
+function buildResultHtml(eng) {
+  if (!eng) return '';
+  if (!eng.ok) {
+    return `<div class="br-row br-miss">⚠ ${eng.reason || 'Sem armamento válido.'}</div>`;
   }
-  body.innerHTML = html;
-  $('combat-modal').classList.remove('hidden');
+
+  const aC = eng.attackerId ? '' : '';  // attacker colour resolved server-side per team
+  const intStr = eng.interception?.intercepted > 0
+    ? `<span class="br-int"> [${eng.interception.intercepted} intercept.]</span>` : '';
+  const wpnTag = eng.weaponLabel ? `<span class="br-wpn">[${eng.weaponLabel}]</span> ` : '';
+
+  const rollsDesc = (eng.attackRolls || []).map(r => {
+    if (r.reroll != null) return `d6=${r.roll}→${r.reroll}(${r.damage}SP)`;
+    return `d6=${r.roll}(${r.damage}SP)`;
+  }).join('  ') || '—';
+
+  const advTag = eng.advantage ? '<span class="br-adv"> ★iniciativa</span>' : '';
+
+  let cls, icon, detail;
+  if (eng.destroyed) {
+    cls = 'br-destroyed'; icon = '💥';
+    detail = `−${eng.totalDamage}SP <strong>DESTRUÍDO!</strong>`;
+  } else if (eng.totalDamage > 0) {
+    cls = 'br-hit'; icon = '✓';
+    detail = `−${eng.totalDamage}SP  (restante: ${eng.remainingHp}SP)`;
+  } else {
+    cls = 'br-miss'; icon = '✗';
+    detail = `sem dano  (restante: ${eng.remainingHp}SP)`;
+  }
+
+  return `
+    <div class="br-row ${cls}">
+      ${icon} ${wpnTag}${advTag}
+      <span class="br-launched">Lançados: ${eng.launched}</span>${intStr}
+      <span class="br-impacts"> Impactos: ${eng.effectiveShots}</span>
+      <div class="br-detail">${detail}</div>
+      <div class="br-rolls">${rollsDesc}</div>
+    </div>`;
+}
+
+function handleBrResult({ engagement, result, mustDecide, decisions, initiativeBonusTeam }) {
+  brDecisionMade = false;
+
+  const brLabel = `${engagement.id} · Battle Round ${engagement.battleRound}`;
+  const singleRound = engagement.maxBattleRounds === 1;
+
+  $('br-panel-header').textContent = `── ${brLabel} ──`;
+
+  let html = '';
+
+  // Show attacker/target info
+  const att = gameState?.units.find(u => u.id === engagement.attackerId);
+  const def = gameState?.units.find(u => u.id === engagement.targetId);
+  const attName = att?.name || engagement.attackerId;
+  const defName = def?.name || engagement.targetId;
+  const attCls  = att?.team === 'blue' ? 'cm-blue' : 'cm-red';
+  const defCls  = def?.team === 'blue' ? 'cm-blue' : 'cm-red';
+
+  html += `<div class="br-combatants">
+    <span class="${attCls}">${attName}</span>
+    <span class="br-arrow"> → </span>
+    <span class="${defCls}">${defName}</span>
+    <span class="br-wpn-tag"> [${engagement.weaponType.toUpperCase()}]</span>
+  </div>`;
+
+  if (singleRound) {
+    html += `<div class="br-single-label">Arma estratégica — rodada única</div>`;
+  }
+
+  if (initiativeBonusTeam) {
+    const bonusTeamLabel = initiativeBonusTeam === myTeam ? 'SUA FORÇA' : 'FORÇA ADVERSÁRIA';
+    html += `<div class="br-init-bonus">★ Bônus de iniciativa: ${bonusTeamLabel} (2d6, maior valor)</div>`;
+  }
+
+  // Result block
+  if (result === null && decisions) {
+    const blueDecided = decisions.blue === 'stop' ? 'PAROU' : 'CONTINUOU';
+    const redDecided  = decisions.red  === 'stop' ? 'PAROU' : 'CONTINUOU';
+    html += `<div class="br-row br-decision-summary">
+      Azul: ${blueDecided} · Vermelho: ${redDecided} — combate encerrado.
+    </div>`;
+  } else if (result) {
+    html += buildResultHtml(result);
+  }
+
+  $('br-panel-body').innerHTML = html;
+
+  // Decision UI
+  const decisionEl = $('br-decision');
+  const waitingEl  = $('br-waiting');
+  decisionEl.classList.add('hidden');
+  waitingEl.classList.add('hidden');
+
+  if (mustDecide && !singleRound && !result?.destroyed) {
+    decisionEl.classList.remove('hidden');
+  }
+
+  $('br-panel').classList.remove('hidden');
 }

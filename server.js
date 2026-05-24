@@ -104,6 +104,9 @@ function saveMovementSnapshot(state) {
 function stateFor(state, team) {
   const night = state.period === 'night';
 
+  // Strip server-internal combat queue fields — clients don't need them
+  const { combatQueue: _cq, battleRoundDecisions: _brd, ...stateRest } = state;
+
   // During movement phase, show enemy units at their pre-movement positions
   // so moves are hidden until both sides commit (simultaneous movement reveal).
   const enemyActual = state.units.filter(u => u.team !== team && u.hp > 0);
@@ -130,7 +133,7 @@ function stateFor(state, team) {
   }).map(e => ({ ...e, detected: true }));
 
   return {
-    ...state,
+    ...stateRest,
     units:       [...state.units.filter(u => u.team === team), ...detected],
     blueAttacks: team === 'blue' ? state.blueAttacks : (state.blueAttacks !== null ? '✓' : null),
     redAttacks:  team === 'red'  ? state.redAttacks  : (state.redAttacks  !== null ? '✓' : null),
@@ -205,64 +208,169 @@ function newGame() {
     log: ['──── Turno 1 · Período Diurno ────', 'Fase de Movimentação iniciada.'],
     winner: null,
     movementSnapshot: {},
+    combatQueue: [],
+    currentEngagementIndex: 0,
+    battleRoundDecisions: { blue: null, red: null },
   };
   saveMovementSnapshot(state);
   return state;
 }
 
-// ─── Combat resolution ────────────────────────────────────────────────────────
-function resolveCombat(state) {
-  const results = [];
-  const all = [...(state.blueAttacks||[]), ...(state.redAttacks||[])];
+// ─── Battle-round system ─────────────────────────────────────────────────────
+// Salvo sizes: expendable weapons fire up to N shots per battle round
+const SALVO_SIZE = { ascm: 4, mss: 4, torpedo: 2, lacm: 2, asbm: 2 };
 
-  for (const atk of all) {
+function isSingleRoundWeapon(weaponType) {
+  return ['lacm', 'asbm'].includes(weaponType);
+}
+
+function buildCombatQueue(state) {
+  const all = [...(state.blueAttacks || []), ...(state.redAttacks || [])];
+  return all.map((atk, i) => {
     const att = state.units.find(u => u.id === atk.attackerId && u.hp > 0);
-    const tgt = state.units.find(u => u.id === atk.targetId   && u.hp > 0);
-    if (!att || !tgt) continue;
-
-    const dist = hexDist(att.col, att.row, tgt.col, tgt.row);
-    const r = {
-      attacker: att.name, attackerTeam: att.team,
-      target: tgt.name,   targetTeam: tgt.team,
-      targetId: tgt.id, hit: false, damage: 0, destroyed: false,
+    const def = state.units.find(u => u.id === atk.targetId   && u.hp > 0);
+    if (!att || !def) return null;
+    const dist      = hexDist(att.col, att.row, def.col, def.row);
+    const wpnType   = selectBestWeapon(att, def, dist);
+    if (!wpnType) return null;
+    const profile   = COMBAT_CONFIG.weaponProfiles?.[wpnType];
+    const qty       = getWeaponQuantity(att, wpnType);
+    const amount    = profile?.expendable ? Math.min(qty, SALVO_SIZE[wpnType] || 1) : 1;
+    return {
+      id:              `ENG-${String(i + 1).padStart(2, '0')}`,
+      attackerId:      atk.attackerId,
+      targetId:        atk.targetId,
+      weaponType:      wpnType,
+      amount,
+      battleRound:     1,
+      maxBattleRounds: isSingleRoundWeapon(wpnType) ? 1 : 2,
+      status:          'pending',
+      results:         [],
     };
+  }).filter(Boolean);
+}
 
-    const weaponType = selectBestWeapon(att, tgt, dist);
-    if (!weaponType) {
-      state.log.unshift(`⚠ ${att.name} sem armamento válido para ${tgt.name}.`);
-      r.outOfRange = true; results.push(r); continue;
-    }
+function resolveBattleRound(state, engagement, initiativeBonusTeam = null) {
+  const att = state.units.find(u => u.id === engagement.attackerId && u.hp > 0);
+  const def = state.units.find(u => u.id === engagement.targetId   && u.hp > 0);
+  const brTag = `${engagement.id}·BR${engagement.battleRound}`;
 
-    const eng = resolveEngagement({ attacker: att, defender: tgt, weaponType, amount: 1, distance: dist });
-    if (!eng.ok) {
-      state.log.unshift(`⚠ ${att.name} → ${tgt.name}: ${eng.reason}`);
-      r.outOfRange = true; results.push(r); continue;
-    }
-
-    r.weaponType   = eng.weaponType;
-    r.weaponLabel  = eng.weaponLabel;
-    r.launched     = eng.launched;
-    r.interception = eng.interception;
-    r.attackRolls  = eng.attackRolls;
-    r.damage       = eng.totalDamage;
-    r.destroyed    = eng.destroyed;
-    r.hit          = eng.totalDamage > 0;
-    r.remainingHp  = eng.remainingHp;
-
-    if (eng.destroyed) {
-      state.log.unshift(`💥 ${tgt.name}(${tgt.team}) DESTRUÍDO por ${att.name} [${eng.weaponLabel}]`);
-    } else if (eng.totalDamage > 0) {
-      const intStr = eng.interception.intercepted > 0 ? ` (${eng.interception.intercepted} intercept.)` : '';
-      state.log.unshift(`✓ ${att.name} → ${tgt.name} −${eng.totalDamage}SP [${eng.weaponLabel}${intStr}]`);
-    } else {
-      const intStr = eng.interception.intercepted > 0 ? ` (${eng.interception.intercepted} intercept.)` : '';
-      state.log.unshift(`✗ ${att.name} → ${tgt.name} falhou [${eng.weaponLabel}${intStr}]`);
-    }
-    results.push(r);
+  if (!att || !def) {
+    engagement.status = 'ended';
+    state.log.unshift(`[${brTag}] Unidade destruída — engajamento encerrado.`);
+    return null;
   }
 
-  if (state.log.length > 50) state.log = state.log.slice(0, 50);
-  return results;
+  const initLabel = initiativeBonusTeam ? ` ★${initiativeBonusTeam.toUpperCase()}` : '';
+  state.log.unshift(`──── ${brTag}${initLabel} ────`);
+
+  const dist = hexDist(att.col, att.row, def.col, def.row);
+  const eng  = resolveEngagement({
+    attacker: att, defender: def,
+    weaponType: engagement.weaponType,
+    amount:     engagement.amount,
+    distance:   dist,
+    initiativeBonusTeam,
+  });
+
+  if (!eng.ok) {
+    state.log.unshift(`⚠ ${att.name} → ${def.name}: ${eng.reason}`);
+  } else if (eng.destroyed) {
+    state.log.unshift(`💥 ${def.name} DESTRUÍDO por ${att.name} [${eng.weaponLabel}]`);
+  } else if (eng.totalDamage > 0) {
+    const intStr = eng.interception?.intercepted > 0 ? ` (${eng.interception.intercepted} intercept.)` : '';
+    state.log.unshift(`✓ ${att.name} → ${def.name} −${eng.totalDamage}SP [${eng.weaponLabel}${intStr}]`);
+  } else {
+    const intStr = eng.interception?.intercepted > 0 ? ` (${eng.interception.intercepted} intercept.)` : '';
+    state.log.unshift(`✗ ${att.name} → ${def.name} falhou [${eng.weaponLabel}${intStr}]`);
+  }
+
+  if (state.log.length > 80) state.log = state.log.slice(0, 80);
+  engagement.results.push({ battleRound: engagement.battleRound, initiativeBonusTeam, result: eng });
+  return eng;
+}
+
+function emitBrResult(room, engagement, result, mustDecide, extra = {}) {
+  const payload = { engagement, result, mustDecide, ...extra };
+  if (room.players.blue) io.to(room.players.blue).emit('battle_round_result', payload);
+  if (room.players.red)  io.to(room.players.red ).emit('battle_round_result', payload);
+}
+
+function startCurrentEngagement(room) {
+  const state      = room.state;
+  const engagement = state.combatQueue[state.currentEngagementIndex];
+  engagement.battleRound = 1;
+
+  const result = resolveBattleRound(state, engagement);
+
+  // Single-round weapons (LACM, ASBM) or invalid result: no decision needed
+  if (!result || !result.ok || engagement.maxBattleRounds === 1) {
+    emitBrResult(room, engagement, result, false);
+    finishCurrentEngagement(room);
+    return;
+  }
+
+  // Multi-round weapon: ask both players
+  state.battleRoundDecisions = { blue: null, red: null };
+  emitBrResult(room, engagement, result, true);
+}
+
+function processBattleRoundDecision(room) {
+  const state      = room.state;
+  const engagement = state.combatQueue[state.currentEngagementIndex];
+  const { blue, red } = state.battleRoundDecisions;
+
+  const bothStop   = blue === 'stop' && red === 'stop';
+  const maxReached = engagement.battleRound >= engagement.maxBattleRounds;
+
+  if (bothStop || maxReached) {
+    emitBrResult(room, engagement, null, false, { decisions: { blue, red } });
+    finishCurrentEngagement(room);
+    return;
+  }
+
+  // BR#2: determine initiative advantage
+  let initiativeBonusTeam = null;
+  if (blue === 'continue' && red === 'stop')  initiativeBonusTeam = 'blue';
+  if (red  === 'continue' && blue === 'stop') initiativeBonusTeam = 'red';
+
+  engagement.battleRound = 2;
+  const result = resolveBattleRound(state, engagement, initiativeBonusTeam);
+  emitBrResult(room, engagement, result, false, { decisions: { blue, red }, initiativeBonusTeam });
+  finishCurrentEngagement(room);
+}
+
+function finishCurrentEngagement(room) {
+  const state = room.state;
+  state.combatQueue[state.currentEngagementIndex].status = 'ended';
+  state.currentEngagementIndex += 1;
+
+  if (state.currentEngagementIndex < state.combatQueue.length) {
+    startCurrentEngagement(room);
+  } else {
+    finishCombatPhase(room);
+  }
+}
+
+function finishCombatPhase(room) {
+  const state = room.state;
+  state.log.unshift('── Fase de Combate encerrada. ──');
+
+  state.combatQueue             = [];
+  state.currentEngagementIndex  = 0;
+  state.battleRoundDecisions    = { blue: null, red: null };
+
+  const winner = checkWinner(state);
+  if (winner) {
+    state.winner = winner;
+    state.log.unshift(`🏆 ${winner === 'blue' ? 'Força Azul' : 'Força Vermelha'} VENCEU!`);
+    if (room.players.blue) io.to(room.players.blue).emit('game_over', { winner, state: stateFor(state, 'blue') });
+    if (room.players.red)  io.to(room.players.red ).emit('game_over', { winner, state: stateFor(state, 'red')  });
+    return;
+  }
+
+  nextTurn(state);
+  broadcast(room);
 }
 
 function checkWinner(state) {
@@ -437,23 +545,30 @@ io.on('connection', socket => {
     if (state.phase!=='combat') { socket.emit('action_error','Não é a fase de combate.'); return; }
     if (team==='blue') state.blueAttacks=attacks||[]; else state.redAttacks=attacks||[];
     state.log.unshift(`${team==='blue'?'Força Azul':'Força Vermelha'} confirmou ${(attacks||[]).length} ataque(s).`);
-    if (state.blueAttacks!==null&&state.redAttacks!==null) {
+    if (state.blueAttacks!==null && state.redAttacks!==null) {
       state.log.unshift('── Resolução de Combate ──');
-      const combatResults = resolveCombat(state);
-      const payload = { turn: state.turn, results: combatResults };
-      if (room.players.blue) io.to(room.players.blue).emit('combat_result', payload);
-      if (room.players.red)  io.to(room.players.red ).emit('combat_result', payload);
-      const winner=checkWinner(state);
-      if (winner) {
-        state.winner=winner;
-        state.log.unshift(`🏆 ${winner==='blue'?'Força Azul':'Força Vermelha'} VENCEU!`);
-        io.to(room.players.blue).emit('game_over',{winner,state:stateFor(state,'blue')});
-        io.to(room.players.red ).emit('game_over',{winner,state:stateFor(state,'red')});
-        return;
+      state.combatQueue            = buildCombatQueue(state);
+      state.currentEngagementIndex = 0;
+      state.battleRoundDecisions   = { blue: null, red: null };
+      broadcast(room); // show "confirmed" status to both before first engagement
+      if (state.combatQueue.length === 0) {
+        finishCombatPhase(room);
+      } else {
+        startCurrentEngagement(room);
       }
-      nextTurn(state);
+    } else {
+      broadcast(room);
     }
-    broadcast(room);
+  });
+
+  socket.on('battle_round_decision', ({ decision }) => {
+    const room=rooms.get(socket.data.roomId);
+    if (!room?.state) return;
+    const {state}=room, {team}=socket.data;
+    if (state.phase !== 'combat') return;
+    state.battleRoundDecisions[team] = decision;
+    const { blue, red } = state.battleRoundDecisions;
+    if (blue && red) processBattleRoundDecision(room);
   });
 
   socket.on('restart', () => {
