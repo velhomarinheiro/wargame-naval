@@ -187,6 +187,7 @@ cancelBtn.addEventListener('click', () => { hideStackPicker(); deselect(false); 
 $('btn-restart').addEventListener('click', () => { socket.emit('restart'); gameOver.classList.add('hidden'); });
 $('br-btn-continue').addEventListener('click', () => sendBrDecision('continue'));
 $('br-btn-stop'    ).addEventListener('click', () => sendBrDecision('stop'));
+$('br-btn-ok'      ).addEventListener('click', () => onBrOk());
 $('btn-back').addEventListener('click', () => location.reload());
 
 // ─── Canvas input ─────────────────────────────────────────────────────────────
@@ -792,10 +793,31 @@ function showLobbyErr(msg) {
 
 // ─── Battle Round Panel ───────────────────────────────────────────────────────
 let brDecisionMade = false;
+let brQueue = [];  // buffer for back-to-back mustDecide:false events
 
 function closeBrPanel() {
   $('br-panel').classList.add('hidden');
   brDecisionMade = false;
+  brQueue = [];
+}
+
+// Advance to next queued result, or close the panel when the queue is empty
+function onBrOk() {
+  if (brQueue.length > 0) {
+    renderBrPanel(brQueue.shift());
+  } else {
+    closeBrPanel();
+  }
+}
+
+// Enqueue result; show immediately if panel is hidden or in "waiting" state
+function handleBrResult(data) {
+  brQueue.push(data);
+  const panelHidden = $('br-panel').classList.contains('hidden');
+  const isWaiting   = !$('br-waiting').classList.contains('hidden');
+  if (panelHidden || isWaiting) {
+    renderBrPanel(brQueue.shift());
+  }
 }
 
 function sendBrDecision(decision) {
@@ -850,7 +872,7 @@ function buildResultHtml(eng) {
     </div>`;
 }
 
-function handleBrResult({ engagement, result, mustDecide, decisions, initiativeBonusTeam }) {
+function renderBrPanel({ engagement, result, mustDecide, decisions, initiativeBonusTeam }) {
   brDecisionMade = false;
 
   const brLabel = `${engagement.id} · Battle Round ${engagement.battleRound}`;
@@ -897,14 +919,20 @@ function handleBrResult({ engagement, result, mustDecide, decisions, initiativeB
 
   $('br-panel-body').innerHTML = html;
 
-  // Decision UI
+  // Decision / OK UI
   const decisionEl = $('br-decision');
   const waitingEl  = $('br-waiting');
+  const okAreaEl   = $('br-ok-area');
   decisionEl.classList.add('hidden');
   waitingEl.classList.add('hidden');
+  okAreaEl.classList.add('hidden');
 
   if (mustDecide && !singleRound && !result?.destroyed) {
-    decisionEl.classList.remove('hidden');
+    decisionEl.classList.remove('hidden');        // show CONTINUAR / PARAR
+  } else {
+    const label = brQueue.length > 0 ? 'Próximo ▶' : 'OK ✓';
+    $('br-btn-ok').textContent = label;
+    okAreaEl.classList.remove('hidden');          // show OK / Próximo
   }
 
   $('br-panel').classList.remove('hidden');

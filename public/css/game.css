@@ -467,6 +467,10 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
   font-size: 0.75rem;
   font-style: italic;
 }
+.br-ok-area {
+  margin-top: 14px;
+  text-align: center;
+}
 
 /* (OOB styles live in main.css / index page) */
 .oob-wrap {
