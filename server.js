@@ -72,6 +72,7 @@ const COMP_DISPLAY_TYPE = {
   'base_naval':            'bateria_ada',
   'plataforma':            'fpso',
   'porto':                 'porto',
+  'aeroporto':             'aeroporto',
 };
 const DISPLAY_TYPE_FALLBACK = { surface: 'fragata', submarine: 'submarino', air: 'patrulha', land: 'corveta' };
 
