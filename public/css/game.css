@@ -176,6 +176,10 @@ body {
   margin-bottom: 6px;
 }
 .u-stats span:nth-child(even) { color: var(--text); text-align: right; }
+.fp-ok    { color: #69f0ae; }
+.fp-low   { color: #ffca28; font-weight: bold; }
+.fp-empty { color: #ff5252; font-weight: bold; }
+.fp-inf   { color: var(--dim); }
 
 .u-hint {
   font-size: 0.72rem;

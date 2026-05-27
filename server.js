@@ -6,6 +6,15 @@ const path     = require('path');
 const { ORDER_OF_BATTLE }  = require('./shared/order_of_battle');
 const { COMBAT_CONFIG }    = require('./shared/combat_config');
 const { resolveEngagement, getWeaponQuantity, getWeaponRange } = require('./shared/combat_engine');
+const {
+  initializeFuel, isFuelDisabled,
+  canMove, canAttack, canDefend,
+  navalMoveCost, spendNavalFuel, spendAirFuel,
+  spendEngagementFuel, spendDamageFuel,
+  markRefuelEligibility, recoverNavalFuel,
+  checkNavalFuelZero, checkAirFuelLosses,
+  recoverAircraft, resetFuelTurnCounters,
+} = require('./fuel_model');
 
 const PORT   = process.env.PORT || 3000;
 const GRID_W = 16;
@@ -91,6 +100,20 @@ function hexNeighbors(col, row) {
 function hexDist(c1,r1,c2,r2) {
   const a=oddqToCube(c1,r1), b=oddqToCube(c2,r2);
   return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y), Math.abs(a.z-b.z));
+}
+
+// ─── Air refuel location check ────────────────────────────────────────────────
+// An aircraft may recover fuel when it ends its turn here without moving.
+// Blue: any T_LAND hex (land air base) or a friendly carrier unit in the same hex.
+// Red:  only a friendly carrier unit in the same hex.
+function isAirRefuelLocation(unit, state) {
+  const carrierHere = state.units.some(
+    c => c.team === unit.team && c.hp > 0 && c.type === 'carrier'
+      && c.col === unit.col && c.row === unit.row
+  );
+  if (carrierHere) return true;
+  if (unit.team === 'blue') return getTerrain(unit.col, unit.row) === T_LAND;
+  return false;
 }
 
 // ─── Fog of war ──────────────────────────────────────────────────────────────
@@ -195,6 +218,8 @@ function makeUnit(team, spec) {
     initWeapons:   JSON.parse(JSON.stringify(weapons)),
     capabilities:  spec.capabilities ? { ...spec.capabilities } : {},
   };
+  initializeFuel(unit);
+  return unit;
 }
 
 function initialUnits() {
@@ -222,6 +247,7 @@ function newGame() {
     battleRoundDecisions: { blue: null, red: null },
   };
   saveMovementSnapshot(state);
+  markRefuelEligibility(state);
   return state;
 }
 
@@ -272,6 +298,13 @@ function resolveBattleRound(state, engagement, initiativeBonusTeam = null) {
     return null;
   }
 
+  // Skip attack if attacker is fuel-disabled
+  if (!canAttack(att)) {
+    const reason = att.airStatus === 'recovering' ? 'aeronave reabastecendo' : 'sem combustível';
+    state.log.unshift(`⛽ ${att.name} não pode atacar: ${reason}.`);
+    return { ok: false, reason: `Atacante sem combustível (${reason})` };
+  }
+
   const initLabel = initiativeBonusTeam ? ` ★${initiativeBonusTeam.toUpperCase()}` : '';
   state.log.unshift(`──── ${brTag}${initLabel} ────`);
 
@@ -282,18 +315,25 @@ function resolveBattleRound(state, engagement, initiativeBonusTeam = null) {
     amount:     engagement.amount,
     distance:   dist,
     initiativeBonusTeam,
+    defenderDisabled: isFuelDisabled(def),  // 0-FP naval unit has no interception
   });
 
   if (!eng.ok) {
     state.log.unshift(`⚠ ${att.name} → ${def.name}: ${eng.reason}`);
-  } else if (eng.destroyed) {
-    state.log.unshift(`💥 ${def.name} DESTRUÍDO por ${att.name} [${eng.weaponLabel}]`);
-  } else if (eng.totalDamage > 0) {
-    const intStr = eng.interception?.intercepted > 0 ? ` (${eng.interception.intercepted} intercept.)` : '';
-    state.log.unshift(`✓ ${att.name} → ${def.name} −${eng.totalDamage}SP [${eng.weaponLabel}${intStr}]`);
   } else {
-    const intStr = eng.interception?.intercepted > 0 ? ` (${eng.interception.intercepted} intercept.)` : '';
-    state.log.unshift(`✗ ${att.name} → ${def.name} falhou [${eng.weaponLabel}${intStr}]`);
+    // Spend engagement FP for attacker
+    spendEngagementFuel(att);
+
+    if (eng.destroyed) {
+      state.log.unshift(`💥 ${def.name} DESTRUÍDO por ${att.name} [${eng.weaponLabel}]`);
+    } else if (eng.totalDamage > 0) {
+      const intStr = eng.interception?.intercepted > 0 ? ` (${eng.interception.intercepted} intercept.)` : '';
+      state.log.unshift(`✓ ${att.name} → ${def.name} −${eng.totalDamage}SP [${eng.weaponLabel}${intStr}]`);
+      spendDamageFuel(def);    // defender burns extra FP absorbing the hit
+    } else {
+      const intStr = eng.interception?.intercepted > 0 ? ` (${eng.interception.intercepted} intercept.)` : '';
+      state.log.unshift(`✗ ${att.name} → ${def.name} falhou [${eng.weaponLabel}${intStr}]`);
+    }
   }
 
   if (state.log.length > 80) state.log = state.log.slice(0, 80);
@@ -488,8 +528,19 @@ function nextTurn(state) {
     }
   }
 
+  // ── Fuel: naval refuel for units stacked all turn with a provider ────────────
+  const fuelReports = recoverNavalFuel(state);
+  for (const { unit: u } of fuelReports) {
+    state.log.unshift(`⛽ ${u.name}(${u.team}) reabasteceu: ${u.fuel.current}/${u.fuel.max} FP.`);
+  }
+
+  // ── Fuel: aircraft that landed last turn become ready ─────────────────────
+  recoverAircraft(state);
+
   // ── Advance turn ────────────────────────────────────────────────────────────
   state.units.forEach(u => { u.moved = false; });
+  resetFuelTurnCounters(state);
+
   state.period    = state.period === 'day' ? 'night' : 'day';
   if (state.period === 'day') state.turn++;
   state.phase     = 'movement';
@@ -500,6 +551,7 @@ function nextTurn(state) {
   state.log.unshift('Fase de Movimentação iniciada.');
   if (state.log.length > 50) state.log = state.log.slice(0, 50);
   saveMovementSnapshot(state);
+  markRefuelEligibility(state);   // mark who is stacked at the start of the new turn
 }
 
 // ─── Server ───────────────────────────────────────────────────────────────────
@@ -556,6 +608,7 @@ io.on('connection', socket => {
       const unit=state.units.find(u=>u.id===unitId&&u.team===team&&u.hp>0);
       if (!unit) { socket.emit('action_error',`Unidade ${unitId} inválida.`); return; }
       if (unit.movement === 0) { socket.emit('action_error',`${unit.name}: unidade fixa.`); return; }
+      if (isFuelDisabled(unit)) { socket.emit('action_error',`${unit.name}: sem combustível — não pode se mover.`); return; }
       if (path[0].col!==unit.col||path[0].row!==unit.row) { socket.emit('action_error',`Caminho inválido para ${unit.name}.`); return; }
       if (path.length-1>unit.movement) { socket.emit('action_error',`${unit.name}: caminho excede alcance máximo.`); return; }
       for (let i=1;i<path.length;i++) {
@@ -566,7 +619,7 @@ io.on('connection', socket => {
       }
     }
 
-    // Apply all moves
+    // Apply all moves and charge movement fuel
     for (const {unitId, path} of (moves||[])) {
       if (!Array.isArray(path)||path.length<2) continue;
       const unit=state.units.find(u=>u.id===unitId&&u.team===team&&u.hp>0);
@@ -574,17 +627,56 @@ io.on('connection', socket => {
       const dest=path[path.length-1];
       unit.col=dest.col; unit.row=dest.row; unit.moved=true;
       state.log.unshift(`${unit.name}(${team}) → ${String.fromCharCode(65+dest.col)}${dest.row+1}`);
+      const dist = path.length - 1;
+      if (unit.category !== 'air') {
+        spendNavalFuel(unit, navalMoveCost(dist));
+      } else {
+        // Aircraft that moved: become airborne, spend distance FP
+        unit.airStatus = 'airborne';
+        spendAirFuel(unit, dist);
+      }
+    }
+
+    // Fuel for stationary units of this team
+    for (const u of state.units) {
+      if (u.hp <= 0 || u.team !== team || u.moved) continue;
+      if (u.category === 'air') {
+        if (u.airStatus === 'airborne') {
+          if (isAirRefuelLocation(u, state)) {
+            u.airStatus = 'recovering';  // landed — ready next turn
+          } else {
+            spendAirFuel(u, 1);          // patrol fuel cost
+          }
+        }
+        // 'ready' aircraft: stay ready, no fuel cost
+      } else {
+        spendNavalFuel(u, navalMoveCost(0)); // stationary = 1 FP
+      }
     }
 
     if (team==='blue') state.blueDone=true; else state.redDone=true;
     if (state.blueDone&&state.redDone) {
+      // ── End-of-movement fuel alerts ────────────────────────────────────────
+      const navalEmpty = checkNavalFuelZero(state);
+      for (const u of navalEmpty) {
+        const pid = room.players[u.team];
+        if (pid) io.to(pid).emit('fuel_alert', { unitId: u.id, name: u.name, type: 'naval_empty' });
+        state.log.unshift(`⛽ ${u.name}(${u.team}) sem combustível: não pode mover, atacar ou se defender.`);
+      }
+      const airLost = checkAirFuelLosses(state);
+      for (const u of airLost) {
+        const pid = room.players[u.team];
+        if (pid) io.to(pid).emit('fuel_alert', { unitId: u.id, name: u.name, type: 'air_lost' });
+        state.log.unshift(`✈ ${u.name}(${u.team}) perdida por falta de combustível.`);
+      }
+
       state.phase='combat';
       state.log.unshift('Fase de Combate iniciada. Declare seus ataques.');
     } else {
       const waiting=team==='blue'?'Força Vermelha':'Força Azul';
       state.log.unshift(`${team==='blue'?'Força Azul':'Força Vermelha'} encerrou a movimentação. Aguardando ${waiting}...`);
     }
-    if (state.log.length>30) state.log=state.log.slice(0,30);
+    if (state.log.length>50) state.log=state.log.slice(0,50);
     broadcast(room);
   });
 

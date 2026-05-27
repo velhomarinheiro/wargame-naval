@@ -48,7 +48,8 @@ function applyDamage(unit, damage) {
 }
 
 // Returns how many incoming missiles are shot down by the defender's interceptors
-function resolveInterception(defender, incomingWeaponType, incomingAmount) {
+function resolveInterception(defender, incomingWeaponType, incomingAmount, defenderDisabled = false) {
+  if (defenderDisabled) return { intercepted: 0, remaining: incomingAmount, details: [] };
   const profile = COMBAT.weaponProfiles?.[incomingWeaponType];
   if (!profile?.interceptableBy?.length) {
     return { intercepted: 0, remaining: incomingAmount, details: [] };
@@ -82,7 +83,8 @@ function resolveInterception(defender, incomingWeaponType, incomingAmount) {
 }
 
 // initiativeBonusTeam: team name that rolled with advantage this round, or null
-function resolveEngagement({ attacker, defender, weaponType, amount, distance, initiativeBonusTeam = null }) {
+// defenderDisabled: true when defender has 0 naval FP — skips interception
+function resolveEngagement({ attacker, defender, weaponType, amount, distance, initiativeBonusTeam = null, defenderDisabled = false }) {
   const profile = COMBAT.weaponProfiles?.[weaponType];
   if (!profile) return { ok: false, reason: 'Tipo de arma desconhecido: ' + weaponType };
 
@@ -101,7 +103,7 @@ function resolveEngagement({ attacker, defender, weaponType, amount, distance, i
   const launched = Math.min(amount, qty);
   spendWeapon(attacker, weaponType, launched);
 
-  const interception = resolveInterception(defender, weaponType, launched);
+  const interception = resolveInterception(defender, weaponType, launched, defenderDisabled);
   const effectiveShots = interception.remaining;
 
   const advantage = initiativeBonusTeam !== null && initiativeBonusTeam === attacker.team;

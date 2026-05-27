@@ -144,6 +144,12 @@ socket.on('action_error', msg => {
   }
 });
 socket.on('battle_round_result', data => handleBrResult(data));
+socket.on('fuel_alert', ({ name, type }) => {
+  const msg = type === 'air_lost'
+    ? `✈ ${name} perdida por falta de combustível!`
+    : `⛽ ${name} sem combustível — imóvel e indefesa até reabastecimento.`;
+  flashError(msg);
+});
 
 // ─── Lobby actions ────────────────────────────────────────────────────────────
 btnCreate.addEventListener('click', () => socket.emit('create_room'));
@@ -467,6 +473,27 @@ function isMyTurn() {
   return false;
 }
 
+function fuelRow(unit) {
+  const f = unit.fuel;
+  if (!f || !f.usesFuel) {
+    return `<span>Combustível</span><span class="fp-inf">∞</span>`;
+  }
+  if (unit.category === 'air') {
+    const STATUS = { ready: 'Pronta', airborne: 'Em voo', recovering: 'Reabastecendo' };
+    const statusLabel = STATUS[unit.airStatus] || unit.airStatus || '—';
+    const fpLabel = unit.airStatus === 'ready' || unit.airStatus === 'recovering'
+      ? `${f.max} FP` : `${f.current ?? 0}/${f.max} FP`;
+    const fpClass = (f.current ?? f.max) <= Math.ceil(f.max * 0.25) ? 'fp-low' : 'fp-ok';
+    return `<span>Status</span><span>${statusLabel}</span>
+            <span>Combustível</span><span class="${fpClass}">${fpLabel}</span>`;
+  }
+  // Naval
+  const cur = f.current ?? 0;
+  const pct = f.max > 0 ? cur / f.max : 0;
+  const cls = cur <= 0 ? 'fp-empty' : pct <= 0.25 ? 'fp-low' : 'fp-ok';
+  return `<span>Combustível</span><span class="${cls}">${cur}/${f.max} FP</span>`;
+}
+
 function buildAtkListHtml(atks) {
   if (!atks.length) return '';
   const items = atks.map(a => {
@@ -563,6 +590,7 @@ function updateUI() {
         <span>SP</span><span>${sel.hp}/${sel.maxHp}</span>
         <span>MOV</span><span>${sel.movement}</span>
         <span>Categoria</span><span>${sel.category}</span>
+        ${fuelRow(sel)}
         <span>Det S/Aé/Sb/T</span><span>${det.surface||0}/${det.air||0}/${det.submarine||0}/${det.land||0}</span>
         <span>Terreno</span><span style="font-size:0.7em">${T_NAME[t]}</span>
       </div>
