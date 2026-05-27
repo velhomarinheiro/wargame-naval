@@ -60,12 +60,13 @@ function usesNavalFuel(unit) {
 // ─── Initialization ───────────────────────────────────────────────────────────
 function initializeFuel(unit) {
   if (unit.category === 'air') {
-    unit.airStatus = 'ready';     // ready | airborne | recovering
+    unit.airStatus = 'ready';     // ready | airborne
     unit.fuel = {
       usesFuel: true,
       fuelType: 'air',
       current:  unit.movement ?? 0,
       max:      unit.movement ?? 0,
+      wasAtRefuelLocation: false,
     };
     return;
   }
@@ -97,7 +98,7 @@ function isFuelDisabled(unit) {
 // Air: only 'recovering' aircraft can't attack.
 function canMove(unit)   { return !isFuelDisabled(unit); }
 function canAttack(unit) {
-  if (unit.category === 'air') return unit.airStatus !== 'recovering';
+  if (unit.category === 'air') return true;
   return !isFuelDisabled(unit);
 }
 function canDefend(unit) {
@@ -182,12 +183,13 @@ function checkNavalFuelZero(state) {
   );
 }
 
-// Aircraft airborne with 0 FP are lost (hp → 0).
+// Airborne aircraft with 0 FP that didn't reach a base are lost (hp → 0).
 function checkAirFuelLosses(state) {
   const lost = [];
   for (const u of state.units) {
     if ((u.hp ?? 0) <= 0 || u.category !== 'air') continue;
     if (u.airStatus !== 'airborne') continue;
+    if (u.fuel?.wasAtRefuelLocation) continue;   // made it back safely
     if ((u.fuel?.current ?? 1) <= 0) {
       u.hp = 0;
       lost.push(u);
@@ -197,12 +199,14 @@ function checkAirFuelLosses(state) {
 }
 
 // ─── Turn transition ──────────────────────────────────────────────────────────
-// 'recovering' → 'ready' (full fuel); called at the start of the new turn.
+// Aircraft that ended their turn at a base → 'ready' (full fuel); called at turn start.
+// Weapon restoration is done in server.js nextTurn using the same flag.
 function recoverAircraft(state) {
   for (const u of state.units) {
-    if (u.category !== 'air' || u.airStatus !== 'recovering') continue;
-    u.airStatus    = 'ready';
-    u.fuel.current = u.fuel.max;
+    if (u.category !== 'air' || !u.fuel?.wasAtRefuelLocation) continue;
+    u.airStatus               = 'ready';
+    u.fuel.current            = u.fuel.max;
+    u.fuel.wasAtRefuelLocation = false;
   }
 }
 

@@ -108,13 +108,13 @@ function hexDist(c1,r1,c2,r2) {
 // Blue: any T_LAND hex (land air base) or a friendly carrier unit in the same hex.
 // Red:  only a friendly carrier unit in the same hex.
 function isAirRefuelLocation(unit, state) {
-  const carrierHere = state.units.some(
-    c => c.team === unit.team && c.hp > 0 && c.type === 'carrier'
-      && c.col === unit.col && c.row === unit.row
+  return state.units.some(o =>
+    o.id !== unit.id &&
+    o.team === unit.team &&
+    (o.hp ?? 0) > 0 &&
+    (o.type === 'aeroporto' || o.type === 'carrier') &&
+    o.col === unit.col && o.row === unit.row
   );
-  if (carrierHere) return true;
-  if (unit.team === 'blue') return getTerrain(unit.col, unit.row) === T_LAND;
-  return false;
 }
 
 // ─── Fog of war ──────────────────────────────────────────────────────────────
@@ -301,9 +301,8 @@ function resolveBattleRound(state, engagement, initiativeBonusTeam = null) {
 
   // Skip attack if attacker is fuel-disabled
   if (!canAttack(att)) {
-    const reason = att.airStatus === 'recovering' ? 'aeronave reabastecendo' : 'sem combustível';
-    state.log.unshift(`⛽ ${att.name} não pode atacar: ${reason}.`);
-    return { ok: false, reason: `Atacante sem combustível (${reason})` };
+    state.log.unshift(`⛽ ${att.name} não pode atacar: sem combustível.`);
+    return { ok: false, reason: 'Atacante sem combustível' };
   }
 
   const initLabel = initiativeBonusTeam ? ` ★${initiativeBonusTeam.toUpperCase()}` : '';
@@ -482,15 +481,6 @@ function nextTurn(state) {
     state.units.filter(u => u.team === 'blue' && u.hp > 0 && u.type === 'porto')
                .map(u => `${u.col},${u.row}`)
   );
-  const blueCarrierHexes = new Set(
-    state.units.filter(u => u.team === 'blue' && u.hp > 0 && u.type === 'carrier')
-               .map(u => `${u.col},${u.row}`)
-  );
-  const redCarrierHexes = new Set(
-    state.units.filter(u => u.team === 'red' && u.hp > 0 && u.type === 'carrier')
-               .map(u => `${u.col},${u.row}`)
-  );
-
   for (const u of state.units) {
     if (u.hp <= 0) continue;
     if (!u.initWeapons || Object.keys(u.initWeapons).length === 0) continue;
@@ -501,16 +491,16 @@ function nextTurn(state) {
     if (u.team === 'blue') {
       if (u.category === 'land') {
         reload = true;
+      } else if (u.category === 'air') {
+        reload = u.fuel?.wasAtRefuelLocation === true;
       } else if (!u.moved) {
         if (u.category === 'surface' || u.category === 'submarine') {
           reload = portHexes.has(hexKey);
-        } else if (u.category === 'air') {
-          reload = getTerrain(u.col, u.row) === T_LAND || blueCarrierHexes.has(hexKey);
         }
       }
     } else if (u.team === 'red') {
-      if (u.category === 'air' && !u.moved) {
-        reload = redCarrierHexes.has(hexKey);
+      if (u.category === 'air') {
+        reload = u.fuel?.wasAtRefuelLocation === true;
       }
     }
 
@@ -635,6 +625,10 @@ io.on('connection', socket => {
         // Aircraft that moved: become airborne, spend distance FP
         unit.airStatus = 'airborne';
         spendAirFuel(unit, dist);
+        // If they flew to a base, mark for refuel next turn
+        if (isAirRefuelLocation(unit, state)) {
+          unit.fuel.wasAtRefuelLocation = true;
+        }
       }
     }
 
@@ -644,9 +638,9 @@ io.on('connection', socket => {
       if (u.category === 'air') {
         if (u.airStatus === 'airborne') {
           if (isAirRefuelLocation(u, state)) {
-            u.airStatus = 'recovering';  // landed — ready next turn
+            u.fuel.wasAtRefuelLocation = true;  // landed — ready next turn
           } else {
-            spendAirFuel(u, 1);          // patrol fuel cost
+            spendAirFuel(u, 1);                 // patrol fuel cost
           }
         }
         // 'ready' aircraft: stay ready, no fuel cost
