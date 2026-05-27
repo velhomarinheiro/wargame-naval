@@ -4,8 +4,32 @@
 const FUEL_TURN_LIMIT = 4;            // max FP a naval unit may spend per turn
 
 const NAVAL_FP = {
-  surface:  12,   // ~4–12 turns of operation before needing replenishment
+  surface:   12,  // fallback for unlisted surface units
   submarine: 20,  // 20 turns = 10 days at 2 turns/day (conventional AIP)
+};
+
+// Per-unit FP overrides (surface ships only; subs use NAVAL_FP.submarine)
+const UNIT_FP = {
+  // ── Força Azul ──────────────────────────────────────────────────────────────
+  'BLUE-SAG-P':   12,   // SAG Principal
+  'BLUE-SAG-S1':  10,   // SAG-1 (Tamandaré)
+  'BLUE-SAG-S2':  10,   // SAG-2 (Tamandaré+Barroso)
+  'BLUE-ANFIB':    8,   // Força de Desembarque
+  'BLUE-LOG-A':   30,   // Navio Apoio Logístico
+  'BLUE-LOG-T':   40,   // Navio Tanque
+  'BLUE-PAT-O1':  10,   // Patrulha Oceânica 1
+  'BLUE-PAT-O2':  10,   // Patrulha Oceânica 2
+  'BLUE-PAT-C1':   6,   // Patrulha Costeira 1
+  'BLUE-PAT-C2':   6,   // Patrulha Costeira 2
+  // ── Força Vermelha ──────────────────────────────────────────────────────────
+  // RED-GBPA is nuclear-exempt — no FP entry needed
+  'RED-GE-1':     12,   // Escolta CSG (CG+2DDG)
+  'RED-GE-2':     12,   // SAG-1 (DDG+2FFG)
+  'RED-GE-3':     10,   // SAG-2 (3 FFG)
+  'RED-AOR-G':    24,   // Petroleiro CSG
+  'RED-GANF':     12,   // Grupo Anfíbio
+  'RED-GLOG':     30,   // Grupo Logístico (AOR+AOT)
+  'RED-AKE':       8,   // Navio Munições
 };
 
 // unit.type values (from COMP_DISPLAY_TYPE in server.js)
@@ -28,7 +52,9 @@ function isNavalRefuelProvider(unit) {
 // Does this unit consume naval FP?
 function usesNavalFuel(unit) {
   if (isRedNucCarrier(unit) || isNuclearSub(unit)) return false;
-  return unit.category === 'surface' || isConventionalSub(unit);
+  if (unit.type === 'fpso') return false;          // fixed offshore platform
+  if (unit.category === 'surface') return true;
+  return isConventionalSub(unit);
 }
 
 // ─── Initialization ───────────────────────────────────────────────────────────
@@ -49,7 +75,9 @@ function initializeFuel(unit) {
     return;
   }
 
-  const max = isConventionalSub(unit) ? NAVAL_FP.submarine : NAVAL_FP.surface;
+  const max = isConventionalSub(unit)
+    ? NAVAL_FP.submarine
+    : (UNIT_FP[unit.id] ?? NAVAL_FP.surface);
   unit.fuel = {
     usesFuel: true,
     fuelType: 'naval',
