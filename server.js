@@ -199,7 +199,7 @@ function selectBestWeapon(attacker, target, dist) {
 function makeUnit(team, spec) {
   const pos     = spec.position || spec.start || { col: 0, row: 0 };
   const weapons = spec.weapons ? JSON.parse(JSON.stringify(spec.weapons)) : {};
-  return {
+  const unit = {
     id:            spec.id,
     team,
     name:          spec.name,
