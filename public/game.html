@@ -62,23 +62,16 @@
           <div class="leg-row"><span class="leg-swatch green"></span>Hexágonos de movimento</div>
           <div class="leg-row"><span class="leg-swatch red"  ></span>Alvos no alcance</div>
         </div>
+        <div class="action-divider"></div>
+        <button id="export-log-btn" class="act-btn gray hidden">📋 Exportar Log</button>
+        <button id="abandon-btn"    class="act-btn red-dim hidden">🏳 Abandonar Jogo</button>
       </div>
 
-      <!-- Terrain legend -->
-      <div class="panel terrain-panel">
-        <div class="panel-title">TERRENO</div>
-        <div class="terrain-legend">
-          <div class="tleg-row"><span class="tleg-sw" style="background:#c8a15a"></span>Área Terrestre</div>
-          <div class="tleg-row"><span class="tleg-sw" style="background:#3aadcc"></span>Águas Rasas &lt;200m</div>
-          <div class="tleg-row"><span class="tleg-sw" style="background:#1e72a0"></span>Plataforma Continental</div>
-          <div class="tleg-row"><span class="tleg-sw" style="background:#0d3c68"></span>Águas Profundas</div>
-          <div class="tleg-row"><span class="tleg-sw" style="background:#c07820"></span>Bacia Petrolífera ★</div>
-        </div>
-        <div class="infra-legend">
-          <div class="tleg-row"><span class="ileg-ic" style="color:#82b1ff">✛</span>Base Naval</div>
-          <div class="tleg-row"><span class="ileg-ic" style="color:#80cbc4">⚓</span>Porto</div>
-          <div class="tleg-row"><span class="ileg-ic" style="color:#b0bec5">✈</span>Base Aérea</div>
-          <div class="tleg-row"><span class="ileg-ic" style="color:#ffcc02">▲</span>Plataforma PLT</div>
+      <!-- Objectives panel -->
+      <div class="panel objectives-panel">
+        <div class="panel-title">OBJETIVOS DE VITÓRIA</div>
+        <div id="objectives-content">
+          <p class="no-sel">Aguardando início...</p>
         </div>
       </div>
 
@@ -136,11 +129,14 @@
 
 <!-- ── GAME OVER ─────────────────────────────────────────────────────────── -->
 <div id="game-over" class="overlay hidden">
-  <div class="over-box">
-    <div id="winner-msg" class="victory">VITÓRIA!</div>
+  <div class="over-box over-box-wide">
+    <div id="winner-msg"   class="victory">VITÓRIA!</div>
+    <div id="winner-sub"   class="over-sub"></div>
+    <div id="over-objectives" class="over-objectives"></div>
     <div class="over-actions">
-      <button id="btn-restart" class="act-btn blue">Jogar Novamente</button>
-      <button id="btn-back"    class="act-btn gray">Voltar ao Lobby</button>
+      <button id="btn-export-over" class="act-btn yellow">📋 Exportar Log</button>
+      <button id="btn-restart"     class="act-btn blue">Jogar Novamente</button>
+      <button id="btn-back"        class="act-btn gray">Voltar ao Lobby</button>
     </div>
   </div>
 </div>

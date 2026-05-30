@@ -33,6 +33,9 @@ const terrainTip   = $('terrain-tip');
 const stackPicker  = $('stack-picker');
 const spList       = $('sp-list');
 const spGroupBtn   = $('sp-group-btn');
+const objectivesContent = $('objectives-content');
+const exportLogBtn      = $('export-log-btn');
+const abandonBtn        = $('abandon-btn');
 
 // ─── Canvas setup ─────────────────────────────────────────────────────────────
 canvas.width  = CVS_W;
@@ -127,11 +130,20 @@ socket.on('game_update', state => {
   updateUI(); render();
 });
 
-socket.on('game_over', ({winner, state}) => {
+socket.on('game_over', ({winner, state, objectives, reason}) => {
   gameState = state; updateUI(); render();
   const mine = winner === myTeam;
-  winnerMsg.textContent = mine ? '🏆 VITÓRIA! Sua força prevaleceu.' : '💀 DERROTA. Sua frota foi afundada.';
-  winnerMsg.className   = mine ? 'victory' : 'defeat';
+  if (reason === 'abandon') {
+    winnerMsg.textContent = mine ? '🏆 VITÓRIA! Adversário abandonou.' : '🏳 Você abandonou o jogo.';
+    $('winner-sub').textContent = mine ? 'Vitória por W.O.' : '';
+  } else {
+    winnerMsg.textContent = mine ? '🏆 VITÓRIA!' : '💀 DERROTA';
+    $('winner-sub').textContent = mine
+      ? `${winner === 'blue' ? 'Força Azul' : 'Força Vermelha'} atingiu seus objetivos.`
+      : `${winner === 'blue' ? 'Força Azul' : 'Força Vermelha'} atingiu seus objetivos.`;
+  }
+  winnerMsg.className = mine ? 'victory' : 'defeat';
+  renderOverObjectives(objectives, winner, reason);
   gameOver.classList.remove('hidden');
 });
 socket.on('opponent_disconnected', () => disconnected.classList.remove('hidden'));
@@ -191,10 +203,19 @@ undoStepBtn.addEventListener('click', () => undoStep());
 cancelBtn.addEventListener('click', () => { hideStackPicker(); deselect(false); });
 
 $('btn-restart').addEventListener('click', () => { socket.emit('restart'); gameOver.classList.add('hidden'); });
+$('btn-export-over').addEventListener('click', () => exportLog());
 $('br-btn-continue').addEventListener('click', () => sendBrDecision('continue'));
 $('br-btn-stop'    ).addEventListener('click', () => sendBrDecision('stop'));
 $('br-btn-ok'      ).addEventListener('click', () => onBrOk());
 $('btn-back').addEventListener('click', () => location.reload());
+
+exportLogBtn.addEventListener('click', () => exportLog());
+
+abandonBtn.addEventListener('click', () => {
+  if (!gameState || gameState.winner) return;
+  if (!confirm('Tem certeza que deseja abandonar o jogo? O adversário será declarado vencedor.')) return;
+  socket.emit('abandon_game');
+});
 
 // Amount +/- controls in unit panel (event delegation)
 $('unit-panel').addEventListener('click', e => {
@@ -606,6 +627,110 @@ function updateUI() {
     unitPanel.innerHTML = '<p class="no-sel">Clique em uma unidade sua</p>';
   }
   logEl.innerHTML = (log||[]).map(l=>`<p>${l}</p>`).join('');
+
+  // Show/hide game-level buttons
+  const inGame = !winner;
+  exportLogBtn.classList.toggle('hidden', !gameState);
+  abandonBtn.classList.toggle('hidden', !inGame);
+
+  updateObjectives();
+}
+
+// ─── Objectives panel ─────────────────────────────────────────────────────────
+function updateObjectives() {
+  if (!gameState?.objectives) {
+    objectivesContent.innerHTML = '<p class="no-sel">Aguardando início...</p>';
+    return;
+  }
+  const obj    = gameState.objectives;
+  const isBlue = myTeam === 'blue';
+  const mine   = isBlue ? obj.blue : obj.red;
+  const theirs = isBlue ? obj.red  : obj.blue;
+  const myColor  = isBlue ? '#82b1ff' : '#ff8a80';
+  const oppColor = isBlue ? '#ff8a80' : '#82b1ff';
+
+  const condRows = mine.conditions.map(c => `
+    <div class="obj-row ${c.met ? 'obj-met' : 'obj-unmet'}">
+      <span class="obj-check">${c.met ? '✓' : '○'}</span>
+      <span class="obj-label">${c.label}</span>
+      <span class="obj-prog">${c.current}</span>
+    </div>`).join('');
+
+  const oppRows = theirs.conditions.map(c => `
+    <div class="obj-row obj-opp ${c.met ? 'obj-met' : 'obj-unmet'}">
+      <span class="obj-check">${c.met ? '✓' : '○'}</span>
+      <span class="obj-label">${c.label}</span>
+      <span class="obj-prog">${c.current}</span>
+    </div>`).join('');
+
+  const myNeeded  = mine.needed;
+  const myAch     = mine.achieved;
+  const oppNeeded = theirs.needed;
+  const oppAch    = theirs.achieved;
+
+  objectivesContent.innerHTML = `
+    <div class="obj-section">
+      <div class="obj-section-title" style="color:${myColor}">SEUS OBJETIVOS</div>
+      <div class="obj-summary ${myAch >= myNeeded ? 'obj-complete' : ''}">
+        ${myAch >= myNeeded
+          ? '🏆 CONDIÇÃO ATINGIDA!'
+          : `${myAch}/${mine.conditions.length} condições · precisa de ${myNeeded}`}
+      </div>
+      ${condRows}
+    </div>
+    <div class="obj-divider"></div>
+    <div class="obj-section">
+      <div class="obj-section-title" style="color:${oppColor}">OBJ. ADVERSÁRIO</div>
+      <div class="obj-summary ${oppAch >= oppNeeded ? 'obj-complete' : ''}">
+        ${oppAch >= oppNeeded
+          ? '⚠ ADVERSÁRIO ATINGIU OBJETIVO!'
+          : `${oppAch}/${theirs.conditions.length} condições · precisa de ${oppNeeded}`}
+      </div>
+      ${oppRows}
+    </div>`;
+}
+
+// ─── Victory screen objectives ────────────────────────────────────────────────
+function renderOverObjectives(objectives, winner, reason) {
+  if (!objectives || reason === 'abandon') { $('over-objectives').innerHTML = ''; return; }
+  const winnerObj = winner === 'blue' ? objectives.blue : objectives.red;
+  const rows = winnerObj.conditions.map(c =>
+    `<div class="over-cond ${c.met ? 'over-cond-met' : 'over-cond-unmet'}">
+      ${c.met ? '✓' : '○'} ${c.label}
+      <span class="over-cond-prog">${c.current}</span>
+    </div>`
+  ).join('');
+  const label = winner === 'blue' ? 'Força Azul' : 'Força Vermelha';
+  $('over-objectives').innerHTML = `
+    <div class="over-obj-title">${label} — condições atendidas (${winnerObj.achieved}/${winnerObj.conditions.length}):</div>
+    ${rows}`;
+}
+
+// ─── Export log ───────────────────────────────────────────────────────────────
+function exportLog() {
+  if (!gameState) return;
+  const teamLabel = myTeam === 'blue' ? 'Força Azul' : 'Força Vermelha';
+  const lines = [
+    '══════════════════════════════════════════════',
+    '       OPERAÇÃO ATLÂNTICO SUL — LOG DE JOGO  ',
+    '══════════════════════════════════════════════',
+    `Equipe:   ${teamLabel}`,
+    `Turno:    ${gameState.turn}`,
+    `Período:  ${gameState.period === 'day' ? 'Diurno' : 'Noturno'}`,
+    `Exportado: ${new Date().toLocaleString('pt-BR')}`,
+    '',
+    '── REGISTRO DE BATALHA ──────────────────────',
+    ...(gameState.log || []).map(l => l.replace(/<[^>]+>/g, '')),
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `oas_log_T${gameState.turn}_${Date.now()}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ═══ RENDERING ════════════════════════════════════════════════════════════════

@@ -170,6 +170,7 @@ function stateFor(state, team) {
     units:       [...state.units.filter(u => u.team === team), ...detected],
     blueAttacks: team === 'blue' ? state.blueAttacks : (state.blueAttacks !== null ? '✓' : null),
     redAttacks:  team === 'red'  ? state.redAttacks  : (state.redAttacks  !== null ? '✓' : null),
+    objectives:  computeObjectives(state),
   };
 }
 
@@ -455,8 +456,10 @@ function finishCombatPhase(room) {
   if (winner) {
     state.winner = winner;
     state.log.unshift(`🏆 ${winner === 'blue' ? 'Força Azul' : 'Força Vermelha'} VENCEU!`);
-    if (room.players.blue) io.to(room.players.blue).emit('game_over', { winner, state: stateFor(state, 'blue') });
-    if (room.players.red)  io.to(room.players.red ).emit('game_over', { winner, state: stateFor(state, 'red')  });
+    const obj = computeObjectives(state);
+    const payload = { winner, objectives: obj, reason: 'victory' };
+    if (room.players.blue) io.to(room.players.blue).emit('game_over', { ...payload, state: stateFor(state, 'blue') });
+    if (room.players.red)  io.to(room.players.red ).emit('game_over', { ...payload, state: stateFor(state, 'red')  });
     return;
   }
 
@@ -464,15 +467,78 @@ function finishCombatPhase(room) {
   broadcast(room);
 }
 
+function computeObjectives(state) {
+  const u = state.units;
+
+  // ─── Blue objectives (need ≥ 2 of 5) ────────────────────────────────────────
+  const carrier  = u.find(x => x.id === 'RED-GBPA');
+  const carrierMet = !carrier || carrier.hp <= 0;
+
+  const logIds    = ['RED-AOR-G', 'RED-GLOG', 'RED-AKE'];
+  const logUnits  = logIds.map(id => u.find(x => x.id === id)).filter(Boolean);
+  const logDead   = logUnits.filter(x => x.hp <= 0).length;
+  const logMet    = logDead >= 2;
+
+  const amphib    = u.find(x => x.id === 'RED-GANF');
+  const amphibMet = !amphib || amphib.hp <= 0;
+
+  const nucsub    = u.find(x => x.id === 'RED-KSN');
+  const nucsubMet = !nucsub || nucsub.hp <= 0;
+
+  const surfIds   = ['RED-GBPA', 'RED-GE-1', 'RED-GE-2', 'RED-GE-3', 'RED-GANF'];
+  const surfUnits = surfIds.map(id => u.find(x => x.id === id)).filter(Boolean);
+  const surfMax   = surfUnits.reduce((s, x) => s + x.maxHp, 0);
+  const surfCur   = surfUnits.reduce((s, x) => s + Math.max(0, x.hp), 0);
+  const surfDegPct = surfMax > 0 ? Math.round((1 - surfCur / surfMax) * 100) : 0;
+  const surfMet   = surfDegPct >= 50;
+
+  const blueConds = [
+    { id: 'carrier',   label: 'Destruir Porta-Aviões',          met: carrierMet,
+      current: carrier   ? `SP: ${carrier.hp}/${carrier.maxHp}` : 'Destruído ✓' },
+    { id: 'logistics', label: 'Neutralizar ≥50% Logística',     met: logMet,
+      current: `${logDead}/${logUnits.length} unid. neutralizadas` },
+    { id: 'amphib',    label: 'Neutralizar GT Anfíbio',          met: amphibMet,
+      current: amphib    ? `SP: ${amphib.hp}/${amphib.maxHp}` : 'Neutralizado ✓' },
+    { id: 'nucsub',    label: 'Destruir Submarino Nuclear',      met: nucsubMet,
+      current: nucsub    ? `SP: ${nucsub.hp}/${nucsub.maxHp}` : 'Destruído ✓' },
+    { id: 'surface',   label: 'Degradar ≥50% Nav. Combatentes', met: surfMet,
+      current: `${surfDegPct}% degradado` },
+  ];
+  const blueAchieved = blueConds.filter(c => c.met).length;
+
+  // ─── Red objectives (need both) ──────────────────────────────────────────────
+  const fpsoIds   = ['BLUE-FPSO1', 'BLUE-FPSO2', 'BLUE-FPSO3', 'BLUE-FPSO4'];
+  const fpsoUnits = fpsoIds.map(id => u.find(x => x.id === id)).filter(Boolean);
+  const fpsoNeut  = fpsoUnits.filter(x => x.hp <= 0).length;
+  const fpsoMet   = fpsoNeut >= 4;
+
+  const portIds   = ['BLUE-PORTO-S', 'BLUE-PORTO-RJ', 'BLUE-PORTO-V', 'BLUE-PORTO-ACU'];
+  const portUnits = portIds.map(id => u.find(x => x.id === id)).filter(Boolean);
+  const portMax   = portUnits.reduce((s, x) => s + x.maxHp, 0);
+  const portCur   = portUnits.reduce((s, x) => s + Math.max(0, x.hp), 0);
+  const portDegPct = portMax > 0 ? Math.round((1 - portCur / portMax) * 100) : 0;
+  const portsMet  = portDegPct >= 50;
+
+  const redConds = [
+    { id: 'fpsos', label: 'Neutralizar 4 FPSOs',    met: fpsoMet,
+      current: `${fpsoNeut}/4 neutralizadas` },
+    { id: 'ports', label: 'Degradar ≥50% Portos',   met: portsMet,
+      current: `${portDegPct}% degradado  (SP: ${portCur}/${portMax})` },
+  ];
+  const redAchieved = redConds.filter(c => c.met).length;
+
+  return {
+    blue: { conditions: blueConds, needed: 2, achieved: blueAchieved, won: blueAchieved >= 2 },
+    red:  { conditions: redConds,  needed: 2, achieved: redAchieved,  won: redAchieved  >= 2 },
+  };
+}
+
 function checkWinner(state) {
-  const hasOffense = u =>
-    Object.values(u.attackRange || {}).some(v => v > 0) ||
-    Object.values(u.weapons      || {}).some(w => w.quantity > 0) ||
-    Object.values(u.capabilities || {}).some(v => v > 0);
-  const isCombatant = u => hasOffense(u);
-  const b = state.units.some(u => u.team === 'blue' && u.hp > 0 && isCombatant(u));
-  const r = state.units.some(u => u.team === 'red'  && u.hp > 0 && isCombatant(u));
-  if (!b) return 'red'; if (!r) return 'blue'; return null;
+  const obj = computeObjectives(state);
+  if (obj.blue.won && obj.red.won) return 'blue'; // tiebreak
+  if (obj.blue.won) return 'blue';
+  if (obj.red.won)  return 'red';
+  return null;
 }
 
 function nextTurn(state) {
@@ -715,6 +781,20 @@ io.on('connection', socket => {
     room.state=newGame();
     io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue')});
     io.to(room.players.red ).emit('game_start',{team:'red', state:stateFor(room.state,'red')});
+  });
+
+  socket.on('abandon_game', () => {
+    const room=rooms.get(socket.data.roomId); if (!room?.state) return;
+    if (room.state.winner) return;
+    const myTeam    = socket.data.team;
+    const otherTeam = myTeam === 'blue' ? 'red' : 'blue';
+    room.state.winner = otherTeam;
+    const label = myTeam === 'blue' ? 'Força Azul' : 'Força Vermelha';
+    room.state.log.unshift(`🏳 ${label} abandonou o jogo. ${otherTeam === 'blue' ? 'Força Azul' : 'Força Vermelha'} vence por W.O.`);
+    const obj = computeObjectives(room.state);
+    const payload = { winner: otherTeam, objectives: obj, reason: 'abandon' };
+    if (room.players.blue) io.to(room.players.blue).emit('game_over', { ...payload, state: stateFor(room.state, 'blue') });
+    if (room.players.red)  io.to(room.players.red ).emit('game_over', { ...payload, state: stateFor(room.state, 'red')  });
   });
 
   socket.on('disconnect', () => {

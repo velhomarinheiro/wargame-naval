@@ -338,22 +338,52 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
   z-index: 10;
 }
 
-/* ─── Terrain legend panel ───────────────────────────────────────────────── */
-.terrain-panel {}
-.terrain-legend, .infra-legend { margin-bottom: 6px; }
-.tleg-row {
-  display: flex; align-items: center;
-  gap: 7px; font-size: 0.70rem;
-  color: var(--dim); padding: 2px 0;
+/* ─── Objectives panel ───────────────────────────────────────────────────── */
+.objectives-panel { flex-shrink: 0; }
+
+.obj-section { margin-bottom: 6px; }
+.obj-section-title {
+  font-size: 0.62rem; letter-spacing: 2px; font-weight: bold;
+  margin-bottom: 4px; text-transform: uppercase;
 }
-.tleg-sw {
-  width: 14px; height: 10px; border-radius: 2px; flex-shrink: 0;
-  border: 1px solid rgba(255,255,255,0.12);
+.obj-summary {
+  font-size: 0.68rem; color: var(--dim); margin-bottom: 5px;
+  padding: 3px 5px; background: rgba(255,255,255,0.03);
+  border-left: 2px solid var(--border);
 }
-.ileg-ic {
-  width: 16px; text-align: center; font-size: 0.85rem; flex-shrink: 0;
+.obj-summary.obj-complete {
+  color: var(--gold); border-left-color: var(--gold);
+  background: rgba(201,168,76,0.08);
+  animation: pulse-gold 1.5s ease-in-out infinite;
 }
-.infra-legend { border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px; }
+@keyframes pulse-gold { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+.obj-row {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 4px;
+  font-size: 0.67rem; padding: 3px 0;
+  border-bottom: 1px solid rgba(80,120,160,0.08);
+  align-items: start;
+}
+.obj-row.obj-met  { color: #69f0ae; }
+.obj-row.obj-unmet { color: var(--dim); }
+.obj-row.obj-opp.obj-unmet { opacity: 0.7; }
+.obj-check { font-size: 0.75rem; font-weight: bold; }
+.obj-label { line-height: 1.4; }
+.obj-prog {
+  grid-column: 2; font-size: 0.6rem; color: var(--text);
+  opacity: 0.75; margin-top: 1px;
+}
+.obj-divider {
+  border-top: 1px solid var(--border);
+  margin: 6px 0;
+}
+
+/* Actions panel extras */
+.action-divider { border-top: 1px solid var(--border); margin: 6px 0; }
+.act-btn.red-dim { background: #2a0808; border-color: #7a2020; color: #c07070; }
+.act-btn.red-dim:hover { background: #4a0d0d; border-color: var(--red-l); color: var(--red-l); }
 
 /* ═══ OVERLAYS ═══════════════════════════════════════════════════════════════ */
 .overlay {
@@ -365,19 +395,49 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
 .over-box {
   background: var(--panel);
   border: 2px solid var(--gold);
-  padding: 3rem 4rem;
+  padding: 2.5rem 3.5rem;
   text-align: center;
   box-shadow: 0 0 80px rgba(201,168,76,0.3);
 }
+.over-box-wide { min-width: 420px; max-width: 560px; }
+
 #winner-msg {
   font-size: 2rem;
   letter-spacing: 4px;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.3rem;
 }
 #winner-msg.victory { color: var(--gold); }
 #winner-msg.defeat  { color: var(--red-l); }
 
-.over-actions { display: flex; gap: 1rem; margin-top: 1.5rem; justify-content: center; }
+.over-sub {
+  font-size: 0.78rem; color: var(--dim);
+  margin-bottom: 1rem; letter-spacing: 1px;
+}
+
+.over-objectives {
+  text-align: left;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  margin-bottom: 1.2rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.over-obj-title {
+  font-size: 0.65rem; letter-spacing: 2px;
+  color: var(--dim); margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.over-cond {
+  font-size: 0.72rem; padding: 4px 0;
+  border-bottom: 1px solid rgba(80,120,160,0.1);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.over-cond-met   { color: #69f0ae; }
+.over-cond-unmet { color: var(--dim); }
+.over-cond-prog  { font-size: 0.62rem; color: var(--text); opacity: 0.7; margin-left: 8px; white-space: nowrap; }
+
+.over-actions { display: flex; gap: 1rem; margin-top: 1rem; justify-content: center; flex-wrap: wrap; }
 .disconnect-msg { font-size: 1.2rem; color: var(--dim); margin-bottom: 1.5rem; }
 
 /* ─── Combat Results Modal ───────────────────────────────────────────────── */
