@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="black" stroke="none" >
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="black" stroke="none" >
 <ellipse cx="32.0" cy="32.0" rx="19.04" ry="6.16"/>
 <rect x="28.92" y="20.8" width="6.16" height="5.6" opacity="0.45"/>
 <circle cx="32.0" cy="17.44" r="1.12"/>

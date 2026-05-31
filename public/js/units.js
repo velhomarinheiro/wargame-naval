@@ -67,13 +67,14 @@ function getTinted(type, color, size) {
   const key = `${type}_${color}_${size}`;
   if (TINT_CACHE.has(key)) return TINT_CACHE.get(key);
   const img = UNIT_ICONS[type];
-  if (!img || !img.complete || img.naturalWidth === 0) return null;
+  if (!img || !img.complete || !img.src) return null;
+  // SVGs with explicit dimensions have naturalWidth > 0; also accept if img decoded
+  const loaded = img.naturalWidth > 0 || img.naturalHeight > 0;
+  if (!loaded) return null;
   const oc = document.createElement('canvas');
   oc.width = oc.height = size;
   const oct = oc.getContext('2d');
-  // Draw the black-on-transparent SVG
   oct.drawImage(img, 0, 0, size, size);
-  // Replace all opaque pixels with the team colour
   oct.globalCompositeOperation = 'source-in';
   oct.fillStyle = color;
   oct.fillRect(0, 0, size, size);

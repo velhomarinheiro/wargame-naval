@@ -14,7 +14,7 @@ def pt(x, y): return f'{r(x)},{r(y)}'
 def write(name, body, extra_attrs=''):
     svg = (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"'
-        f' fill="black" stroke="none" {extra_attrs}>\n'
+        f' width="64" height="64" fill="black" stroke="none" {extra_attrs}>\n'
         f'{body}\n</svg>\n'
     )
     with open(f'{OUT}/{name}.svg', 'w') as f:
