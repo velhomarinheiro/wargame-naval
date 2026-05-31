@@ -60,7 +60,7 @@ const PNG_TYPE_MAP = {
   patrulha_oc:      'barco.png',
   patrulha_c:       'barco.png',
   logistico:        'barco-de-carga.png',
-  tanque:           'petroleiro.png',
+  tanque:           'tanque-de-oleo.png',
   submarino:        'submarino.png',
   sub_nuclear:      'submarino 2.png',
   patrulha:         'aviao-de-combate.png',
