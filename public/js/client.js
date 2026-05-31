@@ -41,6 +41,63 @@ const abandonBtn        = $('abandon-btn');
 canvas.width  = CVS_W;
 canvas.height = CVS_H;
 
+// ─── Zoom / pan state ─────────────────────────────────────────────────────────
+let zoom = 1.0;
+let panX = 0, panY = 0;
+let isPanning = false, panStartX, panStartY, panStartPanX, panStartPanY;
+
+function clampPan() {
+  const minX = CVS_W  * (1 - zoom);
+  const minY = CVS_H  * (1 - zoom);
+  panX = Math.max(minX, Math.min(0, panX));
+  panY = Math.max(minY, Math.min(0, panY));
+}
+
+function applyZoomAround(screenX, screenY, factor) {
+  const newZoom = Math.max(0.5, Math.min(3.0, zoom * factor));
+  panX = screenX - (screenX - panX) * (newZoom / zoom);
+  panY = screenY - (screenY - panY) * (newZoom / zoom);
+  zoom = newZoom;
+  clampPan();
+  render();
+}
+
+// ─── Animation / flash system ─────────────────────────────────────────────────
+const unitFlashes = new Map(); // unitId → { color, startTime, duration }
+let   sceneFlash  = null;      // { text, color, startTime, duration }
+let   animRunning = false;
+
+function startAnimLoop() {
+  if (animRunning) return;
+  animRunning = true;
+  requestAnimationFrame(animTick);
+}
+
+function animTick(ts) {
+  let active = false;
+  for (const [id, f] of unitFlashes) {
+    if (ts - f.startTime < f.duration) active = true;
+    else unitFlashes.delete(id);
+  }
+  if (sceneFlash) {
+    if (ts - sceneFlash.startTime < sceneFlash.duration) active = true;
+    else sceneFlash = null;
+  }
+  render();
+  if (active) requestAnimationFrame(animTick);
+  else animRunning = false;
+}
+
+function flashUnit(id, color, duration = 1200) {
+  unitFlashes.set(id, { color, startTime: performance.now(), duration });
+  startAnimLoop();
+}
+
+function flashScene(text, color, duration = 1600) {
+  sceneFlash = { text, color, startTime: performance.now(), duration };
+  startAnimLoop();
+}
+
 // ─── Map background image ─────────────────────────────────────────────────────
 const mapImg  = new Image();
 let   mapReady = false;
@@ -51,6 +108,7 @@ mapImg.src = '/mapa.jpeg';
 // ─── Game state ───────────────────────────────────────────────────────────────
 let myTeam      = null;
 let gameState   = null;
+let prevUnitPos = new Map(); // unitId → {col, row} — for movement flash detection
 let selUnitId   = null;
 let moveHexes   = [];   // valid next-step neighbors for selected unit
 let atkHexes    = [];
@@ -94,9 +152,12 @@ socket.on('game_start', ({team, state}) => {
   selUnitId = null; selGroupIds = []; moveHexes = []; atkHexes = []; pendingAtks = [];
   activePath = []; plannedMoves.clear(); hideStackPicker();
   closeBrPanel();
+  prevUnitPos = new Map(state.units.map(u => [u.id, {col: u.col, row: u.row}]));
   lobbyScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
   gameOver.classList.add('hidden');
+  // Preload SVG icons — renders once ready
+  initIcons(() => { TINT_CACHE.clear(); render(); });
   updateUI(); render();
 });
 
@@ -106,6 +167,18 @@ socket.on('game_update', state => {
   const prevMyDone = myTeam && gameState
     ? (myTeam === 'blue' ? gameState.blueDone : gameState.redDone)
     : false;
+
+  // Flash units that moved since last snapshot
+  for (const u of state.units) {
+    if (u.hp <= 0) continue;
+    const prev = prevUnitPos.get(u.id);
+    if (prev && (prev.col !== u.col || prev.row !== u.row)) {
+      const color = u.team === 'blue' ? '#82b1ff' : '#ff8a80';
+      flashUnit(u.id, color, 900);
+    }
+  }
+  prevUnitPos = new Map(state.units.map(u => [u.id, {col: u.col, row: u.row}]));
+
   gameState = state;
   const myDoneNow = myTeam === 'blue' ? state.blueDone : state.redDone;
   // Reset on: new turn, combat→movement, or my done flag was reset (new round)
@@ -115,7 +188,11 @@ socket.on('game_update', state => {
     activePath = []; plannedMoves.clear(); selGroupIds = [];
     selUnitId = null; moveHexes = []; atkHexes = [];
     hideStackPicker();
-    closeBrPanel(); // hide BR panel when new movement phase begins
+    closeBrPanel();
+    if (state.turn !== prevTurn) {
+      const per = state.period === 'day' ? '☀ Diurno' : '🌙 Noturno';
+      flashScene(`TURNO ${state.turn}  ·  ${per}`, 'rgba(0,0,0,0.55)', 1800);
+    }
   } else if (selUnitId) {
     const u = gameState.units.find(u => u.id === selUnitId && u.hp > 0);
     if (u) {
@@ -155,7 +232,16 @@ socket.on('action_error', msg => {
     updateUI();
   }
 });
-socket.on('battle_round_result', data => handleBrResult(data));
+socket.on('battle_round_result', data => {
+  handleBrResult(data);
+  const eng = data.engagement;
+  if (eng) {
+    flashUnit(eng.attackerId, '#ffd700', 900);
+    const hitColor = data.totalDamage > 0 ? '#ff5252' : '#888';
+    flashUnit(eng.targetId, hitColor, data.destroyed ? 1800 : 1000);
+    if (data.destroyed) flashScene('💥 DESTRUÍDO', 'rgba(180,0,0,0.45)', 1200);
+  }
+});
 socket.on('fuel_alert', ({ name, type }) => {
   const msg = type === 'air_lost'
     ? `✈ ${name} perdida por falta de combustível!`
@@ -233,10 +319,8 @@ $('unit-panel').addEventListener('click', e => {
 
 // ─── Canvas input ─────────────────────────────────────────────────────────────
 canvas.addEventListener('mousemove', e => {
-  const r  = canvas.getBoundingClientRect();
-  const sx = canvas.width  / r.width;
-  const sy = canvas.height / r.height;
-  const h  = pixelToHex((e.clientX - r.left) * sx, (e.clientY - r.top) * sy);
+  const {x, y} = toGamePx(e.clientX, e.clientY);
+  const h = pixelToHex(x, y);
   hoverHex = h;
   if (h.col >= 0 && h.col < GRID_W && h.row >= 0 && h.row < GRID_H) {
     const t = TERRAIN_MAP[h.row][h.col];
@@ -255,14 +339,62 @@ canvas.addEventListener('mouseleave', () => {
   terrainTip.style.display = 'none';
   render();
 });
-canvas.addEventListener('click', e => {
-  if (!gameState) return;
+// Convert screen pixels → game world pixels (accounting for zoom/pan)
+function toGamePx(clientX, clientY) {
   const r  = canvas.getBoundingClientRect();
-  const sx = canvas.width  / r.width;
-  const sy = canvas.height / r.height;
-  const h  = pixelToHex((e.clientX - r.left) * sx, (e.clientY - r.top) * sy);
+  const sx = CVS_W / r.width;
+  const sy = CVS_H / r.height;
+  return {
+    x: ((clientX - r.left) * sx - panX) / zoom,
+    y: ((clientY - r.top)  * sy - panY) / zoom,
+  };
+}
+
+canvas.addEventListener('click', e => {
+  if (isPanning) return;
+  if (!gameState) return;
+  const {x, y} = toGamePx(e.clientX, e.clientY);
+  const h = pixelToHex(x, y);
   handleClick(h.col, h.row);
 });
+
+// Zoom via scroll wheel
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r   = canvas.getBoundingClientRect();
+  const sx  = CVS_W / r.width;
+  const sy  = CVS_H / r.height;
+  const screenX = (e.clientX - r.left) * sx;
+  const screenY = (e.clientY - r.top)  * sy;
+  const factor  = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+  applyZoomAround(screenX, screenY, factor);
+}, { passive: false });
+
+// Pan via middle-mouse drag or alt+left drag
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 1 || (e.button === 0 && e.altKey)) {
+    isPanning = true;
+    panStartX = e.clientX; panStartY = e.clientY;
+    panStartPanX = panX; panStartPanY = panY;
+    e.preventDefault();
+  }
+});
+window.addEventListener('mousemove', e => {
+  if (!isPanning) return;
+  const r   = canvas.getBoundingClientRect();
+  const sx  = CVS_W / r.width;
+  const sy  = CVS_H / r.height;
+  panX = panStartPanX + (e.clientX - panStartX) * sx;
+  panY = panStartPanY + (e.clientY - panStartY) * sy;
+  clampPan();
+  render();
+});
+window.addEventListener('mouseup', () => { isPanning = false; });
+
+// Zoom control buttons
+$('zoom-in' ).addEventListener('click', () => applyZoomAround(CVS_W/2, CVS_H/2, 1.25));
+$('zoom-out').addEventListener('click', () => applyZoomAround(CVS_W/2, CVS_H/2, 1/1.25));
+$('zoom-reset').addEventListener('click', () => { zoom = 1; panX = 0; panY = 0; render(); });
 
 // ─── Click logic ──────────────────────────────────────────────────────────────
 function handleClick(col, row) {
@@ -415,8 +547,11 @@ function showStackPicker(col, row, units) {
   const rect  = canvas.getBoundingClientRect();
   const wrap  = canvas.parentElement.getBoundingClientRect();
   const scale = rect.width / canvas.width;
-  const sx = rect.left - wrap.left + x * scale;
-  const sy = rect.top  - wrap.top  + (y + HEX_R) * scale + 6;
+  // Account for zoom/pan transform
+  const wx = (x * zoom + panX) * scale;
+  const wy = ((y + HEX_R) * zoom + panY) * scale;
+  const sx = rect.left - wrap.left + wx;
+  const sy = rect.top  - wrap.top  + wy + 6;
   stackPicker.style.left = `${Math.round(sx - 85)}px`;
   stackPicker.style.top  = `${Math.round(sy)}px`;
   stackPicker.classList.remove('hidden');
@@ -737,13 +872,67 @@ function exportLog() {
 function render() {
   if (!gameState) return;
   ctx.clearRect(0, 0, CVS_W, CVS_H);
+
+  ctx.save();
+  ctx.translate(panX, panY);
+  ctx.scale(zoom, zoom);
+
   drawBackground();
   drawHighlights();
   drawGrid();
   drawInfrastructure();
   drawUnits();
+  drawUnitFlashes();
   drawCoordLabels();
   if (hoverHex) drawHover();
+
+  ctx.restore();
+
+  // Scene-level overlay drawn WITHOUT zoom transform
+  drawSceneFlash();
+}
+
+function drawUnitFlashes() {
+  const now = performance.now();
+  for (const [id, f] of unitFlashes) {
+    const t = Math.max(0, 1 - (now - f.startTime) / f.duration);
+    if (t <= 0) continue;
+    const unit = gameState.units.find(u => u.id === id);
+    if (!unit) continue;
+    const {x, y} = hexToPixel(unit.col, unit.row);
+    const R = HEX_R * 0.50;
+    ctx.save();
+    ctx.globalAlpha  = t * 0.85;
+    ctx.shadowColor  = f.color;
+    ctx.shadowBlur   = 22 * t;
+    ctx.strokeStyle  = f.color;
+    ctx.lineWidth    = 2.5;
+    roundRect(ctx, x - R, y - R * 0.72, R * 2, R * 1.44, 4);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawSceneFlash() {
+  if (!sceneFlash) return;
+  const now = performance.now();
+  const t   = Math.max(0, 1 - (now - sceneFlash.startTime) / sceneFlash.duration);
+  if (t <= 0) return;
+  // Fade in fast, hold, then fade out
+  const a = t < 0.2 ? t / 0.2 : t > 0.7 ? (1 - t) / 0.3 : 1;
+  ctx.save();
+  ctx.globalAlpha = a * 0.72;
+  ctx.fillStyle   = sceneFlash.color;
+  ctx.fillRect(0, 0, CVS_W, CVS_H);
+  ctx.globalAlpha = a;
+  ctx.fillStyle   = '#fff';
+  ctx.font        = `bold ${Math.round(CVS_W * 0.034)}px 'Courier New', monospace`;
+  ctx.textAlign   = 'center';
+  ctx.textBaseline= 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.9)';
+  ctx.shadowBlur  = 18;
+  ctx.fillText(sceneFlash.text, CVS_W / 2, CVS_H / 2);
+  ctx.restore();
 }
 
 // ── Layer 1: Background ───────────────────────────────────────────────────────

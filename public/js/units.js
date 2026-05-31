@@ -36,6 +36,51 @@ const UNIT_DEFS = {
   patrulha:    { name: 'Patrulha Marítima', abbr: 'MP', hp: 2, mov: 7 },
 };
 
+// ─── SVG icon loading ─────────────────────────────────────────────────────────
+const UNIT_ICONS = {};           // type → HTMLImageElement
+const TINT_CACHE = new Map();    // "type_color_size" → offscreen canvas
+
+const ICON_TYPES = [
+  'carrier','amphib','cruzador','destroier','fragata','corveta',
+  'patrulha_oc','patrulha_c','logistico','tanque',
+  'submarino','sub_nuclear',
+  'patrulha','caca','ataque','aew','helicoptero',
+  'bateria_costeira','bateria_ada',
+  'fpso','porto','aeroporto',
+];
+
+let iconsLoaded = 0;
+let iconsTotal  = ICON_TYPES.length;
+
+function initIcons(callback) {
+  for (const type of ICON_TYPES) {
+    const img = new Image();
+    img.onload  = () => { iconsLoaded++; if (iconsLoaded >= iconsTotal && callback) callback(); };
+    img.onerror = () => { iconsLoaded++; if (iconsLoaded >= iconsTotal && callback) callback(); };
+    img.src = `/icons/${type}.svg`;
+    UNIT_ICONS[type] = img;
+  }
+}
+
+// Create a tinted copy of the icon on an offscreen canvas, cached by key.
+function getTinted(type, color, size) {
+  const key = `${type}_${color}_${size}`;
+  if (TINT_CACHE.has(key)) return TINT_CACHE.get(key);
+  const img = UNIT_ICONS[type];
+  if (!img || !img.complete || img.naturalWidth === 0) return null;
+  const oc = document.createElement('canvas');
+  oc.width = oc.height = size;
+  const oct = oc.getContext('2d');
+  // Draw the black-on-transparent SVG
+  oct.drawImage(img, 0, 0, size, size);
+  // Replace all opaque pixels with the team colour
+  oct.globalCompositeOperation = 'source-in';
+  oct.fillStyle = color;
+  oct.fillRect(0, 0, size, size);
+  TINT_CACHE.set(key, oc);
+  return oc;
+}
+
 // ─── Unit counter ─────────────────────────────────────────────────────────────
 function drawUnitCounter(ctx, unit, cx, cy, selected) {
   const isBlue = unit.team === 'blue';
@@ -53,12 +98,19 @@ function drawUnitCounter(ctx, unit, cx, cy, selected) {
   ctx.fill(); ctx.stroke();
   ctx.shadowBlur = 0;
 
-  // Silhouette (upper portion of counter)
-  ctx.save();
-  drawPlatformSilhouette(ctx, unit.type, cx, top + R * 0.48, R * 0.72, border);
-  ctx.restore();
+  // ── Icon (upper portion) ──
+  const iconSz = Math.ceil(R * 1.50);
+  const tinted  = getTinted(unit.type, border, iconSz);
+  if (tinted) {
+    ctx.drawImage(tinted, cx - iconSz / 2, top + R * 0.02, iconSz, iconSz * 0.68);
+  } else {
+    // Fallback to procedural shape
+    ctx.save();
+    drawPlatformSilhouette(ctx, unit.type, cx, top + R * 0.48, R * 0.72, border);
+    ctx.restore();
+  }
 
-  // Type abbreviation (lower portion of counter)
+  // ── Type abbreviation (lower portion) ──
   const abbr = TYPE_ABBR[unit.type] || unit.type.slice(0, 2).toUpperCase();
   ctx.fillStyle = border;
   ctx.font = `bold ${Math.max(6, Math.floor(R * 0.27))}px Courier New`;
@@ -66,7 +118,7 @@ function drawUnitCounter(ctx, unit, cx, cy, selected) {
   ctx.textBaseline = 'middle';
   ctx.fillText(abbr, cx, top + R * 1.18);
 
-  // HP bar
+  // ── HP bar ──
   const hpFrac = unit.hp / unit.maxHp;
   const bw = R * 2 - 4, bh = 3;
   const bx = cx - R + 2, by = top + R * 1.44 + 2;
@@ -76,12 +128,11 @@ function drawUnitCounter(ctx, unit, cx, cy, selected) {
   ctx.fillRect(bx, by, bw * hpFrac, bh);
 }
 
-// ─── Silhouette dispatcher ────────────────────────────────────────────────────
+// ─── Silhouette dispatcher (fallback when SVG not loaded) ─────────────────────
 function drawPlatformSilhouette(ctx, type, cx, cy, sz, color) {
   ctx.fillStyle   = color;
   ctx.strokeStyle = color;
   switch (type) {
-    // ── Surface ships ──
     case 'carrier':     drawCarrierShape(ctx, cx, cy, sz); break;
     case 'amphib':      drawAmphibShape(ctx, cx, cy, sz); break;
     case 'cruzador':    drawShipShape(ctx, cx, cy, sz, 0.62, 0.54); break;
@@ -92,19 +143,15 @@ function drawPlatformSilhouette(ctx, type, cx, cy, sz, color) {
     case 'patrulha_c':  drawShipShape(ctx, cx, cy, sz, 0.30, 0.36); break;
     case 'logistico':   drawCargoShape(ctx, cx, cy, sz); break;
     case 'tanque':      drawTankerShape(ctx, cx, cy, sz); break;
-    // ── Submarines ──
     case 'sub_nuclear': drawSubNuclearShape(ctx, cx, cy, sz); break;
     case 'submarino':   drawSubShape(ctx, cx, cy, sz); break;
-    // ── Aircraft ──
     case 'patrulha':    drawAircraftShape(ctx, cx, cy, sz); break;
     case 'caca':        drawFighterShape(ctx, cx, cy, sz); break;
     case 'ataque':      drawAttackShape(ctx, cx, cy, sz); break;
     case 'aew':         drawAEWShape(ctx, cx, cy, sz); break;
     case 'helicoptero': drawHelicopterShape(ctx, cx, cy, sz); break;
-    // ── Land ──
     case 'bateria_costeira': drawBatteryShape(ctx, cx, cy, sz); break;
     case 'bateria_ada':      drawADAShape(ctx, cx, cy, sz); break;
-    // ── Infrastructure ──
     case 'fpso':       drawFPSOShape(ctx, cx, cy, sz); break;
     case 'porto':      drawPortShape(ctx, cx, cy, sz); break;
     case 'aeroporto':  drawAirportShape(ctx, cx, cy, sz); break;
@@ -112,9 +159,8 @@ function drawPlatformSilhouette(ctx, type, cx, cy, sz, color) {
   }
 }
 
-// ─── Ship shapes (top-down view, bow pointing up) ─────────────────────────────
+// ─── Shape functions (fallback procedural drawing) ────────────────────────────
 
-// Generic hull: bow pointing up, hw/hh = half-width/height fractions of sz
 function drawShipShape(ctx, cx, cy, sz, hw, hh) {
   const w = sz * hw, h = sz * hh;
   ctx.beginPath();
@@ -131,7 +177,6 @@ function drawShipShape(ctx, cx, cy, sz, hw, hh) {
   ctx.restore();
 }
 
-// Aircraft carrier: wide flat flight deck with starboard island
 function drawCarrierShape(ctx, cx, cy, sz) {
   const w = sz * 0.84, h = sz * 0.28;
   ctx.beginPath();
@@ -142,7 +187,6 @@ function drawCarrierShape(ctx, cx, cy, sz) {
   ctx.lineTo(cx - w,        cy);
   ctx.closePath();
   ctx.fill();
-  // Angled deck extension (port)
   ctx.beginPath();
   ctx.moveTo(cx - w * 0.08, cy - h);
   ctx.lineTo(cx - w * 0.55, cy - h * 2.6);
@@ -150,14 +194,12 @@ function drawCarrierShape(ctx, cx, cy, sz) {
   ctx.lineTo(cx + w * 0.18, cy - h);
   ctx.closePath();
   ctx.fill();
-  // Island superstructure (starboard)
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,0.40)';
   ctx.fillRect(cx + w * 0.30, cy - h, w * 0.24, h * 0.68);
   ctx.restore();
 }
 
-// Amphibious ship: wide boxy hull with flat stern/well deck
 function drawAmphibShape(ctx, cx, cy, sz) {
   const w = sz * 0.56, h = sz * 0.50;
   ctx.beginPath();
@@ -168,14 +210,12 @@ function drawAmphibShape(ctx, cx, cy, sz) {
   ctx.lineTo(cx - w,  cy - h * 0.45);
   ctx.closePath();
   ctx.fill();
-  // Well deck / stern ramp indicator
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,0.40)';
   ctx.fillRect(cx - w * 0.52, cy + h * 0.68, w * 1.04, h * 0.24);
   ctx.restore();
 }
 
-// Cargo / logistics: boxy hull with prominent hatches
 function drawCargoShape(ctx, cx, cy, sz) {
   const w = sz * 0.53, h = sz * 0.46;
   ctx.beginPath();
@@ -186,7 +226,6 @@ function drawCargoShape(ctx, cx, cy, sz) {
   ctx.lineTo(cx - w * 0.85, cy - h * 0.22);
   ctx.closePath();
   ctx.fill();
-  // Two cargo hatches
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,0.38)';
   ctx.fillRect(cx - w * 0.65, cy - h * 0.06, w * 0.44, h * 0.48);
@@ -194,7 +233,6 @@ function drawCargoShape(ctx, cx, cy, sz) {
   ctx.restore();
 }
 
-// Tanker: wide oval hull with circular tank domes
 function drawTankerShape(ctx, cx, cy, sz) {
   ctx.beginPath();
   ctx.ellipse(cx, cy + sz * 0.04, sz * 0.58, sz * 0.36, 0, 0, Math.PI * 2);
@@ -209,9 +247,6 @@ function drawTankerShape(ctx, cx, cy, sz) {
   ctx.restore();
 }
 
-// ─── Submarine shapes ─────────────────────────────────────────────────────────
-
-// Conventional sub: horizontal torpedo ellipse + conning tower
 function drawSubShape(ctx, cx, cy, sz) {
   ctx.beginPath();
   ctx.ellipse(cx, cy, sz * 0.56, sz * 0.20, 0, 0, Math.PI * 2);
@@ -222,26 +257,20 @@ function drawSubShape(ctx, cx, cy, sz) {
   ctx.restore();
 }
 
-// Nuclear sub: longer hull + larger conning tower + atom symbol
 function drawSubNuclearShape(ctx, cx, cy, sz) {
-  // Longer hull
   ctx.beginPath();
   ctx.ellipse(cx, cy, sz * 0.68, sz * 0.22, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Larger conning tower
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,0.44)';
   ctx.fillRect(cx - sz * 0.11, cy - sz * 0.22 - sz * 0.18, sz * 0.22, sz * 0.20);
   ctx.restore();
-  // Atom symbol above conning tower
   const ax = cx, ay = cy - sz * 0.52;
   const nr = sz * 0.11;
   ctx.lineWidth = Math.max(0.8, sz * 0.045);
-  // Nucleus dot
   ctx.beginPath();
   ctx.arc(ax, ay, sz * 0.04, 0, Math.PI * 2);
   ctx.fill();
-  // Three electron orbits
   for (let i = 0; i < 3; i++) {
     ctx.save();
     ctx.translate(ax, ay);
@@ -253,14 +282,10 @@ function drawSubNuclearShape(ctx, cx, cy, sz) {
   }
 }
 
-// ─── Aircraft shapes (top-down view, nose pointing up) ───────────────────────
-
-// Large maritime patrol aircraft: wide fuselage + straight wings + tail
 function drawAircraftShape(ctx, cx, cy, sz) {
   ctx.beginPath();
   ctx.ellipse(cx, cy, sz * 0.10, sz * 0.46, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Straight wings (4-engine look, positioned mid-fuselage)
   ctx.beginPath();
   ctx.moveTo(cx,             cy - sz * 0.04);
   ctx.lineTo(cx + sz * 0.54, cy + sz * 0.12);
@@ -273,7 +298,6 @@ function drawAircraftShape(ctx, cx, cy, sz) {
   ctx.lineTo(cx - sz * 0.50, cy + sz * 0.26);
   ctx.lineTo(cx,             cy + sz * 0.12);
   ctx.closePath(); ctx.fill();
-  // T-tail
   ctx.beginPath();
   ctx.moveTo(cx,             cy + sz * 0.36);
   ctx.lineTo(cx + sz * 0.16, cy + sz * 0.46);
@@ -281,12 +305,10 @@ function drawAircraftShape(ctx, cx, cy, sz) {
   ctx.closePath(); ctx.fill();
 }
 
-// Fighter: delta wings, highly swept, narrow fuselage
 function drawFighterShape(ctx, cx, cy, sz) {
   ctx.beginPath();
   ctx.ellipse(cx, cy, sz * 0.07, sz * 0.42, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Delta wings
   ctx.beginPath();
   ctx.moveTo(cx,             cy - sz * 0.04);
   ctx.lineTo(cx + sz * 0.48, cy + sz * 0.34);
@@ -299,7 +321,6 @@ function drawFighterShape(ctx, cx, cy, sz) {
   ctx.lineTo(cx - sz * 0.28, cy + sz * 0.42);
   ctx.lineTo(cx,             cy + sz * 0.10);
   ctx.closePath(); ctx.fill();
-  // Small tail fin
   ctx.beginPath();
   ctx.moveTo(cx,             cy + sz * 0.30);
   ctx.lineTo(cx + sz * 0.09, cy + sz * 0.42);
@@ -307,12 +328,10 @@ function drawFighterShape(ctx, cx, cy, sz) {
   ctx.closePath(); ctx.fill();
 }
 
-// Attack aircraft: swept wings, wider chord, heavier than fighter
 function drawAttackShape(ctx, cx, cy, sz) {
   ctx.beginPath();
   ctx.ellipse(cx, cy, sz * 0.10, sz * 0.44, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Swept wings (medium sweep ~40°)
   ctx.beginPath();
   ctx.moveTo(cx,             cy + sz * 0.02);
   ctx.lineTo(cx + sz * 0.52, cy + sz * 0.26);
@@ -325,7 +344,6 @@ function drawAttackShape(ctx, cx, cy, sz) {
   ctx.lineTo(cx - sz * 0.48, cy + sz * 0.40);
   ctx.lineTo(cx,             cy + sz * 0.20);
   ctx.closePath(); ctx.fill();
-  // T-tail
   ctx.beginPath();
   ctx.moveTo(cx,             cy + sz * 0.34);
   ctx.lineTo(cx + sz * 0.17, cy + sz * 0.44);
@@ -333,19 +351,14 @@ function drawAttackShape(ctx, cx, cy, sz) {
   ctx.closePath(); ctx.fill();
 }
 
-// AEW aircraft: distinctive rotodome disc on top of standard aircraft
 function drawAEWShape(ctx, cx, cy, sz) {
-  // Rotodome (most distinctive feature)
   ctx.beginPath();
   ctx.ellipse(cx, cy - sz * 0.12, sz * 0.46, sz * 0.11, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Strut
   ctx.fillRect(cx - sz * 0.04, cy - sz * 0.01, sz * 0.08, sz * 0.15);
-  // Fuselage
   ctx.beginPath();
   ctx.ellipse(cx, cy + sz * 0.14, sz * 0.09, sz * 0.34, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Wings
   ctx.beginPath();
   ctx.moveTo(cx,             cy + sz * 0.06);
   ctx.lineTo(cx + sz * 0.48, cy + sz * 0.24);
@@ -360,7 +373,6 @@ function drawAEWShape(ctx, cx, cy, sz) {
   ctx.closePath(); ctx.fill();
 }
 
-// Helicopter: rotor cross + oval fuselage + tail boom + tail rotor
 function drawHelicopterShape(ctx, cx, cy, sz) {
   const blade = sz * 0.52;
   ctx.lineWidth = Math.max(1.5, sz * 0.08);
@@ -383,12 +395,8 @@ function drawHelicopterShape(ctx, cx, cy, sz) {
   ctx.stroke();
 }
 
-// ─── Land / battery shapes ───────────────────────────────────────────────────
-
-// Coastal missile battery: radar dish + angled launcher
 function drawBatteryShape(ctx, cx, cy, sz) {
   ctx.lineWidth = Math.max(1, sz * 0.08);
-  // Radar dish
   ctx.beginPath();
   ctx.arc(cx - sz * 0.18, cy - sz * 0.08, sz * 0.28, Math.PI * 1.12, Math.PI * 1.88);
   ctx.stroke();
@@ -396,7 +404,6 @@ function drawBatteryShape(ctx, cx, cy, sz) {
   ctx.moveTo(cx - sz * 0.18, cy - sz * 0.08);
   ctx.lineTo(cx - sz * 0.18, cy + sz * 0.20);
   ctx.stroke();
-  // Missile launcher (angled tube + tip)
   ctx.save();
   ctx.translate(cx + sz * 0.26, cy + sz * 0.08);
   ctx.rotate(-Math.PI * 0.28);
@@ -407,62 +414,50 @@ function drawBatteryShape(ctx, cx, cy, sz) {
   ctx.lineTo(sz * 0.06,  -sz * 0.28);
   ctx.closePath(); ctx.fill();
   ctx.restore();
-  // Base platform
   ctx.fillRect(cx - sz * 0.40, cy + sz * 0.30, sz * 0.80, sz * 0.14);
 }
 
-// ADA (air defence) battery: three upward SAM launcher tubes
 function drawADAShape(ctx, cx, cy, sz) {
   const lw = sz * 0.09, lh = sz * 0.36;
   const tubeTop = cy - sz * 0.10;
   [-sz * 0.22, 0, sz * 0.22].forEach(ox => {
     ctx.fillRect(cx + ox - lw / 2, tubeTop, lw, lh);
-    // Missile tip
     ctx.beginPath();
     ctx.moveTo(cx + ox - lw / 2, tubeTop);
     ctx.lineTo(cx + ox,          tubeTop - sz * 0.14);
     ctx.lineTo(cx + ox + lw / 2, tubeTop);
     ctx.closePath(); ctx.fill();
   });
-  // Base platform
   ctx.fillRect(cx - sz * 0.40, cy + sz * 0.28, sz * 0.80, sz * 0.12);
 }
 
-// ─── Infrastructure shapes ────────────────────────────────────────────────────
-
-// FPSO: square platform deck with corner legs + central derrick
 function drawFPSOShape(ctx, cx, cy, sz) {
   const s = sz * 0.56;
   ctx.fillRect(cx - s / 2, cy - s / 2, s, s);
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,0.40)';
   const legS = sz * 0.12;
-  const corners = [[-s / 2, -s / 2], [s / 2 - legS, -s / 2], [-s / 2, s / 2 - legS], [s / 2 - legS, s / 2 - legS]];
-  corners.forEach(([lx, ly]) => ctx.fillRect(cx + lx, cy + ly, legS, legS));
+  [[-s/2,-s/2],[s/2-legS,-s/2],[-s/2,s/2-legS],[s/2-legS,s/2-legS]]
+    .forEach(([lx, ly]) => ctx.fillRect(cx + lx, cy + ly, legS, legS));
   ctx.fillStyle = 'rgba(0,0,0,0.50)';
   ctx.fillRect(cx - sz * 0.08, cy - sz * 0.18, sz * 0.16, sz * 0.36);
   ctx.restore();
 }
 
-// Port: anchor symbol
 function drawPortShape(ctx, cx, cy, sz) {
   const lw = Math.max(1.5, sz * 0.10);
   ctx.lineWidth = lw;
-  // Ring
   ctx.beginPath();
   ctx.arc(cx, cy - sz * 0.32, sz * 0.12, 0, Math.PI * 2);
   ctx.stroke();
-  // Cross bar
   ctx.beginPath();
   ctx.moveTo(cx - sz * 0.30, cy - sz * 0.18);
   ctx.lineTo(cx + sz * 0.30, cy - sz * 0.18);
   ctx.stroke();
-  // Shaft
   ctx.beginPath();
   ctx.moveTo(cx, cy - sz * 0.18);
   ctx.lineTo(cx, cy + sz * 0.30);
   ctx.stroke();
-  // Flukes
   ctx.beginPath();
   ctx.moveTo(cx,             cy + sz * 0.30);
   ctx.lineTo(cx - sz * 0.26, cy + sz * 0.12);
@@ -471,16 +466,12 @@ function drawPortShape(ctx, cx, cy, sz) {
   ctx.stroke();
 }
 
-// Airport / airfield: two crossing runways (plus sign)
 function drawAirportShape(ctx, cx, cy, sz) {
-  // Primary runway (horizontal)
   ctx.fillRect(cx - sz * 0.44, cy - sz * 0.11, sz * 0.88, sz * 0.22);
-  // Secondary runway (vertical)
   ctx.fillRect(cx - sz * 0.11, cy - sz * 0.44, sz * 0.22, sz * 0.88);
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
-
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);

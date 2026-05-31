@@ -322,6 +322,31 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
 .sp-unit-btn:hover { background: rgba(21,101,192,0.25); border-color: var(--blue-l); }
 .sp-group { font-size: 0.72rem; padding: 6px 10px; margin-top: 2px; }
 
+/* ─── Zoom controls ──────────────────────────────────────────────────────── */
+.zoom-controls {
+  position: absolute;
+  top: 10px; right: 10px;
+  display: flex; flex-direction: column; gap: 4px;
+  z-index: 15;
+}
+.zoom-btn {
+  width: 30px; height: 30px;
+  background: rgba(5,18,38,0.88);
+  border: 1px solid var(--border);
+  color: var(--dim);
+  font-size: 0.85rem; font-weight: bold;
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  font-family: 'Courier New', monospace;
+}
+.zoom-btn:hover {
+  background: rgba(21,101,192,0.35);
+  border-color: var(--blue-l);
+  color: var(--blue-l);
+}
+
 /* ─── Terrain tooltip ────────────────────────────────────────────────────── */
 .terrain-tip {
   display: none;
