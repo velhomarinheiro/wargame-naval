@@ -36,8 +36,8 @@ const UNIT_DEFS = {
   patrulha:    { name: 'Patrulha Marítima', abbr: 'MP', hp: 2, mov: 7 },
 };
 
-// ─── SVG icon loading ─────────────────────────────────────────────────────────
-const UNIT_ICONS = {};           // type → HTMLImageElement
+// ─── Icon loading (PNG preferred, SVG fallback) ───────────────────────────────
+const UNIT_ICONS = {};           // type → { img, isPng }
 const TINT_CACHE = new Map();    // "type_color_size" → offscreen canvas
 
 const ICON_TYPES = [
@@ -49,35 +49,109 @@ const ICON_TYPES = [
   'fpso','porto','aeroporto',
 ];
 
-let iconsLoaded = 0;
-let iconsTotal  = ICON_TYPES.length;
+// Maps unit type → PNG filename in public/icons/ (white-bg, black-stroke icons)
+const PNG_TYPE_MAP = {
+  carrier:          'porta-avioes.png',
+  amphib:           'navio-de-guerra.png',
+  cruzador:         'navio-de-guerra.png',
+  destroier:        'navio-de-guerra.png',
+  fragata:          'barco.png',
+  corveta:          'barco.png',
+  patrulha_oc:      'barco.png',
+  patrulha_c:       'barco.png',
+  logistico:        'barco-de-carga.png',
+  tanque:           'petroleiro.png',
+  submarino:        'submarino.png',
+  sub_nuclear:      'submarino 2.png',
+  patrulha:         'aviao-de-combate.png',
+  caca:             'aeronaves.png',
+  ataque:           'aeronaves.png',
+  aew:              'aviao-de-combate.png',
+  bateria_costeira: 'Military Tank.png',
+  bateria_ada:      'Military Tank.png',
+  fpso:             'plataforma-de-petroleo.png',
+  porto:            'porta.png',
+  aeroporto:        'aeroporto.png',
+  // helicoptero: no PNG available → falls back to SVG
+};
 
 function initIcons(callback) {
-  for (const type of ICON_TYPES) {
+  // Deduplicate: load each unique PNG file only once
+  const uniquePngs = [...new Set(Object.values(PNG_TYPE_MAP))];
+  const svgTypes   = ICON_TYPES.filter(t => !PNG_TYPE_MAP[t]);
+  const needed     = uniquePngs.length + svgTypes.length;
+  let   loaded     = 0;
+  const done = () => { if (++loaded >= needed && callback) callback(); };
+
+  // Load unique PNGs, share Image objects across types that use the same file
+  const pngImgs = {};
+  for (const file of uniquePngs) {
     const img = new Image();
-    img.onload  = () => { iconsLoaded++; if (iconsLoaded >= iconsTotal && callback) callback(); };
-    img.onerror = () => { iconsLoaded++; if (iconsLoaded >= iconsTotal && callback) callback(); };
-    img.src = `/icons/${type}.svg`;
-    UNIT_ICONS[type] = img;
+    pngImgs[file] = img;
+    img.onload = img.onerror = done;
+    img.src = '/icons/' + encodeURIComponent(file);
   }
+  for (const type of ICON_TYPES) {
+    const file = PNG_TYPE_MAP[type];
+    if (file) UNIT_ICONS[type] = { img: pngImgs[file], isPng: true };
+  }
+
+  // Load SVGs for remaining types
+  for (const type of svgTypes) {
+    const img = new Image();
+    UNIT_ICONS[type] = { img, isPng: false };
+    img.onload = img.onerror = done;
+    img.src = `/icons/${type}.svg`;
+  }
+
+  if (needed === 0 && callback) callback();
+}
+
+// Parse '#rrggbb' or 'rgb(r,g,b)' → [r, g, b]
+function parseRgb(css) {
+  const m = css.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (m) return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+  const m2 = css.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (m2) return [+m2[1], +m2[2], +m2[3]];
+  return [255, 255, 255];
 }
 
 // Create a tinted copy of the icon on an offscreen canvas, cached by key.
+// PNGs: white-bg icons — convert luminance to alpha, apply team color.
+// SVGs: transparent-bg icons — use source-in compositing.
 function getTinted(type, color, size) {
   const key = `${type}_${color}_${size}`;
   if (TINT_CACHE.has(key)) return TINT_CACHE.get(key);
-  const img = UNIT_ICONS[type];
+  const entry = UNIT_ICONS[type];
+  if (!entry) return null;
+  const { img, isPng } = entry;
   if (!img || !img.complete || !img.src) return null;
-  // SVGs with explicit dimensions have naturalWidth > 0; also accept if img decoded
-  const loaded = img.naturalWidth > 0 || img.naturalHeight > 0;
-  if (!loaded) return null;
+  if (!(img.naturalWidth > 0 || img.naturalHeight > 0)) return null;
+
   const oc = document.createElement('canvas');
   oc.width = oc.height = size;
   const oct = oc.getContext('2d');
   oct.drawImage(img, 0, 0, size, size);
-  oct.globalCompositeOperation = 'source-in';
-  oct.fillStyle = color;
-  oct.fillRect(0, 0, size, size);
+
+  if (isPng) {
+    // White background → transparent; dark strokes → team color
+    const [r, g, b] = parseRgb(color);
+    const idata = oct.getImageData(0, 0, size, size);
+    const d = idata.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const lum = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+      d[i]     = r;
+      d[i + 1] = g;
+      d[i + 2] = b;
+      d[i + 3] = Math.max(0, Math.min(255, (200 - lum) * 3));
+    }
+    oct.putImageData(idata, 0, 0);
+  } else {
+    oct.globalCompositeOperation = 'source-in';
+    oct.fillStyle = color;
+    oct.fillRect(0, 0, size, size);
+  }
+
   TINT_CACHE.set(key, oc);
   return oc;
 }
