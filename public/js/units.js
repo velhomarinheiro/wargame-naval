@@ -134,16 +134,18 @@ function getTinted(type, color, size) {
   oct.drawImage(img, 0, 0, size, size);
 
   if (isPng) {
-    // White background → transparent; dark strokes → team color
+    // Transparent pixels stay transparent; dark strokes → team color; light bg → transparent
     const [r, g, b] = parseRgb(color);
     const idata = oct.getImageData(0, 0, size, size);
     const d = idata.data;
     for (let i = 0; i < d.length; i += 4) {
-      const lum = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+      const origAlpha = d[i + 3];
+      const lum      = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+      const darkness = Math.max(0, Math.min(255, (200 - lum) * 3));
       d[i]     = r;
       d[i + 1] = g;
       d[i + 2] = b;
-      d[i + 3] = Math.max(0, Math.min(255, (200 - lum) * 3));
+      d[i + 3] = Math.round(origAlpha * darkness / 255);
     }
     oct.putImageData(idata, 0, 0);
   } else {
