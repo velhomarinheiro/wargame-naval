@@ -583,7 +583,7 @@ function handleClick(col, row) {
     if (ownUnits.length === 1) {
       selGroupIds = []; selUnitId = ownUnits[0].id;
       recalcHighlights(ownUnits[0]); updateUI(); render();
-    } else { deselect(); }
+    } else { if (!tryShowEnemyCard(col, row)) deselect(); }
     return;
   }
 
@@ -606,7 +606,7 @@ function handleClick(col, row) {
     }
     // Click on own unit(s)
     const ownUnits = gameState.units.filter(u => u.col === col && u.row === row && u.hp > 0 && u.team === myTeam);
-    if (ownUnits.length === 0) { deselect(true); return; }
+    if (ownUnits.length === 0) { if (!tryShowEnemyCard(col, row)) deselect(true); return; }
     if (ownUnits.length > 1) { deselect(true); showStackPicker(col, row, ownUnits); return; }
     const unit = ownUnits[0];
     if (selUnitId === unit.id && selGroupIds.length === 0) return; // already selected alone
@@ -619,9 +619,19 @@ function handleClick(col, row) {
   }
 }
 
+// If there is a visible enemy unit at col,row with a card, show it and return true.
+function tryShowEnemyCard(col, row) {
+  const enemies = gameState.units.filter(
+    u => u.col === col && u.row === row && u.hp > 0 && u.team !== myTeam
+  );
+  if (enemies.length === 0) return false;
+  const target = enemies.find(u => UNIT_CARD[u.id]) || enemies[0];
+  if (UNIT_CARD[target.id]) { showCardModal(target.id); return true; }
+  return false;
+}
+
 // save=true saves activePath to plannedMoves; save=false discards it
-function deselect(save = true) {
-  if (selUnitId !== null) {
+function deselect(save = true) {  if (selUnitId !== null) {
     const ids = selGroupIds.length > 0 ? selGroupIds : [selUnitId];
     if (save && activePath.length > 1) {
       for (const id of ids) plannedMoves.set(id, [...activePath]);
