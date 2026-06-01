@@ -36,6 +36,9 @@ const spGroupBtn   = $('sp-group-btn');
 const objectivesContent = $('objectives-content');
 const exportLogBtn      = $('export-log-btn');
 const abandonBtn        = $('abandon-btn');
+const unitTooltipEl     = $('unit-tooltip');
+const cardModal         = $('card-modal');
+const cardModalImg      = $('card-modal-img');
 
 // ─── Canvas setup ─────────────────────────────────────────────────────────────
 canvas.width  = CVS_W;
@@ -110,6 +113,111 @@ let myTeam      = null;
 let gameState   = null;
 let prevUnitPos = new Map(); // unitId → {col, row} — for movement flash detection
 let selUnitId   = null;
+
+// ─── Unit card images ─────────────────────────────────────────────────────────
+const UNIT_CARD = {
+  'BLUE-SAG-P':    'Blue_SAG_P.PNG',
+  'BLUE-SAG-S1':   'Blue_SAG_S1.jpg',
+  'BLUE-SAG-S2':   'Blue_SAG_S2.jpg',
+  'BLUE-ANFIB':    'Blue_ANFIB.jpg',
+  'BLUE-LOG-A':    'Blue_LOG_A.jpg',
+  'BLUE-LOG-T':    'Blue_LOG_T.jpg',
+  'BLUE-PAT-O1':   'Blue_PAT_01.jpg',
+  'BLUE-PAT-O2':   'Blue_PAT_02.jpg',
+  'BLUE-PAT-C1':   'Blue_PAT_C1.jpg',
+  'BLUE-PAT-C2':   'Blue_PAT_C2.jpg',
+  'BLUE-SUB-N':    'Blue_SUB_N.jpg',
+  'BLUE-SUB-1':    'Blue_SUB_1.jpg',
+  'BLUE-SUB-2':    'Blue_SUB_2.jpg',
+  'BLUE-SUB-3':    'Blue_SUB_3.jpg',
+  'BLUE-MPRA-1':   'Blue_MPRA_1.jpg',
+  'BLUE-MPRA-2':   'Blue_MPRA_2.jpg',
+  'BLUE-CACA-1':   'Blue_CACA_1.jpg',
+  'BLUE-CACA-2':   'Blue_CACA_2.jpg',
+  'BLUE-CJAT-1':   'Blue_CJAT_1.jpg',
+  'BLUE-CJAT-2':   'Blue_CJAT_2.jpg',
+  'BLUE-DCOST1':   'Blue_DCOST1.jpg',
+  'BLUE-DCOST2':   'Blue_DCOST2.jpg',
+  'BLUE-ADA-1':    'Blue_ADA_1.jpg',
+  'BLUE-ADA-2':    'Blue_ADA_2.jpg',
+  'BLUE-FPSO1':    'Blue_FPSO1.jpg',
+  'BLUE-FPSO2':    'Blue_FPSO2.jpg',
+  'BLUE-FPSO3':    'Blue_FPSO3.jpg',
+  'BLUE-FPSO4':    'Blue_FPSO4.jpg',
+  'BLUE-PORTO-S':  'Blue_PORTO_S.jpg',
+  'BLUE-PORTO-RJ': 'Blue_PORTO_RJ.jpg',
+  'BLUE-PORTO-V':  'Blue_PORTO_V.jpg',
+  'BLUE-PORTO-ACU':'Blue_PORTO_ACU.jpg',
+  'RED-GBPA':      'Red_GBPA.jpg',
+  'RED-GE-1':      'Red_GE_1.jpg',
+  'RED-GE-2':      'Red_GE_2.jpg',
+  'RED-GE-3':      'Red_GE_3.jpg',
+  'RED-AOR-G':     'Red_AOR_G.jpg',
+  'RED-GANF':      'Red_GANF.jpg',
+  'RED-GLOG':      'Red_GLOG.jpg',
+  'RED-AKE':       'Red_AKE.jpg',
+  'RED-KSN':       'Red_KSN.jpg',
+  'RED-KS-1':      'Red_KS1.jpg',
+  'RED-KMF-1':     'Red_KMF_1.jpg',
+  'RED-KMF-2':     'Red_KMF_2.jpg',
+  'RED-MPRA-K1':   'Red_MPRA_K1.jpg',
+  'RED-MPRA-K2':   'Red_MPRA_K2.jpg',
+  'RED-AWACS-K':   'Red_AWACS_K.jpg',
+};
+function cardUrl(unitId) {
+  const f = UNIT_CARD[unitId];
+  return f ? `/cards/${encodeURIComponent(f)}` : null;
+}
+
+// ─── Card modal (tier 3) ──────────────────────────────────────────────────────
+function showCardModal(unitId) {
+  const url = cardUrl(unitId);
+  if (!url) return;
+  cardModalImg.src = url;
+  cardModal.classList.remove('hidden');
+}
+function hideCardModal() {
+  cardModal.classList.add('hidden');
+  cardModalImg.src = '';
+}
+$('card-modal-close').addEventListener('click', hideCardModal);
+cardModal.addEventListener('click', e => { if (e.target === cardModal) hideCardModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideCardModal(); });
+
+// ─── Tooltip (tier 1) ─────────────────────────────────────────────────────────
+let _tooltipTimer = null;
+let _tooltipHex   = null; // 'col,row' key of last hex that triggered tooltip
+
+function _showTooltip(units, clientX, clientY) {
+  const u = units[0];
+  const hpPct = Math.round(u.hp / u.maxHp * 100);
+  const det   = u.detectionRange || {};
+  const extra = units.length > 1
+    ? `<div class="ut-hint">${units.length} unidades neste hexágono</div>` : '';
+  const hasCard = units.some(x => UNIT_CARD[x.id]);
+  const cardHint = hasCard ? '<div class="ut-hint">Clique direito · card completo</div>' : '';
+  unitTooltipEl.innerHTML = `
+    <div class="ut-name ${u.team}">${u.name}</div>
+    <div class="ut-stats">
+      <span>SP</span><b>${u.hp}/${u.maxHp} (${hpPct}%)</b>
+      <span>MOV</span><b>${u.movement}</b>
+      <span>Det S/A/Sb</span><b>${det.surface||0}/${det.air||0}/${det.submarine||0}</b>
+    </div>
+    ${extra}${cardHint}`;
+  _positionTooltip(clientX, clientY);
+  unitTooltipEl.classList.remove('hidden');
+}
+function _positionTooltip(cx, cy) {
+  const x = cx + 18, y = cy + 12;
+  unitTooltipEl.style.left = Math.min(x, window.innerWidth  - 220) + 'px';
+  unitTooltipEl.style.top  = Math.min(y, window.innerHeight - 140) + 'px';
+}
+function _hideTooltip() {
+  clearTimeout(_tooltipTimer);
+  _tooltipTimer = null;
+  _tooltipHex   = null;
+  unitTooltipEl.classList.add('hidden');
+}
 let moveHexes   = [];   // valid next-step neighbors for selected unit
 let atkHexes    = [];
 let pendingAtks = [];
@@ -305,6 +413,10 @@ abandonBtn.addEventListener('click', () => {
 
 // Amount +/- controls in unit panel (event delegation)
 $('unit-panel').addEventListener('click', e => {
+  // Card thumbnail → open modal
+  const thumb = e.target.closest('[data-card-unit]');
+  if (thumb) { showCardModal(thumb.dataset.cardUnit); return; }
+
   const btn = e.target.closest('[data-atk-adj]');
   if (!btn) return;
   const attackerId = btn.dataset.attacker;
@@ -329,14 +441,32 @@ canvas.addEventListener('mousemove', e => {
     if (inf.length) tip += ' · ' + inf.map(i => i.name).join(', ');
     terrainTip.textContent = tip;
     terrainTip.style.display = 'block';
+
+    // Unit tooltip: appear after 350 ms hovering the same hex
+    if (gameState) {
+      const hexKey = `${h.col},${h.row}`;
+      const visUnits = gameState.units.filter(u => u.col === h.col && u.row === h.row && u.hp > 0);
+      if (visUnits.length > 0) {
+        _positionTooltip(e.clientX, e.clientY); // keep it tracking cursor even while waiting
+        if (_tooltipHex !== hexKey) {
+          _tooltipHex = hexKey;
+          clearTimeout(_tooltipTimer);
+          _tooltipTimer = setTimeout(() => _showTooltip(visUnits, e.clientX, e.clientY), 350);
+        }
+      } else {
+        _hideTooltip();
+      }
+    }
   } else {
     terrainTip.style.display = 'none';
+    _hideTooltip();
   }
   render();
 });
 canvas.addEventListener('mouseleave', () => {
   hoverHex = null;
   terrainTip.style.display = 'none';
+  _hideTooltip();
   render();
 });
 // Convert screen pixels → game world pixels (accounting for zoom/pan)
@@ -356,6 +486,19 @@ canvas.addEventListener('click', e => {
   const {x, y} = toGamePx(e.clientX, e.clientY);
   const h = pixelToHex(x, y);
   handleClick(h.col, h.row);
+});
+
+// Right-click → show full card modal (tier 3)
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  if (!gameState) return;
+  const {x, y} = toGamePx(e.clientX, e.clientY);
+  const h = pixelToHex(x, y);
+  if (h.col < 0 || h.col >= GRID_W || h.row < 0 || h.row >= GRID_H) return;
+  const units = gameState.units.filter(u => u.col === h.col && u.row === h.row && u.hp > 0);
+  if (units.length === 0) return;
+  const target = units.find(u => UNIT_CARD[u.id]) || units[0];
+  showCardModal(target.id);
 });
 
 // Zoom via scroll wheel
@@ -739,6 +882,14 @@ function updateUI() {
       .filter(([, v]) => v > 0)
       .map(([k, v]) => `${k.toUpperCase()}: ${v}`);
 
+    const cardFile = cardUrl(sel.id);
+    const cardThumb = cardFile ? `
+      <div class="card-thumb-wrap">
+        <img class="card-thumb" src="${cardFile}" alt="Card ${sel.name}"
+             data-card-unit="${sel.id}" title="Clique para ver o card completo">
+        <div class="card-thumb-hint">CLIQUE · CARD COMPLETO</div>
+      </div>` : '';
+
     unitPanel.innerHTML = `
       <div class="u-name ${sel.team}">${sel.name}</div>
       <div class="hp-bar"><div class="hp-fill" style="width:${hpPct}%;background:${bar}"></div></div>
@@ -757,6 +908,7 @@ function updateUI() {
       ${pathHint}
       ${atkHexes.length ? '<div class="u-hint">Clique em alvos vermelhos p/ declarar ataque</div>' : ''}
       ${myAtks.length ? buildAtkListHtml(myAtks) : ''}
+      ${cardThumb}
     `;
   } else {
     unitPanel.innerHTML = '<p class="no-sel">Clique em uma unidade sua</p>';

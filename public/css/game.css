@@ -679,3 +679,105 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
   color: var(--dim);
   white-space: nowrap;
 }
+
+/* ═══ UNIT TOOLTIP (tier 1) ═════════════════════════════════════════════════ */
+.unit-tooltip {
+  position: fixed;
+  z-index: 300;
+  background: rgba(4,14,28,0.97);
+  border: 1px solid rgba(80,140,200,0.55);
+  border-radius: 4px;
+  padding: 8px 11px;
+  pointer-events: none;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.72rem;
+  color: var(--text);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.7);
+  min-width: 150px;
+  max-width: 210px;
+  transition: opacity 0.12s;
+}
+.ut-name {
+  font-size: 0.82rem;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+}
+.ut-name.blue { color: var(--blue-l); }
+.ut-name.red  { color: var(--red-l);  }
+.ut-stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  font-size: 0.67rem;
+  color: var(--dim);
+}
+.ut-stats b { color: var(--text); font-weight: bold; }
+.ut-hint {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(80,140,200,0.2);
+  font-size: 0.62rem;
+  color: var(--dim);
+  letter-spacing: 0.3px;
+}
+
+/* ═══ CARD THUMBNAIL in sidebar (tier 2) ════════════════════════════════════ */
+.card-thumb-wrap {
+  margin-top: 8px;
+  text-align: center;
+}
+.card-thumb {
+  width: 100%;
+  max-width: 188px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  display: block;
+  margin: 0 auto;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.card-thumb:hover {
+  border-color: var(--gold);
+  box-shadow: 0 0 10px rgba(201,168,76,0.4);
+}
+.card-thumb-hint {
+  margin-top: 4px;
+  font-size: 0.58rem;
+  color: var(--dim);
+  letter-spacing: 1px;
+}
+
+/* ═══ CARD MODAL (tier 3) ═══════════════════════════════════════════════════ */
+.card-modal-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-modal-img {
+  max-height: 92vh;
+  max-width: 96vw;
+  border-radius: 8px;
+  box-shadow: 0 8px 60px rgba(0,0,0,0.85);
+  display: block;
+  /* natural aspect ratio preserved */
+  object-fit: contain;
+}
+.card-modal-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  background: rgba(8,24,44,0.97);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 301;
+  transition: border-color 0.15s, color 0.15s;
+  line-height: 1;
+}
+.card-modal-close:hover { border-color: var(--gold); color: var(--gold); }

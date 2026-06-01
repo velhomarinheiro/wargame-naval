@@ -154,6 +154,17 @@
   </div>
 </div>
 
+<!-- ── UNIT TOOLTIP (tier 1: hover stats) ─────────────────────────────────── -->
+<div id="unit-tooltip" class="unit-tooltip hidden"></div>
+
+<!-- ── CARD MODAL (tier 3: right-click / thumbnail click) ────────────────── -->
+<div id="card-modal" class="overlay hidden">
+  <div class="card-modal-box">
+    <button id="card-modal-close" class="card-modal-close" title="Fechar (ESC)">✕</button>
+    <img id="card-modal-img" class="card-modal-img" src="" alt="Card da unidade">
+  </div>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script src="js/hex.js"></script>
 <script src="js/terrain.js"></script>
