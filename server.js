@@ -16,6 +16,7 @@ const {
   recoverAircraft, resetFuelTurnCounters,
 } = require('./fuel_model');
 const gameLogger = require('./game_logger');
+const bot        = require('./bot');
 
 const PORT   = process.env.PORT || 3000;
 const GRID_W = 16;
@@ -367,6 +368,8 @@ function startCurrentEngagement(room) {
 
   // Multi-round weapon, target survived: ask both players
   state.battleRoundDecisions = { blue: null, red: null };
+  // Bot auto-decides 'stop' (conservative) so only the human needs to act
+  if (room.bot) state.battleRoundDecisions[room.bot] = 'stop';
   emitBrResult(room, engagement, result, true);
 }
 
@@ -632,6 +635,129 @@ function broadcast(room) {
   if (room.players.red)  io.to(room.players.red ).emit('game_update', stateFor(room.state,'red'));
 }
 
+// ─── Bot helpers ──────────────────────────────────────────────────────────────
+
+// Applies a set of moves on behalf of a team (human or bot).
+// Mirrors the commit_moves handler without socket validation.
+function applyMoves(room, team, moves) {
+  const state = room.state;
+  if (!state || state.phase !== 'movement') return;
+  if (state[team === 'blue' ? 'blueDone' : 'redDone']) return;
+
+  gameLogger.logMoves(room.id, state.turn, state.period, team, moves, state);
+
+  for (const { unitId, path } of (moves || [])) {
+    if (!Array.isArray(path) || path.length < 2) continue;
+    const unit = state.units.find(u => u.id === unitId && u.team === team && u.hp > 0);
+    if (!unit) continue;
+    const dest = path[path.length - 1];
+    unit.col = dest.col; unit.row = dest.row; unit.moved = true;
+    state.log.unshift(`${unit.name}(${team}) → ${String.fromCharCode(65 + dest.col)}${dest.row + 1}`);
+    const dist = path.length - 1;
+    if (unit.category !== 'air') {
+      spendNavalFuel(unit, navalMoveCost(dist));
+    } else {
+      unit.airStatus = 'airborne';
+      spendAirFuel(unit, dist);
+      if (isAirRefuelLocation(unit, state)) unit.fuel.wasAtRefuelLocation = true;
+    }
+  }
+
+  for (const u of state.units) {
+    if (u.hp <= 0 || u.team !== team || u.moved) continue;
+    if (u.category === 'air') {
+      if (u.airStatus === 'airborne') {
+        if (isAirRefuelLocation(u, state)) u.fuel.wasAtRefuelLocation = true;
+        else spendAirFuel(u, 1);
+      }
+    } else {
+      spendNavalFuel(u, navalMoveCost(0));
+    }
+  }
+
+  if (team === 'blue') state.blueDone = true; else state.redDone = true;
+
+  if (state.blueDone && state.redDone) {
+    const navalEmpty = checkNavalFuelZero(state);
+    for (const u of navalEmpty) {
+      const pid = room.players[u.team];
+      if (pid) io.to(pid).emit('fuel_alert', { unitId: u.id, name: u.name, type: 'naval_empty' });
+      state.log.unshift(`⛽ ${u.name}(${u.team}) sem combustível: não pode mover, atacar ou se defender.`);
+    }
+    const airLost = checkAirFuelLosses(state);
+    for (const u of airLost) {
+      const pid = room.players[u.team];
+      if (pid) io.to(pid).emit('fuel_alert', { unitId: u.id, name: u.name, type: 'air_lost' });
+      state.log.unshift(`✈ ${u.name}(${u.team}) perdida por falta de combustível.`);
+    }
+    state.phase = 'combat';
+    state.log.unshift('Fase de Combate iniciada. Declare seus ataques.');
+  } else {
+    const botLabel = team === 'blue' ? 'Azul' : 'Vermelho';
+    state.log.unshift(`🤖 Bot (${botLabel}) encerrou a movimentação.`);
+  }
+
+  if (state.log.length > 50) state.log = state.log.slice(0, 50);
+  broadcast(room);
+
+  if (state.phase === 'combat' && room.bot) {
+    const atkKey = room.bot === 'blue' ? 'blueAttacks' : 'redAttacks';
+    if (state[atkKey] === null) setImmediate(() => triggerBotAttack(room, room.bot));
+  }
+}
+
+// Applies a set of attacks on behalf of a team. Mirrors declare_attacks handler.
+function applyAttacks(room, team, attacks) {
+  const state   = room.state;
+  const atkKey  = team === 'blue' ? 'blueAttacks' : 'redAttacks';
+  if (!state || state.phase !== 'combat' || state[atkKey] !== null) return;
+
+  gameLogger.logAttacks(room.id, state.turn, state.period, team, attacks, state);
+  state[atkKey] = attacks || [];
+
+  const botLabel = team === 'blue' ? 'Azul' : 'Vermelho';
+  state.log.unshift(`🤖 Bot (${botLabel}) confirmou ${(attacks || []).length} ataque(s).`);
+
+  if (state.blueAttacks !== null && state.redAttacks !== null) {
+    state.log.unshift('── Resolução de Combate ──');
+    state.combatQueue            = buildCombatQueue(state);
+    state.currentEngagementIndex = 0;
+    state.battleRoundDecisions   = { blue: null, red: null };
+    broadcast(room);
+    if (state.combatQueue.length === 0) {
+      finishCombatPhase(room);
+    } else {
+      startCurrentEngagement(room);
+    }
+  } else {
+    broadcast(room);
+  }
+}
+
+async function triggerBotMove(room, team) {
+  if (!room.state || room.state.phase !== 'movement') return;
+  if (room.state[team === 'blue' ? 'blueDone' : 'redDone']) return;
+  try {
+    const moves = await bot.botMove(room.state, team);
+    applyMoves(room, team, moves);
+  } catch (err) {
+    console.error('[Bot] Erro em botMove:', err.message);
+    applyMoves(room, team, []); // commit empty move to avoid stall
+  }
+}
+
+async function triggerBotAttack(room, team) {
+  const atkKey = team === 'blue' ? 'blueAttacks' : 'redAttacks';
+  if (!room.state || room.state.phase !== 'combat' || room.state[atkKey] !== null) return;
+  try {
+    const attacks = await bot.botAttack(room.state, team);
+    applyAttacks(room, team, attacks);
+  } catch (err) {
+    console.error('[Bot] Erro em botAttack:', err.message);
+    applyAttacks(room, team, []); // declare no attacks to avoid stall
+  }
+}
+
 io.on('connection', socket => {
   console.log('+ connect', socket.id);
 
@@ -641,6 +767,21 @@ io.on('connection', socket => {
     socket.data.roomId=id; socket.data.team='blue';
     socket.join(id);
     socket.emit('room_created',{roomId:id,team:'blue'});
+  });
+
+  // Creates a room where Red side is controlled by the ONNX bot.
+  socket.on('create_room_vs_bot', () => {
+    const id   = genId();
+    const room = { id, players: { blue: socket.id, red: null }, bot: 'red', state: null };
+    rooms.set(id, room);
+    socket.data.roomId = id; socket.data.team = 'blue';
+    socket.join(id);
+    room.state = newGame();
+    gameLogger.logStart(id, room.state);
+    socket.emit('game_start', { team: 'blue', state: stateFor(room.state, 'blue') });
+    socket.emit('bot_joined',  { roomId: id });
+    // Bot (red) commits empty move immediately so human's first action doesn't stall
+    setImmediate(() => triggerBotMove(room, 'red'));
   });
 
   socket.on('join_room', ({roomId}) => {
@@ -747,6 +888,18 @@ io.on('connection', socket => {
     }
     if (state.log.length>50) state.log=state.log.slice(0,50);
     broadcast(room);
+
+    // If the bot controls the other side and it hasn't committed yet, trigger it
+    if (room.bot) {
+      const botTeam   = room.bot;
+      const botDoneKey = botTeam === 'blue' ? 'blueDone' : 'redDone';
+      if (state.phase === 'movement' && !state[botDoneKey]) {
+        setImmediate(() => triggerBotMove(room, botTeam));
+      } else if (state.phase === 'combat') {
+        const botAtkKey = botTeam === 'blue' ? 'blueAttacks' : 'redAttacks';
+        if (state[botAtkKey] === null) setImmediate(() => triggerBotAttack(room, botTeam));
+      }
+    }
   });
 
   // ── Combat ────────────────────────────────────────────────────────────────
@@ -771,6 +924,11 @@ io.on('connection', socket => {
       }
     } else {
       broadcast(room);
+      // Trigger bot attack if the other side is the bot and hasn't declared yet
+      if (room.bot) {
+        const botAtkKey = room.bot === 'blue' ? 'blueAttacks' : 'redAttacks';
+        if (state[botAtkKey] === null) setImmediate(() => triggerBotAttack(room, room.bot));
+      }
     }
   });
 
@@ -825,4 +983,7 @@ io.on('connection', socket => {
   });
 });
 
-server.listen(PORT, () => console.log(`Servidor em http://localhost:${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Servidor em http://localhost:${PORT}`);
+  bot.loadModels();
+});
