@@ -442,12 +442,13 @@
     <div class="tut-step" data-s="5">
       <div class="tut-visual tut-demo-visual">
         <canvas id="tut-demo-canvas" width="340" height="160"></canvas>
-        <div id="tut-demo-bar" class="tut-demo-bar">⬡ MOVIMENTAÇÃO — clique em um hexágono verde para avançar</div>
+        <div id="tut-demo-bar" class="tut-demo-bar">▣ MOVIMENTAÇÃO — clique no porta-aviões azul para selecioná-lo</div>
       </div>
       <div class="tut-title">SIMULAÇÃO TÁTICA</div>
       <div class="tut-text">
-        Mova o porta-aviões <b>Azul</b> (AZL) em direção ao inimigo e dispare.<br>
-        Alcance de movimento: <b>3 hex</b> &nbsp;·&nbsp; Alcance de ataque: <b>2 hex</b>
+        <b>1.</b> Clique no porta-aviões <b>Azul</b> para selecioná-lo<br>
+        <b>2.</b> Clique em um hexágono verde para mover (alcance: <b>3 hex</b>)<br>
+        <b>3.</b> Clique no navio inimigo <b>Vermelho</b> para atacar (alcance: <b>2 hex</b>)
       </div>
     </div>
 
@@ -529,6 +530,7 @@
   document.getElementById('btn-tutorial').addEventListener('click', () => tutShow());
 
   // ── Interactive demo (step 5) ────────────────────────────────────────────
+  // Phases: 0=not selected  1=unit selected/moving  2=attack  3=result
   const demoCanvas = document.getElementById('tut-demo-canvas');
   const demoBar    = document.getElementById('tut-demo-bar');
   const dCtx       = demoCanvas.getContext('2d');
@@ -545,7 +547,7 @@
   let dIconBlue=null, dIconRed=null;
   const dImgBlue=new Image(), dImgRed=new Image();
 
-  function dMkIcon(img, tint) {
+  function dMkIcon(img, tint){
     const oc=document.createElement('canvas'); oc.width=oc.height=IS;
     const ot=oc.getContext('2d');
     ot.drawImage(img,0,0,IS,IS);
@@ -567,7 +569,7 @@
     return Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y),Math.abs(a.z-b.z));
   }
 
-  // Cube-lerp shortest path (same algorithm as game move animation)
+  // Cube-lerp shortest path (same algorithm as game engine)
   function dPath(c1,r1,c2,r2){
     const tC=(c,r)=>{const z=r-(c-(c&1))/2;return{x:c,z,y:-c-z};};
     const a=tC(c1,r1),b=tC(c2,r2);
@@ -610,40 +612,42 @@
     dCtx.clearRect(0,0,340,160);
     dCtx.fillStyle='rgba(4,14,28,1)'; dCtx.fillRect(0,0,340,160);
 
-    const canAtk=dPhase>=1&&dDist(dBlue.col,dBlue.row,dRed.col,dRed.row)<=DEMO_RANGE;
+    const sel      = dPhase>=1 && dPhase<=2; // unit is selected
+    const canAtk   = dPhase===2 && dDist(dBlue.col,dBlue.row,dRed.col,dRed.row)<=DEMO_RANGE;
 
     for(let c=0;c<DCOLS;c++) for(let r=0;r<DROWS;r++){
       const {x,y}=dCenter(c,r);
       const isB=c===dBlue.col&&r===dBlue.row;
       const isR=c===dRed.col&&r===dRed.row;
-      // Show green movement range only when not animating
-      const inMov=!dAnimating&&dPhase===0&&!isR&&!isB&&dDist(dBlue.col,dBlue.row,c,r)<=DEMO_MOV;
+      // Green movement hexes only while selected and not animating
+      const inMov=sel&&!dAnimating&&dPhase===1&&!isR&&!isB&&dDist(dBlue.col,dBlue.row,c,r)<=DEMO_MOV;
 
-      if     (isB)               dHex(x,y,'rgba(21,101,192,0.7)','#82b1ff',2);
-      else if(isR&&dPhase===2)   dHex(x,y,'rgba(100,8,8,0.55)','rgba(255,80,50,0.4)',1.5);
+      if     (isB&&sel)          dHex(x,y,'rgba(21,101,192,0.70)','#82b1ff',2);
+      else if(isB)               dHex(x,y,'rgba(21,101,192,0.40)','rgba(130,177,255,0.50)',1.5);
+      else if(isR&&dPhase===3)   dHex(x,y,'rgba(100,8,8,0.55)','rgba(255,80,50,0.4)',1.5);
       else if(isR&&canAtk)       dHex(x,y,'rgba(180,20,20,0.38)','rgba(255,100,80,0.95)',2,[4,2]);
       else if(isR)               dHex(x,y,'rgba(183,28,28,0.55)','rgba(255,138,128,0.65)',1.5);
       else if(inMov)             dHex(x,y,'rgba(0,200,80,0.18)','rgba(0,230,118,0.8)',1.5);
       else                       dHex(x,y,'rgba(10,30,60,0.55)','rgba(80,140,200,0.28)',1);
 
-      // Unit icons — use game images when loaded, text fallback otherwise
+      // Unit icons
+      dCtx.textAlign='center'; dCtx.textBaseline='middle';
       if(isB){
         if(dIconBlue) dCtx.drawImage(dIconBlue,x-IS/2,y-IS/2,IS,IS);
-        else{ dCtx.fillStyle='#c8e0ff';dCtx.font='bold 9px "Courier New"';dCtx.textAlign='center';dCtx.textBaseline='middle';dCtx.fillText('AZL',x,y); }
+        else{ dCtx.fillStyle='#c8e0ff';dCtx.font='bold 9px "Courier New"';dCtx.fillText('AZL',x,y); }
       }
-      if(isR&&dPhase<2){
+      if(isR&&dPhase<3){
         if(dIconRed) dCtx.drawImage(dIconRed,x-IS/2,y-IS/2,IS,IS);
-        else{ dCtx.fillStyle='#ffb3ae';dCtx.font='bold 9px "Courier New"';dCtx.textAlign='center';dCtx.textBaseline='middle';dCtx.fillText('VRM',x,y); }
+        else{ dCtx.fillStyle='#ffb3ae';dCtx.font='bold 9px "Courier New"';dCtx.fillText('VRM',x,y); }
       }
-      if(isR&&dPhase===2){
-        dCtx.font='18px serif';dCtx.textAlign='center';dCtx.textBaseline='middle';
-        dCtx.fillStyle='rgba(255,150,50,0.95)';
+      if(isR&&dPhase===3){
+        dCtx.font='18px serif'; dCtx.fillStyle='rgba(255,150,50,0.95)';
         dCtx.fillText('\u{1F4A5}',x,y);
       }
     }
 
-    // Missile trajectory line after attack
-    if(dPhase===2){
+    // Missile trajectory after attack
+    if(dPhase===3){
       const {x:bx,y:by}=dCenter(dBlue.col,dBlue.row);
       const {x:rx,y:ry}=dCenter(dRed.col,dRed.row);
       dCtx.strokeStyle='rgba(255,220,80,0.55)';dCtx.lineWidth=1.5;
@@ -667,7 +671,7 @@
   function demoReset(){
     dAnimating=false; dPhase=0; dBlue={col:2,row:1}; dRed={col:6,row:1};
     demoBar.className='tut-demo-bar';
-    demoBar.textContent='▣ MOVIMENTAÇÃO — clique em um hexágono verde para avançar';
+    demoBar.textContent='▣ MOVIMENTAÇÃO — clique no porta-aviões azul para selecioná-lo';
     demoDraw();
   }
 
@@ -679,12 +683,21 @@
     const hex=dPickHex(mx,my); if(!hex) return;
 
     if(dPhase===0){
-      if(hex.col===dBlue.col&&hex.row===dBlue.row) return;
-      if(hex.col===dRed.col&&hex.row===dRed.row) return;
+      // Click 1: select own unit
+      if(hex.col===dBlue.col&&hex.row===dBlue.row){
+        dPhase=1;
+        demoBar.className='tut-demo-bar';
+        demoBar.textContent='⬡ MOVIMENTAÇÃO — clique em um hexágono verde para avançar';
+        demoDraw();
+      }
+    } else if(dPhase===1){
+      // Click 2: move to a reachable hex
+      if(hex.col===dBlue.col&&hex.row===dBlue.row) return; // re-click own unit = ignore
+      if(hex.col===dRed.col&&hex.row===dRed.row) return;   // can't land on enemy
       if(dDist(dBlue.col,dBlue.row,hex.col,hex.row)>DEMO_MOV) return;
       const path=dPath(dBlue.col,dBlue.row,hex.col,hex.row);
       dAnimatePath(path,()=>{
-        dPhase=1;
+        dPhase=2;
         const ok=dDist(dBlue.col,dBlue.row,dRed.col,dRed.row)<=DEMO_RANGE;
         demoBar.className='tut-demo-bar atk';
         demoBar.textContent=ok
@@ -693,10 +706,11 @@
         demoDraw();
         if(!ok) setTimeout(demoReset,2000);
       });
-    } else if(dPhase===1){
+    } else if(dPhase===2){
+      // Click 3: attack enemy if in range
       const ok=dDist(dBlue.col,dBlue.row,dRed.col,dRed.row)<=DEMO_RANGE;
       if(ok&&hex.col===dRed.col&&hex.row===dRed.row){
-        dPhase=2; demoBar.className='tut-demo-bar result';
+        dPhase=3; demoBar.className='tut-demo-bar result';
         demoBar.textContent='\u{1F4A5} IMPACTO DIRETO — alvo neutralizado!';
         demoDraw();
         setTimeout(()=>{ demoBar.textContent='✓ Missão cumprida — você domina os fundamentos!'; },1500);
