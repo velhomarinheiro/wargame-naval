@@ -798,3 +798,184 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
 }
 .sfx-toggle:hover { border-color: var(--gold); color: var(--gold-l); }
 .sfx-toggle.muted { color: #444; border-color: rgba(80,80,80,0.3); }
+
+/* ═══ TUTORIAL OVERLAY ═══════════════════════════════════════════════════════ */
+.tut-overlay {
+  position: fixed; inset: 0;
+  background: rgba(4,10,22,0.92);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200;
+  backdrop-filter: blur(3px);
+}
+.tut-box {
+  background: var(--panel);
+  border: 1px solid rgba(80,140,200,0.4);
+  box-shadow: 0 0 80px rgba(21,101,192,0.25);
+  width: min(620px, 96vw);
+  display: flex; flex-direction: column;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* Top bar */
+.tut-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.tut-dots { display: flex; gap: 8px; align-items: center; }
+.tut-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(80,140,200,0.25);
+  border: 1px solid rgba(80,140,200,0.4);
+  transition: background 0.2s, border-color 0.2s;
+}
+.tut-dot.active {
+  background: var(--blue-l);
+  border-color: var(--blue-l);
+  box-shadow: 0 0 6px rgba(130,177,255,0.6);
+}
+.tut-dot.done {
+  background: rgba(130,177,255,0.4);
+  border-color: rgba(130,177,255,0.5);
+}
+.tut-skip-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--dim); font-family: inherit;
+  font-size: 0.65rem; letter-spacing: 1.5px;
+  padding: 2px 0; transition: color 0.15s;
+}
+.tut-skip-btn:hover { color: var(--red-l); }
+
+/* Step panels */
+.tut-step { display: none; flex-direction: column; }
+.tut-step.active { display: flex; }
+
+/* ── Visuals ── */
+.tut-visual {
+  display: flex; align-items: center; justify-content: center;
+  height: 140px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(5,16,32,0.7);
+  overflow: hidden;
+}
+
+/* Step 0: overview */
+.tut-vis-overview { gap: 0; }
+.tov-side {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 6px;
+  padding: 12px;
+}
+.tov-side.blue { background: rgba(21,101,192,0.15); }
+.tov-side.red  { background: rgba(183,28,28,0.15); }
+.tov-icon { font-size: 1.6rem; line-height: 1; }
+.tov-label { font-size: 0.6rem; letter-spacing: 2px; color: var(--dim); margin-top: 2px; }
+.tov-side.blue .tov-label { color: var(--blue-l); }
+.tov-side.red  .tov-label { color: var(--red-l); }
+.tov-vs {
+  padding: 0 16px; font-size: 1rem; font-weight: bold;
+  color: var(--gold); letter-spacing: 2px;
+}
+
+/* Step 1: hex grid */
+.tut-vis-hex { padding: 10px; }
+.tut-svg { height: 120px; width: auto; }
+
+/* Step 2: unit card */
+.tut-vis-card { padding: 14px; }
+.tuc-card {
+  background: rgba(4,14,28,0.95);
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  width: 260px;
+  font-size: 0.75rem;
+}
+.tuc-name { font-size: 0.85rem; font-weight: bold; margin-bottom: 6px; }
+.tuc-name.blue { color: var(--blue-l); }
+.tuc-bar { height: 5px; background: #0a2035; border-radius: 3px; margin-bottom: 8px; }
+.tuc-fill { height: 100%; background: #ffca28; border-radius: 3px; }
+.tuc-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 2px 8px; color: var(--dim); margin-bottom: 6px;
+}
+.tuc-v { color: var(--text); text-align: right; }
+.tuc-v.hi-gold { color: var(--gold-l); }
+.tuc-hint { font-size: 0.67rem; color: var(--green); line-height: 1.6; }
+.tuc-hint.dim { color: var(--dim); }
+
+/* Step 3: phases */
+.tut-vis-phases {
+  display: flex; align-items: center; gap: 0;
+  padding: 0;
+}
+.tvp-phase {
+  flex: 1; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.tvp-num {
+  font-size: 1.4rem; font-weight: bold; color: var(--gold);
+  line-height: 1; letter-spacing: 1px;
+}
+.tvp-num.red { color: var(--red-l); }
+.tvp-title { font-size: 0.65rem; letter-spacing: 2.5px; color: var(--dim); margin-bottom: 2px; }
+.tvp-list {
+  list-style: none; font-size: 0.68rem; color: var(--text);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.tvp-list li { padding-left: 10px; position: relative; }
+.tvp-list li::before { content: '›'; position: absolute; left: 0; color: var(--dim); }
+.tvp-list em { color: var(--gold); font-style: normal; }
+.tvp-arrow { font-size: 1.2rem; color: rgba(80,140,200,0.5); padding: 0 6px; flex-shrink: 0; }
+
+/* Step 4: victory */
+.tut-vis-win { padding: 14px 20px; gap: 16px; }
+.tvw-obj { flex: 1; }
+.tvw-obj.mine {}
+.tvw-label { font-size: 0.6rem; letter-spacing: 2px; color: var(--dim); margin-bottom: 6px; }
+.tvw-row { font-size: 0.7rem; color: var(--dim); padding: 2px 0; }
+.tvw-row.met { color: var(--green); }
+.tvw-summary {
+  font-size: 0.62rem; color: var(--gold); margin-top: 6px;
+  border-top: 1px solid var(--border); padding-top: 4px;
+}
+.tvw-trophy { font-size: 2rem; line-height: 1; }
+
+/* Text area */
+.tut-title {
+  font-size: 0.7rem; letter-spacing: 3px; color: var(--gold);
+  padding: 14px 20px 0; text-align: center;
+}
+.tut-text {
+  font-size: 0.75rem; color: var(--text); line-height: 1.75;
+  padding: 8px 20px 16px; text-align: center;
+  min-height: 80px;
+}
+.tut-text b { color: var(--gold-l); }
+
+/* Footer nav */
+.tut-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 18px;
+  border-top: 1px solid var(--border);
+  background: rgba(5,16,32,0.5);
+}
+.tut-counter {
+  font-size: 0.65rem; letter-spacing: 2px; color: var(--dim);
+}
+.tut-footer .act-btn { width: auto; padding: 8px 18px; font-size: 0.72rem; }
+
+/* Tutorial link on lobby */
+.tut-link-btn {
+  margin-top: 1.2rem;
+  background: none;
+  border: 1px solid rgba(80,140,200,0.2);
+  color: var(--dim);
+  font-family: 'Courier New', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 1.5px;
+  padding: 7px 16px;
+  cursor: pointer;
+  width: 100%;
+  transition: border-color 0.15s, color 0.15s;
+}
+.tut-link-btn:hover { border-color: var(--gold); color: var(--gold-l); }
