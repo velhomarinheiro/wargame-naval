@@ -1,3 +1,5 @@
 node_modules/
 .env
 *.log
+ml/__pycache__/
+ml/models/*.pt
