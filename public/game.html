@@ -96,6 +96,8 @@
     <h1>⚓ OPERAÇÃO ATLÂNTICO SUL</h1>
     <p>Wargame Naval · 2 jogadores</p>
     <div id="lobby-menu">
+      <button id="btn-tutorial" class="tut-cta-btn">📖 COMO JOGAR — Tutorial</button>
+      <div class="tut-or-direct">— ou entre direto no jogo —</div>
       <button id="btn-create" class="act-btn blue">Criar Nova Sala</button>
       <div class="or-sep">— ou —</div>
       <div class="join-row">
@@ -103,7 +105,6 @@
         <button id="btn-join" class="act-btn red">Entrar</button>
       </div>
       <p id="lobby-err" class="lobby-err hidden"></p>
-      <button id="btn-tutorial" class="tut-link-btn">? Tutorial — Como Jogar</button>
     </div>
     <div id="lobby-waiting" class="hidden">
       <p>Sala criada! Compartilhe o código:</p>
@@ -182,131 +183,186 @@
       <button class="tut-skip-btn">PULAR TUTORIAL</button>
     </div>
 
-    <!-- ─ Step 0 — Visão Geral ─ -->
+    <!-- ─ Step 0 — O Jogo ─ -->
     <div class="tut-step" data-s="0">
-      <div class="tut-visual tut-vis-overview">
-        <div class="tov-side blue">
-          <span class="tov-icon">⚓</span><span class="tov-icon">✈</span>
-          <div class="tov-label">FORÇA AZUL</div>
-        </div>
-        <div class="tov-vs">VS</div>
-        <div class="tov-side red">
-          <span class="tov-icon">⚓</span><span class="tov-icon">✈</span>
-          <div class="tov-label">FORÇA VERMELHA</div>
+      <div class="tut-visual">
+        <div class="tvi-map-bg"></div>
+        <div class="tvi-cards">
+          <div class="tvi-team blue">
+            <img class="tvi-card-img" src="/cards/Blue_SAG_P.PNG" alt="Força Azul">
+            <div class="tvi-team-label">FORÇA AZUL</div>
+          </div>
+          <div class="tvi-vs">VS</div>
+          <div class="tvi-team red">
+            <img class="tvi-card-img" src="/cards/Red_GBPA.jpg" alt="Força Vermelha">
+            <div class="tvi-team-label">FORÇA VERMELHA</div>
+          </div>
         </div>
       </div>
       <div class="tut-title">OPERAÇÃO ATLÂNTICO SUL</div>
       <div class="tut-text">
         Wargame naval operacional para 2 jogadores.<br>
-        Comande frotas de navios e aeronaves num cenário de conflito moderno.<br>
-        Destrua, controle e negue áreas estratégicas ao adversário.
+        Comande frotas de navios e aeronaves num cenário de conflito real no Atlântico Sul.<br>
+        <b>Azul vs. Vermelho</b> — destrua, controle e negue áreas estratégicas ao adversário.
       </div>
     </div>
 
     <!-- ─ Step 1 — O Tabuleiro ─ -->
     <div class="tut-step" data-s="1">
-      <div class="tut-visual tut-vis-hex">
-        <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" class="tut-svg">
-          <!-- outer ring hexes -->
-          <polygon points="100,10 117,20 117,40 100,50 83,40 83,20" fill="rgba(21,101,192,0.12)" stroke="rgba(80,140,200,0.4)" stroke-width="1"/>
-          <polygon points="130,27 147,37 147,57 130,67 113,57 113,37" fill="rgba(21,101,192,0.12)" stroke="rgba(80,140,200,0.4)" stroke-width="1"/>
-          <polygon points="70,27 87,37 87,57 70,67 53,57 53,37" fill="rgba(21,101,192,0.12)" stroke="rgba(80,140,200,0.4)" stroke-width="1"/>
-          <polygon points="100,45 117,55 117,75 100,85 83,75 83,55" fill="rgba(21,101,192,0.12)" stroke="rgba(80,140,200,0.4)" stroke-width="1"/>
-          <polygon points="130,62 147,72 147,92 130,102 113,92 113,72" fill="rgba(21,101,192,0.12)" stroke="rgba(80,140,200,0.4)" stroke-width="1"/>
-          <polygon points="70,62 87,72 87,92 70,102 53,92 53,72" fill="rgba(21,101,192,0.12)" stroke="rgba(80,140,200,0.4)" stroke-width="1"/>
-          <!-- movement ring hexes (green) -->
-          <polygon points="100,10 117,20 117,40 100,50 83,40 83,20" fill="rgba(0,230,118,0.18)" stroke="rgba(0,230,118,0.55)" stroke-width="1.5"/>
-          <polygon points="130,27 147,37 147,57 130,67 113,57 113,37" fill="rgba(0,230,118,0.18)" stroke="rgba(0,230,118,0.55)" stroke-width="1.5"/>
-          <polygon points="70,27 87,37 87,57 70,67 53,57 53,37" fill="rgba(0,230,118,0.18)" stroke="rgba(0,230,118,0.55)" stroke-width="1.5"/>
-          <polygon points="130,62 147,72 147,92 130,102 113,92 113,72" fill="rgba(0,230,118,0.18)" stroke="rgba(0,230,118,0.55)" stroke-width="1.5"/>
-          <polygon points="70,62 87,72 87,92 70,102 53,92 53,72" fill="rgba(0,230,118,0.18)" stroke="rgba(0,230,118,0.55)" stroke-width="1.5"/>
-          <!-- center hex (selected unit) -->
-          <polygon points="100,45 117,55 117,75 100,85 83,75 83,55" fill="rgba(21,101,192,0.55)" stroke="#82b1ff" stroke-width="2"/>
-          <text x="100" y="71" text-anchor="middle" fill="#82b1ff" font-size="14" font-family="monospace">⚓</text>
-          <!-- MOV label -->
-          <text x="100" y="112" text-anchor="middle" fill="rgba(0,230,118,0.8)" font-size="9" font-family="monospace" letter-spacing="1">MOV = 5 hexágonos</text>
-        </svg>
+      <div class="tut-visual">
+        <div class="tvm-container">
+          <img src="/mapa.jpeg" class="tvm-bg-img" alt="Mapa">
+          <div class="tvm-hex-layer">
+            <svg viewBox="0 0 340 180" xmlns="http://www.w3.org/2000/svg" class="tvm-svg">
+              <!-- background hex grid (dimmed) -->
+              <polygon points="40,20 58,30 58,50 40,60 22,50 22,30"  fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="76,20 94,30 94,50 76,60 58,50 58,30"  fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="22,60 40,70 40,90 22,100 4,90 4,70"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="76,60 94,70 94,90 76,100 58,90 58,70" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="112,20 130,30 130,50 112,60 94,50 94,30" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="148,20 166,30 166,50 148,60 130,50 130,30" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="148,60 166,70 166,90 148,100 130,90 130,70" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="184,20 202,30 202,50 184,60 166,50 166,30" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="184,60 202,70 202,90 184,100 166,90 166,70" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="220,20 238,30 238,50 220,60 202,50 202,30" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="220,60 238,70 238,90 220,100 202,90 202,70" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="256,20 274,30 274,50 256,60 238,50 238,30" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="256,60 274,70 274,90 256,100 238,90 238,70" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="292,20 310,30 310,50 292,60 274,50 274,30" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="112,100 130,110 130,130 112,140 94,130 94,110" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="148,100 166,110 166,130 148,140 130,130 130,110" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="184,100 202,110 202,130 184,140 166,130 166,110" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="220,100 238,110 238,130 220,140 202,130 202,110" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <!-- movement ring (green) -->
+              <polygon points="112,60 130,70 130,90 112,100 94,90 94,70"  fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
+              <polygon points="148,100 166,110 166,130 148,140 130,130 130,110" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
+              <polygon points="220,60 238,70 238,90 220,100 202,90 202,70"  fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
+              <polygon points="184,100 202,110 202,130 184,140 166,130 166,110" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
+              <polygon points="148,20 166,30 166,50 148,60 130,50 130,30" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
+              <polygon points="220,20 238,30 238,50 220,60 202,50 202,30" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
+              <!-- selected unit hex (blue) -->
+              <polygon points="184,60 202,70 202,90 184,100 166,90 166,70" fill="rgba(21,101,192,0.6)" stroke="#82b1ff" stroke-width="2"/>
+              <image href="/icons/porta-avioes.png" x="172" y="68" width="24" height="24" style="filter:brightness(10)"/>
+              <!-- attack range hex (red) -->
+              <polygon points="256,60 274,70 274,90 256,100 238,90 238,70" fill="rgba(180,20,20,0.25)" stroke="rgba(255,100,80,0.7)" stroke-width="1.5" stroke-dasharray="4,2"/>
+              <text x="257" y="82" text-anchor="middle" fill="rgba(255,120,100,0.85)" font-size="13">⚓</text>
+            </svg>
+          </div>
+          <div class="tvm-caption">▣ verde = movimentação &nbsp;·&nbsp; ▣ vermelho = alvo no alcance</div>
+        </div>
       </div>
       <div class="tut-title">GRADE HEXAGONAL</div>
       <div class="tut-text">
-        Selecione uma unidade — hexágonos verdes mostram para onde ela pode se mover.<br>
-        Cada unidade tem MOV pontos de deslocamento por turno.<br>
-        Posicionamento determina alcance de ataque e linhas de visão.
+        Selecione uma unidade sua — hexágonos verdes mostram onde pode se mover.<br>
+        Na fase de combate, hexágonos vermelhos indicam alvos dentro do alcance de tiro.<br>
+        Cada unidade tem <b>MOV</b> pontos de deslocamento por turno.
       </div>
     </div>
 
     <!-- ─ Step 2 — Unidades ─ -->
     <div class="tut-step" data-s="2">
-      <div class="tut-visual tut-vis-card">
-        <div class="tuc-card">
-          <div class="tuc-name blue">SAG-P · Navio de Superfície</div>
-          <div class="tuc-bar"><div class="tuc-fill" style="width:70%"></div></div>
-          <div class="tuc-grid">
-            <span class="tuc-k">SP</span><span class="tuc-v hi-gold">14 / 20</span>
-            <span class="tuc-k">MOV</span><span class="tuc-v">4</span>
-            <span class="tuc-k">Categoria</span><span class="tuc-v">surface</span>
-            <span class="tuc-k">Det S/Aé/Sb</span><span class="tuc-v">5 / 3 / 4</span>
+      <div class="tut-visual">
+        <div class="tvu-wrap">
+          <div class="tvu-card-panel">
+            <img src="/cards/Blue_SAG_P.PNG" alt="Card SAG-P">
           </div>
-          <div class="tuc-hint">🚀 ASROC: <b>8</b>/12 · SSM: <b>6</b>/8</div>
-          <div class="tuc-hint dim">Clique direito: card completo ▶</div>
+          <div class="tvu-legend">
+            <div class="tvu-row">
+              <span class="tvu-key">SP</span>
+              <span class="tvu-val">Pontos de sobrevivência<br><small>Chega a zero → unidade destruída</small></span>
+            </div>
+            <div class="tvu-row">
+              <span class="tvu-key">MOV</span>
+              <span class="tvu-val">Hexágonos de movimento<br><small>Por turno, na fase de movimentação</small></span>
+            </div>
+            <div class="tvu-row">
+              <span class="tvu-key">🚀</span>
+              <span class="tvu-val">Armamentos e munição<br><small>Quantidade limitada — não regenera</small></span>
+            </div>
+            <div class="tvu-row">
+              <span class="tvu-key">Det</span>
+              <span class="tvu-val">Alcance de detecção<br><small>S = superfície · Aé = aéreo · Sb = submarino</small></span>
+            </div>
+          </div>
         </div>
       </div>
       <div class="tut-title">UNIDADES DE COMBATE</div>
       <div class="tut-text">
-        <b>SP</b> = sobrevivência (chega a 0 → destruída). &nbsp;<b>MOV</b> = hexágonos/turno.<br>
-        Cada unidade porta armamentos com quantidade limitada — munição não se regenera.<br>
-        Hover 350ms sobre uma unidade revela estatísticas. Clique direito abre o card completo.
+        Cada unidade tem tipo, alcance e capacidades distintos — conheça sua frota.<br>
+        Hover sobre uma unidade no mapa exibe estatísticas. <b>Clique direito</b> abre o card completo.<br>
+        Clique em uma unidade sua na barra lateral para ver o card completo.
       </div>
     </div>
 
-    <!-- ─ Step 3 — Fases do Turno ─ -->
+    <!-- ─ Step 3 — Fases ─ -->
     <div class="tut-step" data-s="3">
-      <div class="tut-visual tut-vis-phases">
-        <div class="tvp-phase">
-          <div class="tvp-num">1</div>
-          <div class="tvp-title">MOVIMENTAÇÃO</div>
-          <ul class="tvp-list">
-            <li>Selecione uma unidade</li>
-            <li>Clique hexágonos verdes</li>
-            <li>Confirme: <em>Encerrar Mov.</em></li>
-          </ul>
-        </div>
-        <div class="tvp-arrow">→</div>
-        <div class="tvp-phase">
-          <div class="tvp-num red">2</div>
-          <div class="tvp-title">COMBATE</div>
-          <ul class="tvp-list">
-            <li>Selecione atacante</li>
-            <li>Clique alvos vermelhos</li>
-            <li>Confirme: <em>Confirmar Ataques</em></li>
-          </ul>
+      <div class="tut-visual">
+        <div class="tvph-wrap">
+          <div class="tvph-phase mov">
+            <div class="tvph-content">
+              <div class="tvph-icon-row">
+                <img class="tvph-icon" src="/icons/porta-avioes.png" alt="">
+                <span class="tvph-num">FASE 1</span>
+              </div>
+              <div class="tvph-title">MOVIMENTAÇÃO</div>
+              <ul class="tvph-steps">
+                <li>Selecione uma unidade sua</li>
+                <li>Clique hexágonos <em>verdes</em></li>
+                <li>Desfaça com ↩ se quiser</li>
+                <li>Confirme: <em>Encerrar Movimentação</em></li>
+              </ul>
+            </div>
+          </div>
+          <div class="tvph-divider"></div>
+          <div class="tvph-phase atk">
+            <div class="tvph-content">
+              <div class="tvph-icon-row">
+                <img class="tvph-icon" src="/icons/navio-de-guerra.png" alt="">
+                <span class="tvph-num">FASE 2</span>
+              </div>
+              <div class="tvph-title">COMBATE</div>
+              <ul class="tvph-steps">
+                <li>Selecione seu atacante</li>
+                <li>Clique alvos <em>vermelhos</em></li>
+                <li>Ajuste quantidade de armas</li>
+                <li>Confirme: <em>Confirmar Ataques</em></li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
       <div class="tut-title">FASES DO TURNO</div>
       <div class="tut-text">
-        Todo turno tem 2 fases. Ambos os jogadores agem <b>simultaneamente</b>.<br>
-        Na movimentação, planeje antes de confirmar — você pode desfazer passos.<br>
-        No combate, escolha alvos dentro do alcance e confirme todos os ataques de uma vez.
+        Todo turno tem 2 fases — ambos os jogadores agem <b>simultaneamente</b>.<br>
+        Movimentação primeiro: planeje as rotas e confirme. Depois, o combate resolve os ataques.<br>
+        O resultado de cada engajamento é exibido com dados e danos em tempo real.
       </div>
     </div>
 
-    <!-- ─ Step 4 — Como Vencer ─ -->
+    <!-- ─ Step 4 — Vitória ─ -->
     <div class="tut-step" data-s="4">
-      <div class="tut-visual tut-vis-win">
-        <div class="tvw-obj mine">
-          <div class="tvw-label">SEUS OBJETIVOS</div>
-          <div class="tvw-row met">✓ Neutralizar grupo inimigo</div>
-          <div class="tvw-row met">✓ Controlar FPSO Sul</div>
-          <div class="tvw-row">○ Preservar logístico</div>
-          <div class="tvw-summary">2 / 3 condições · precisa de 2</div>
+      <div class="tut-visual">
+        <div class="tvw-wrap">
+          <div class="tvw-cards">
+            <div class="tvw-thumb"><img src="/cards/Blue_PAT_01.jpg"  alt=""></div>
+            <div class="tvw-thumb"><img src="/cards/Blue_FPSO1.jpg"   alt=""></div>
+            <div class="tvw-thumb"><img src="/cards/Red_GBPA.jpg"     alt=""></div>
+          </div>
+          <div class="tvw-objs">
+            <div class="tvw-obj-title">OBJETIVOS DE VITÓRIA</div>
+            <div class="tvw-obj-row met">✓ Neutralizar grupo inimigo principal</div>
+            <div class="tvw-obj-row met">✓ Controlar plataforma FPSO Sul</div>
+            <div class="tvw-obj-row unmet">○ Preservar navio logístico</div>
+            <div class="tvw-obj-row warn">⚠ Adversário atingiu 1 objetivo</div>
+            <div class="tvw-prog">2 / 3 condições · precisa de 2 → 🏆 VITÓRIA</div>
+          </div>
         </div>
-        <div class="tvw-trophy">🏆</div>
       </div>
       <div class="tut-title">OBJETIVOS E VITÓRIA</div>
       <div class="tut-text">
         Cumpra condições táticas: neutralize alvos, controle infraestrutura, proteja ativos.<br>
-        <b>Munição é limitada</b> — use-a com inteligência. Aeronaves consomem combustível.<br>
-        O painel de objetivos (barra lateral) mostra o progresso em tempo real.
+        <b>Munição e combustível são limitados</b> — gerencie com inteligência.<br>
+        O painel lateral mostra seus objetivos e os do adversário em tempo real.
       </div>
     </div>
 

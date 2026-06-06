@@ -1580,7 +1580,6 @@ function tutShow() {
 
 function tutClose() {
   tutOverlay.classList.add('hidden');
-  localStorage.setItem(TUT_DONE_KEY, '1');
 }
 
 tutNext.addEventListener('click', () => {
@@ -1596,6 +1595,3 @@ tutOverlay.querySelectorAll('.tut-skip-btn').forEach(btn =>
   btn.addEventListener('click', () => { SFX.play('click'); tutClose(); })
 );
 $('btn-tutorial').addEventListener('click', () => tutShow());
-
-// Auto-show on first visit
-if (!localStorage.getItem(TUT_DONE_KEY)) tutShow();
