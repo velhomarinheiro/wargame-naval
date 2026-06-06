@@ -781,3 +781,20 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
   line-height: 1;
 }
 .card-modal-close:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ═══ SFX MUTE TOGGLE ═══════════════════════════════════════════════════════ */
+.sfx-toggle {
+  background: none;
+  border: 1px solid rgba(80,140,200,0.3);
+  color: var(--dim);
+  font-size: 0.78rem;
+  padding: 2px 7px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.5px;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  line-height: 1.4;
+}
+.sfx-toggle:hover { border-color: var(--gold); color: var(--gold-l); }
+.sfx-toggle.muted { color: #444; border-color: rgba(80,80,80,0.3); }

@@ -39,6 +39,7 @@ const abandonBtn        = $('abandon-btn');
 const unitTooltipEl     = $('unit-tooltip');
 const cardModal         = $('card-modal');
 const cardModalImg      = $('card-modal-img');
+const sfxToggle         = $('sfx-toggle');
 
 // ─── Canvas setup ─────────────────────────────────────────────────────────────
 canvas.width  = CVS_W;
@@ -175,6 +176,7 @@ function showCardModal(unitId) {
   if (!url) return;
   cardModalImg.src = url;
   cardModal.classList.remove('hidden');
+  SFX.play('card');
 }
 function hideCardModal() {
   cardModal.classList.add('hidden');
@@ -300,6 +302,7 @@ socket.on('game_update', state => {
     if (state.turn !== prevTurn) {
       const per = state.period === 'day' ? '☀ Diurno' : '🌙 Noturno';
       flashScene(`TURNO ${state.turn}  ·  ${per}`, 'rgba(0,0,0,0.55)', 1800);
+      SFX.play('turnChange');
     }
   } else if (selUnitId) {
     const u = gameState.units.find(u => u.id === selUnitId && u.hp > 0);
@@ -333,6 +336,7 @@ socket.on('game_over', ({winner, state, objectives, reason}) => {
 });
 socket.on('opponent_disconnected', () => disconnected.classList.remove('hidden'));
 socket.on('action_error', msg => {
+  SFX.play('error');
   flashError(msg);
   // Reverse optimistic done flag so the button becomes available again
   if (gameState?.phase === 'movement') {
@@ -347,27 +351,49 @@ socket.on('battle_round_result', data => {
     flashUnit(eng.attackerId, '#ffd700', 900);
     const hitColor = data.totalDamage > 0 ? '#ff5252' : '#888';
     flashUnit(eng.targetId, hitColor, data.destroyed ? 1800 : 1000);
-    if (data.destroyed) flashScene('💥 DESTRUÍDO', 'rgba(180,0,0,0.45)', 1200);
+    if (data.destroyed) { flashScene('💥 DESTRUÍDO', 'rgba(180,0,0,0.45)', 1200); SFX.play('destroy'); }
+    else if (data.totalDamage > 0) SFX.play('hit');
+    else SFX.play('miss');
   }
 });
 socket.on('fuel_alert', ({ name, type }) => {
   const msg = type === 'air_lost'
     ? `✈ ${name} perdida por falta de combustível!`
     : `⛽ ${name} sem combustível — imóvel e indefesa até reabastecimento.`;
+  SFX.play('error');
   flashError(msg);
 });
 
+// ─── SFX button hover delegation ─────────────────────────────────────────────
+document.addEventListener('mouseover', e => SFX.onButtonMouseover(e.target));
+document.addEventListener('mouseout',  e => SFX.onButtonMouseout(e.target));
+
+// ─── SFX mute toggle ─────────────────────────────────────────────────────────
+function _updateSfxBtn() {
+  const m = SFX.muted;
+  sfxToggle.textContent = m ? '🔇' : '🔊';
+  sfxToggle.classList.toggle('muted', m);
+}
+sfxToggle.addEventListener('click', () => { SFX.toggleMute(); _updateSfxBtn(); });
+_updateSfxBtn();
+document.addEventListener('keydown', e => {
+  if (e.key === 's' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {
+    SFX.toggleMute(); _updateSfxBtn();
+  }
+});
+
 // ─── Lobby actions ────────────────────────────────────────────────────────────
-btnCreate.addEventListener('click', () => socket.emit('create_room'));
+btnCreate.addEventListener('click', () => { SFX.init(); socket.emit('create_room'); });
 btnJoin.addEventListener('click', () => {
   const code = roomInput.value.trim().toUpperCase();
-  if (code) socket.emit('join_room', {roomId: code});
+  if (code) { SFX.init(); socket.emit('join_room', {roomId: code}); }
 });
 roomInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnJoin.click(); });
 
 // ─── Game actions ─────────────────────────────────────────────────────────────
 endPhaseBtn.addEventListener('click', () => {
   if (!isMyTurn()) return;
+  SFX.play('confirm');
   // Save active path (individual or group) before submitting
   if (selUnitId !== null && activePath.length > 1) {
     const ids = selGroupIds.length > 0 ? selGroupIds : [selUnitId];
@@ -388,19 +414,20 @@ endPhaseBtn.addEventListener('click', () => {
 
 combatBtn.addEventListener('click', () => {
   if (!isMyTurn()) return;
+  SFX.play('confirm');
   socket.emit('declare_attacks', pendingAtks);
   pendingAtks = []; deselect();
 });
 
-undoStepBtn.addEventListener('click', () => undoStep());
+undoStepBtn.addEventListener('click', () => { SFX.play('deselect'); undoStep(); });
 
-cancelBtn.addEventListener('click', () => { hideStackPicker(); deselect(false); });
+cancelBtn.addEventListener('click', () => { SFX.play('click'); hideStackPicker(); deselect(false); });
 
-$('btn-restart').addEventListener('click', () => { socket.emit('restart'); gameOver.classList.add('hidden'); });
+$('btn-restart').addEventListener('click', () => { SFX.play('click'); socket.emit('restart'); gameOver.classList.add('hidden'); });
 $('btn-export-over').addEventListener('click', () => exportLog());
-$('br-btn-continue').addEventListener('click', () => sendBrDecision('continue'));
-$('br-btn-stop'    ).addEventListener('click', () => sendBrDecision('stop'));
-$('br-btn-ok'      ).addEventListener('click', () => onBrOk());
+$('br-btn-continue').addEventListener('click', () => { SFX.play('click'); sendBrDecision('continue'); });
+$('br-btn-stop'    ).addEventListener('click', () => { SFX.play('click'); sendBrDecision('stop'); });
+$('br-btn-ok'      ).addEventListener('click', () => { SFX.play('click'); onBrOk(); });
 $('btn-back').addEventListener('click', () => location.reload());
 
 exportLogBtn.addEventListener('click', () => exportLog());
@@ -452,6 +479,7 @@ canvas.addEventListener('mousemove', e => {
           _tooltipHex = hexKey;
           clearTimeout(_tooltipTimer);
           _tooltipTimer = setTimeout(() => _showTooltip(visUnits, e.clientX, e.clientY), 350);
+          SFX.hoverUnit();
         }
       } else {
         _hideTooltip();
@@ -560,6 +588,7 @@ function handleClick(col, row) {
           if (allDeclared) {
             pendingAtks = pendingAtks.filter(a =>
               !(selGroupIds.includes(a.attackerId) && a.targetId === atk.unitId));
+            SFX.play('attackRemove');
           } else {
             for (const id of selGroupIds) {
               const gu = gameState.units.find(u => u.id === id && u.hp > 0);
@@ -569,11 +598,12 @@ function handleClick(col, row) {
                 pendingAtks.push({attackerId: id, targetId: atk.unitId, amount: 1});
               }
             }
+            SFX.play('attack');
           }
         } else {
           const idx = pendingAtks.findIndex(a => a.attackerId === selUnitId && a.targetId === atk.unitId);
-          if (idx >= 0) pendingAtks.splice(idx, 1);
-          else pendingAtks.push({attackerId: selUnitId, targetId: atk.unitId, amount: 1});
+          if (idx >= 0) { pendingAtks.splice(idx, 1); SFX.play('attackRemove'); }
+          else { pendingAtks.push({attackerId: selUnitId, targetId: atk.unitId, amount: 1}); SFX.play('attack'); }
         }
         updateUI(); render(); return;
       }
@@ -582,6 +612,7 @@ function handleClick(col, row) {
     if (ownUnits.length > 1) { showStackPicker(col, row, ownUnits); return; }
     if (ownUnits.length === 1) {
       selGroupIds = []; selUnitId = ownUnits[0].id;
+      SFX.play('select');
       recalcHighlights(ownUnits[0]); updateUI(); render();
     } else { if (!tryShowEnemyCard(col, row)) deselect(); }
     return;
@@ -594,6 +625,7 @@ function handleClick(col, row) {
       const move = moveHexes.find(h => h.col === col && h.row === row);
       if (move) {
         activePath.push({col, row});
+        SFX.play('step');
         if (selGroupIds.length > 0) {
           const gUnits = gameState.units.filter(u => selGroupIds.includes(u.id) && u.hp > 0);
           recalcHighlightsGroup(gUnits);
@@ -612,6 +644,7 @@ function handleClick(col, row) {
     if (selUnitId === unit.id && selGroupIds.length === 0) return; // already selected alone
     deselect(true);
     selUnitId = unit.id; selGroupIds = [];
+    SFX.play('select');
     const saved = plannedMoves.get(unit.id);
     activePath = saved ? [...saved] : [{col: unit.col, row: unit.row}];
     recalcHighlights(unit); updateUI(); render();
@@ -631,7 +664,9 @@ function tryShowEnemyCard(col, row) {
 }
 
 // save=true saves activePath to plannedMoves; save=false discards it
-function deselect(save = true) {  if (selUnitId !== null) {
+function deselect(save = true) {
+  if (selUnitId !== null) SFX.play('deselect');
+  if (selUnitId !== null) {
     const ids = selGroupIds.length > 0 ? selGroupIds : [selUnitId];
     if (save && activePath.length > 1) {
       for (const id of ids) plannedMoves.set(id, [...activePath]);
@@ -708,12 +743,14 @@ function showStackPicker(col, row, units) {
   stackPicker.style.left = `${Math.round(sx - 85)}px`;
   stackPicker.style.top  = `${Math.round(sy)}px`;
   stackPicker.classList.remove('hidden');
+  SFX.play('stackPick');
 }
 
 function hideStackPicker() { stackPicker.classList.add('hidden'); }
 
 function _selectUnit(unit) {
   selGroupIds = [];
+  SFX.play('select');
   if (gameState.phase === 'movement') {
     deselect(true);
     selUnitId = unit.id;
@@ -728,6 +765,7 @@ function _selectUnit(unit) {
 
 function _selectGroup(units) {
   const ids = units.map(u => u.id);
+  SFX.play('select');
   if (gameState.phase === 'movement') {
     deselect(true);
     selGroupIds = ids; selUnitId = ids[0];
