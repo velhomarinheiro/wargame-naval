@@ -15,6 +15,7 @@ const {
   checkNavalFuelZero, checkAirFuelLosses,
   recoverAircraft, resetFuelTurnCounters,
 } = require('./fuel_model');
+const gameLogger = require('./game_logger');
 
 const PORT   = process.env.PORT || 3000;
 const GRID_W = 16;
@@ -434,7 +435,9 @@ function processBattleRoundDecision(room) {
 
 function finishCurrentEngagement(room) {
   const state = room.state;
-  state.combatQueue[state.currentEngagementIndex].status = 'ended';
+  const eng = state.combatQueue[state.currentEngagementIndex];
+  eng.status = 'ended';
+  gameLogger.logEngagement(room.id, state.turn, state.period, eng);
   state.currentEngagementIndex += 1;
 
   if (state.currentEngagementIndex < state.combatQueue.length) {
@@ -457,6 +460,7 @@ function finishCombatPhase(room) {
     state.winner = winner;
     state.log.unshift(`🏆 ${winner === 'blue' ? 'Força Azul' : 'Força Vermelha'} VENCEU!`);
     const obj = computeObjectives(state);
+    gameLogger.logGameOver(room.id, state.turn, winner, 'victory', obj, state);
     const payload = { winner, objectives: obj, reason: 'victory' };
     if (room.players.blue) io.to(room.players.blue).emit('game_over', { ...payload, state: stateFor(state, 'blue') });
     if (room.players.red)  io.to(room.players.red ).emit('game_over', { ...payload, state: stateFor(state, 'red')  });
@@ -646,6 +650,7 @@ io.on('connection', socket => {
     room.players.red=socket.id; socket.data.roomId=room.id; socket.data.team='red';
     socket.join(room.id);
     room.state=newGame();
+    gameLogger.logStart(room.id, room.state);
     io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue')});
     socket.emit('game_start',{team:'red',state:stateFor(room.state,'red')});
   });
@@ -675,6 +680,9 @@ io.on('connection', socket => {
         if (!canEnterTerrain(unit.category,getTerrain(col,row))) { socket.emit('action_error',`${unit.name}: terreno intransponível em ${String.fromCharCode(65+col)}${row+1}.`); return; }
       }
     }
+
+    // Log decision BEFORE applying moves (captures state the player acted on)
+    gameLogger.logMoves(room.id, state.turn, state.period, team, moves, state);
 
     // Apply all moves and charge movement fuel
     for (const {unitId, path} of (moves||[])) {
@@ -747,6 +755,7 @@ io.on('connection', socket => {
     if (!room?.state) return;
     const {state}=room, {team}=socket.data;
     if (state.phase!=='combat') { socket.emit('action_error','Não é a fase de combate.'); return; }
+    gameLogger.logAttacks(room.id, state.turn, state.period, team, attacks, state);
     if (team==='blue') state.blueAttacks=attacks||[]; else state.redAttacks=attacks||[];
     state.log.unshift(`${team==='blue'?'Força Azul':'Força Vermelha'} confirmou ${(attacks||[]).length} ataque(s).`);
     if (state.blueAttacks!==null && state.redAttacks!==null) {
@@ -778,7 +787,12 @@ io.on('connection', socket => {
   socket.on('restart', () => {
     const room=rooms.get(socket.data.roomId);
     if (!room) return;
+    if (room.state && !room.state.winner) {
+      const obj = computeObjectives(room.state);
+      gameLogger.logGameOver(room.id, room.state.turn, null, 'restart', obj, room.state);
+    }
     room.state=newGame();
+    gameLogger.logStart(room.id, room.state);
     io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue')});
     io.to(room.players.red ).emit('game_start',{team:'red', state:stateFor(room.state,'red')});
   });
@@ -792,6 +806,7 @@ io.on('connection', socket => {
     const label = myTeam === 'blue' ? 'Força Azul' : 'Força Vermelha';
     room.state.log.unshift(`🏳 ${label} abandonou o jogo. ${otherTeam === 'blue' ? 'Força Azul' : 'Força Vermelha'} vence por W.O.`);
     const obj = computeObjectives(room.state);
+    gameLogger.logGameOver(room.id, room.state.turn, otherTeam, 'abandon', obj, room.state);
     const payload = { winner: otherTeam, objectives: obj, reason: 'abandon' };
     if (room.players.blue) io.to(room.players.blue).emit('game_over', { ...payload, state: stateFor(room.state, 'blue') });
     if (room.players.red)  io.to(room.players.red ).emit('game_over', { ...payload, state: stateFor(room.state, 'red')  });
@@ -800,6 +815,10 @@ io.on('connection', socket => {
   socket.on('disconnect', () => {
     const {roomId,team}=socket.data; if (!roomId) return;
     const room=rooms.get(roomId); if (!room) return;
+    if (room.state && !room.state.winner) {
+      const obj = computeObjectives(room.state);
+      gameLogger.logGameOver(roomId, room.state.turn, null, 'disconnect', obj, room.state);
+    }
     const other=team==='blue'?room.players.red:room.players.blue;
     if (other) io.to(other).emit('opponent_disconnected');
     rooms.delete(roomId);
