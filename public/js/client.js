@@ -298,7 +298,14 @@ socket.on('game_update', state => {
     activePath = []; plannedMoves.clear(); selGroupIds = [];
     selUnitId = null; moveHexes = []; atkHexes = [];
     hideStackPicker();
-    closeBrPanel();
+    // Only force-close the BR panel if the player isn't reading a final result.
+    // If the OK button is visible, the player must click it — let the panel
+    // close naturally and just flush the queue so OK closes cleanly.
+    if ($('br-ok-area').classList.contains('hidden')) {
+      closeBrPanel();
+    } else {
+      brQueue = [];
+    }
     if (state.turn !== prevTurn) {
       const per = state.period === 'day' ? '☀ Diurno' : '🌙 Noturno';
       flashScene(`TURNO ${state.turn}  ·  ${per}`, 'rgba(0,0,0,0.55)', 1800);
