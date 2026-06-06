@@ -442,13 +442,29 @@
     <div class="tut-step" data-s="5">
       <div class="tut-visual tut-demo-visual">
         <canvas id="tut-demo-canvas" width="340" height="160"></canvas>
+        <!-- Weapon selection dialog — absolute overlay on the canvas -->
+        <div id="tut-wd" class="tut-wd hidden">
+          <div class="tut-wd-title">⚔ ENGAJAMENTO</div>
+          <div class="tut-wd-row">
+            <span>🚀 Míssil Antinavio</span>
+            <span class="tut-wd-stock">&nbsp;×3 disp.</span>
+          </div>
+          <div class="tut-wd-qty">
+            <button id="tut-wd-minus" class="tut-wd-btn">−</button>
+            <span id="tut-wd-num">1</span>
+            <button id="tut-wd-plus" class="tut-wd-btn">+</button>
+          </div>
+          <button id="tut-wd-confirm" class="tut-wd-confirm">CONFIRMAR ATAQUE</button>
+          <button id="tut-wd-cancel" class="tut-wd-cancel">Cancelar</button>
+        </div>
         <div id="tut-demo-bar" class="tut-demo-bar">▣ MOVIMENTAÇÃO — clique no porta-aviões azul para selecioná-lo</div>
       </div>
       <div class="tut-title">SIMULAÇÃO TÁTICA</div>
       <div class="tut-text">
         <b>1.</b> Clique no porta-aviões <b>Azul</b> para selecioná-lo<br>
-        <b>2.</b> Clique em um hexágono verde para mover (alcance: <b>3 hex</b>)<br>
-        <b>3.</b> Clique no navio inimigo <b>Vermelho</b> para atacar (alcance: <b>2 hex</b>)
+        <b>2.</b> Clique em um hexágono vizinho verde para avançar<br>
+        <b>3.</b> Clique no porta-aviões azul para declarar ataque<br>
+        <b>4.</b> Clique no navio inimigo → selecione armamento → confirme
       </div>
     </div>
 
@@ -530,18 +546,50 @@
   document.getElementById('btn-tutorial').addEventListener('click', () => tutShow());
 
   // ── Interactive demo (step 5) ────────────────────────────────────────────
-  // Phases: 0=not selected  1=unit selected/moving  2=attack  3=result
+  // Phases: 0=idle  1=moving  2=combat-idle  3=attacker-sel  4=weapon-dlg  5=result
   const demoCanvas = document.getElementById('tut-demo-canvas');
   const demoBar    = document.getElementById('tut-demo-bar');
   const dCtx       = demoCanvas.getContext('2d');
 
   // Grid geometry — flat-top odd-q, identical to game engine
   const DR=22, DH=19, DOX=26, DOY=22, DCOLS=9, DROWS=3;
-  const DEMO_MOV=3, DEMO_RANGE=2;
+  const DEMO_RANGE=2;
   const IS=26; // icon draw size
 
-  // State
-  let dPhase=0, dBlue={col:2,row:1}, dRed={col:6,row:1}, dAnimating=false;
+  // State — Red at (5,1) so 1 step puts blue in attack range
+  let dPhase=0, dBlue={col:2,row:1}, dRed={col:5,row:1}, dAnimating=false;
+
+  // ── Weapon dialog ────────────────────────────────────────────────────────
+  const wdPanel   = document.getElementById('tut-wd');
+  const wdMinus   = document.getElementById('tut-wd-minus');
+  const wdPlus    = document.getElementById('tut-wd-plus');
+  const wdNum     = document.getElementById('tut-wd-num');
+  const wdConfirm = document.getElementById('tut-wd-confirm');
+  const wdCancel  = document.getElementById('tut-wd-cancel');
+  const WD_MAX=3; let wdAmt=1;
+
+  function wdShow(){
+    wdAmt=1; wdNum.textContent='1'; wdPanel.classList.remove('hidden');
+    demoBar.className='tut-demo-bar atk';
+    demoBar.textContent='Selecione a quantidade de armamento e confirme o ataque';
+  }
+  function wdHide(){ wdPanel.classList.add('hidden'); }
+
+  wdMinus.addEventListener('click',()=>{ if(wdAmt>1){ wdAmt--; wdNum.textContent=wdAmt; } });
+  wdPlus.addEventListener('click', ()=>{ if(wdAmt<WD_MAX){ wdAmt++; wdNum.textContent=wdAmt; } });
+  wdConfirm.addEventListener('click',()=>{
+    wdHide(); dPhase=5;
+    demoBar.className='tut-demo-bar result';
+    demoBar.textContent='\u{1F4A5} IMPACTO DIRETO — alvo neutralizado!';
+    demoDraw();
+    setTimeout(()=>{ demoBar.textContent='✓ Missão cumprida — você domina os fundamentos!'; },1500);
+  });
+  wdCancel.addEventListener('click',()=>{
+    wdHide(); dPhase=3;
+    demoBar.className='tut-demo-bar atk';
+    demoBar.textContent='\u{1F3AF} COMBATE — clique no navio inimigo para declarar ataque';
+    demoDraw();
+  });
 
   // Preload game icons and cache tinted versions
   let dIconBlue=null, dIconRed=null;
@@ -612,42 +660,41 @@
     dCtx.clearRect(0,0,340,160);
     dCtx.fillStyle='rgba(4,14,28,1)'; dCtx.fillRect(0,0,340,160);
 
-    const sel      = dPhase>=1 && dPhase<=2; // unit is selected
-    const canAtk   = dPhase===2 && dDist(dBlue.col,dBlue.row,dRed.col,dRed.row)<=DEMO_RANGE;
+    const blueSelected = dPhase===1 || dPhase===3;
+    const inRange = dDist(dBlue.col,dBlue.row,dRed.col,dRed.row)<=DEMO_RANGE;
 
     for(let c=0;c<DCOLS;c++) for(let r=0;r<DROWS;r++){
       const {x,y}=dCenter(c,r);
       const isB=c===dBlue.col&&r===dBlue.row;
       const isR=c===dRed.col&&r===dRed.row;
-      // Green movement hexes only while selected and not animating
-      const inMov=sel&&!dAnimating&&dPhase===1&&!isR&&!isB&&dDist(dBlue.col,dBlue.row,c,r)<=DEMO_MOV;
+      const inMov=dPhase===1&&!dAnimating&&!isR&&!isB&&dDist(dBlue.col,dBlue.row,c,r)===1;
+      const isTarget=dPhase===3&&isR&&inRange;
 
-      if     (isB&&sel)          dHex(x,y,'rgba(21,101,192,0.70)','#82b1ff',2);
-      else if(isB)               dHex(x,y,'rgba(21,101,192,0.40)','rgba(130,177,255,0.50)',1.5);
-      else if(isR&&dPhase===3)   dHex(x,y,'rgba(100,8,8,0.55)','rgba(255,80,50,0.4)',1.5);
-      else if(isR&&canAtk)       dHex(x,y,'rgba(180,20,20,0.38)','rgba(255,100,80,0.95)',2,[4,2]);
-      else if(isR)               dHex(x,y,'rgba(183,28,28,0.55)','rgba(255,138,128,0.65)',1.5);
-      else if(inMov)             dHex(x,y,'rgba(0,200,80,0.18)','rgba(0,230,118,0.8)',1.5);
-      else                       dHex(x,y,'rgba(10,30,60,0.55)','rgba(80,140,200,0.28)',1);
+      if(isB&&blueSelected)             dHex(x,y,'rgba(21,101,192,0.70)','#82b1ff',2);
+      else if(isB)                       dHex(x,y,'rgba(21,101,192,0.40)','rgba(130,177,255,0.50)',1.5);
+      else if(isTarget)                  dHex(x,y,'rgba(100,8,8,0.55)','rgba(255,80,50,0.4)',1.5);
+      else if(isR&&dPhase===2&&inRange)  dHex(x,y,'rgba(180,20,20,0.38)','rgba(255,100,80,0.95)',2,[4,2]);
+      else if(isR&&dPhase===5)           dHex(x,y,'rgba(40,10,10,0.55)','rgba(100,50,50,0.5)',1);
+      else if(isR)                       dHex(x,y,'rgba(183,28,28,0.55)','rgba(255,138,128,0.65)',1.5);
+      else if(inMov)                     dHex(x,y,'rgba(0,200,80,0.18)','rgba(0,230,118,0.8)',1.5);
+      else                               dHex(x,y,'rgba(10,30,60,0.55)','rgba(80,140,200,0.28)',1);
 
-      // Unit icons
       dCtx.textAlign='center'; dCtx.textBaseline='middle';
       if(isB){
         if(dIconBlue) dCtx.drawImage(dIconBlue,x-IS/2,y-IS/2,IS,IS);
         else{ dCtx.fillStyle='#c8e0ff';dCtx.font='bold 9px "Courier New"';dCtx.fillText('AZL',x,y); }
       }
-      if(isR&&dPhase<3){
+      if(isR&&dPhase<5){
         if(dIconRed) dCtx.drawImage(dIconRed,x-IS/2,y-IS/2,IS,IS);
         else{ dCtx.fillStyle='#ffb3ae';dCtx.font='bold 9px "Courier New"';dCtx.fillText('VRM',x,y); }
       }
-      if(isR&&dPhase===3){
+      if(isR&&dPhase===5){
         dCtx.font='18px serif'; dCtx.fillStyle='rgba(255,150,50,0.95)';
         dCtx.fillText('\u{1F4A5}',x,y);
       }
     }
 
-    // Missile trajectory after attack
-    if(dPhase===3){
+    if(dPhase>=3){
       const {x:bx,y:by}=dCenter(dBlue.col,dBlue.row);
       const {x:rx,y:ry}=dCenter(dRed.col,dRed.row);
       dCtx.strokeStyle='rgba(255,220,80,0.55)';dCtx.lineWidth=1.5;
@@ -669,18 +716,21 @@
   }
 
   function demoReset(){
-    dAnimating=false; dPhase=0; dBlue={col:2,row:1}; dRed={col:6,row:1};
+    wdHide(); dAnimating=false; dPhase=0;
+    dBlue={col:2,row:1}; dRed={col:5,row:1};
     demoBar.className='tut-demo-bar';
     demoBar.textContent='▣ MOVIMENTAÇÃO — clique no porta-aviões azul para selecioná-lo';
     demoDraw();
   }
 
   demoCanvas.addEventListener('click', e=>{
-    if(dAnimating) return;
+    if(dAnimating||dPhase===4) return;
     const rect=demoCanvas.getBoundingClientRect();
     const mx=(e.clientX-rect.left)*(340/rect.width);
     const my=(e.clientY-rect.top)*(160/rect.height);
     const hex=dPickHex(mx,my); if(!hex) return;
+
+    if(dPhase===5){ demoReset(); return; }
 
     if(dPhase===0){
       // Click 1: select own unit
@@ -690,30 +740,47 @@
         demoBar.textContent='⬡ MOVIMENTAÇÃO — clique em um hexágono verde para avançar';
         demoDraw();
       }
-    } else if(dPhase===1){
-      // Click 2: move to a reachable hex
-      if(hex.col===dBlue.col&&hex.row===dBlue.row) return; // re-click own unit = ignore
-      if(hex.col===dRed.col&&hex.row===dRed.row) return;   // can't land on enemy
-      if(dDist(dBlue.col,dBlue.row,hex.col,hex.row)>DEMO_MOV) return;
+      return;
+    }
+
+    if(dPhase===1){
+      // Click 2: move one step to a neighbor
+      if(hex.col===dBlue.col&&hex.row===dBlue.row) return;
+      if(hex.col===dRed.col&&hex.row===dRed.row) return;
+      if(dDist(dBlue.col,dBlue.row,hex.col,hex.row)!==1) return;
       const path=dPath(dBlue.col,dBlue.row,hex.col,hex.row);
       dAnimatePath(path,()=>{
-        dPhase=2;
         const ok=dDist(dBlue.col,dBlue.row,dRed.col,dRed.row)<=DEMO_RANGE;
-        demoBar.className='tut-demo-bar atk';
-        demoBar.textContent=ok
-          ? '\u{1F3AF} COMBATE — clique no navio inimigo vermelho para atacar'
-          : '⚠ Inimigo fora do alcance — reiniciando...';
+        if(ok){
+          dPhase=2;
+          demoBar.className='tut-demo-bar atk';
+          demoBar.textContent='⚔ COMBATE — clique no porta-aviões azul para declarar ataque';
+        } else {
+          demoBar.className='tut-demo-bar';
+          demoBar.textContent='⬡ MOVIMENTAÇÃO — continue avançando (ainda fora do alcance)';
+        }
         demoDraw();
-        if(!ok) setTimeout(demoReset,2000);
       });
-    } else if(dPhase===2){
-      // Click 3: attack enemy if in range
+      return;
+    }
+
+    if(dPhase===2){
+      // Click 3: select own unit as attacker
+      if(hex.col===dBlue.col&&hex.row===dBlue.row){
+        dPhase=3;
+        demoBar.className='tut-demo-bar atk';
+        demoBar.textContent='\u{1F3AF} COMBATE — clique no navio inimigo para declarar ataque';
+        demoDraw();
+      }
+      return;
+    }
+
+    if(dPhase===3){
+      // Click 4: select enemy target
       const ok=dDist(dBlue.col,dBlue.row,dRed.col,dRed.row)<=DEMO_RANGE;
       if(ok&&hex.col===dRed.col&&hex.row===dRed.row){
-        dPhase=3; demoBar.className='tut-demo-bar result';
-        demoBar.textContent='\u{1F4A5} IMPACTO DIRETO — alvo neutralizado!';
-        demoDraw();
-        setTimeout(()=>{ demoBar.textContent='✓ Missão cumprida — você domina os fundamentos!'; },1500);
+        dPhase=4;
+        wdShow(); demoDraw();
       }
     }
   });
