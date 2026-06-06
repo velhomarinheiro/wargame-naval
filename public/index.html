@@ -533,99 +533,146 @@
   const demoBar    = document.getElementById('tut-demo-bar');
   const dCtx       = demoCanvas.getContext('2d');
 
-  // Grid geometry — flat-top odd-q, matches game engine
+  // Grid geometry — flat-top odd-q, identical to game engine
   const DR=22, DH=19, DOX=26, DOY=22, DCOLS=9, DROWS=3;
   const DEMO_MOV=3, DEMO_RANGE=2;
+  const IS=26; // icon draw size
 
   // State
-  let dPhase=0, dBlue={col:2,row:1}, dRed={col:6,row:1};
+  let dPhase=0, dBlue={col:2,row:1}, dRed={col:6,row:1}, dAnimating=false;
 
-  function dCenter(c,r) {
-    return { x: DOX+DR*1.5*c, y: DOY+DR*Math.sqrt(3)*(r+0.5*(c&1)) };
+  // Preload game icons and cache tinted versions
+  let dIconBlue=null, dIconRed=null;
+  const dImgBlue=new Image(), dImgRed=new Image();
+
+  function dMkIcon(img, tint) {
+    const oc=document.createElement('canvas'); oc.width=oc.height=IS;
+    const ot=oc.getContext('2d');
+    ot.drawImage(img,0,0,IS,IS);
+    ot.globalCompositeOperation='source-in';
+    ot.fillStyle=tint; ot.fillRect(0,0,IS,IS);
+    return oc;
   }
+  dImgBlue.onload=()=>{ dIconBlue=dMkIcon(dImgBlue,'#82b1ff'); demoDraw(); };
+  dImgRed.onload =()=>{ dIconRed =dMkIcon(dImgRed, '#ff8a80'); demoDraw(); };
+  dImgBlue.src='/icons/porta-avioes.png';
+  dImgRed.src ='/icons/navio-de-guerra.png';
 
-  function dDist(c1,r1,c2,r2) {
+  // Hex helpers
+  function dCenter(c,r){ return {x:DOX+DR*1.5*c, y:DOY+DR*Math.sqrt(3)*(r+0.5*(c&1))}; }
+
+  function dDist(c1,r1,c2,r2){
     const tC=(c,r)=>{const z=r-(c-(c&1))/2;return{x:c,z,y:-c-z};};
-    const a=tC(c1,r1), b=tC(c2,r2);
+    const a=tC(c1,r1),b=tC(c2,r2);
     return Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y),Math.abs(a.z-b.z));
   }
 
-  function dPickHex(mx,my) {
-    let best=null, bestD=DR*DR;
-    for(let c=0;c<DCOLS;c++) for(let r=0;r<DROWS;r++) {
-      const {x,y}=dCenter(c,r), d=(mx-x)**2+(my-y)**2;
+  // Cube-lerp shortest path (same algorithm as game move animation)
+  function dPath(c1,r1,c2,r2){
+    const tC=(c,r)=>{const z=r-(c-(c&1))/2;return{x:c,z,y:-c-z};};
+    const a=tC(c1,r1),b=tC(c2,r2);
+    const n=Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y),Math.abs(a.z-b.z));
+    const path=[];
+    for(let i=1;i<=n;i++){
+      const t=i/n;
+      let lx=a.x+(b.x-a.x)*t, ly=a.y+(b.y-a.y)*t, lz=a.z+(b.z-a.z)*t;
+      let rx=Math.round(lx),ry=Math.round(ly),rz=Math.round(lz);
+      const dx=Math.abs(rx-lx),dy=Math.abs(ry-ly),dz=Math.abs(rz-lz);
+      if(dx>dy&&dx>dz) rx=-ry-rz;
+      else if(dy>dz)   ry=-rx-rz;
+      else             rz=-rx-ry;
+      path.push({col:rx, row:rz+(rx-(rx&1))/2});
+    }
+    return path;
+  }
+
+  function dPickHex(mx,my){
+    let best=null,bestD=DR*DR;
+    for(let c=0;c<DCOLS;c++) for(let r=0;r<DROWS;r++){
+      const {x,y}=dCenter(c,r),d=(mx-x)**2+(my-y)**2;
       if(d<bestD){bestD=d;best={col:c,row:r};}
     }
     return best;
   }
 
-  function dHex(cx,cy,fill,stroke,lw,dash) {
+  function dHex(cx,cy,fill,stroke,lw,dash){
     dCtx.beginPath();
     dCtx.moveTo(cx+DR,cy);
     dCtx.lineTo(cx+DR/2,cy-DH); dCtx.lineTo(cx-DR/2,cy-DH);
     dCtx.lineTo(cx-DR,cy);
     dCtx.lineTo(cx-DR/2,cy+DH); dCtx.lineTo(cx+DR/2,cy+DH);
     dCtx.closePath();
-    if(fill){dCtx.fillStyle=fill; dCtx.fill();}
-    if(stroke){
-      dCtx.strokeStyle=stroke; dCtx.lineWidth=lw||1;
-      dCtx.setLineDash(dash||[]); dCtx.stroke(); dCtx.setLineDash([]);
-    }
+    if(fill){dCtx.fillStyle=fill;dCtx.fill();}
+    if(stroke){dCtx.strokeStyle=stroke;dCtx.lineWidth=lw||1;dCtx.setLineDash(dash||[]);dCtx.stroke();dCtx.setLineDash([]);}
   }
 
-  function demoDraw() {
+  function demoDraw(){
     dCtx.clearRect(0,0,340,160);
     dCtx.fillStyle='rgba(4,14,28,1)'; dCtx.fillRect(0,0,340,160);
 
-    const canAtk = dPhase>=1 && dDist(dBlue.col,dBlue.row,dRed.col,dRed.row)<=DEMO_RANGE;
+    const canAtk=dPhase>=1&&dDist(dBlue.col,dBlue.row,dRed.col,dRed.row)<=DEMO_RANGE;
 
-    for(let c=0;c<DCOLS;c++) for(let r=0;r<DROWS;r++) {
+    for(let c=0;c<DCOLS;c++) for(let r=0;r<DROWS;r++){
       const {x,y}=dCenter(c,r);
       const isB=c===dBlue.col&&r===dBlue.row;
       const isR=c===dRed.col&&r===dRed.row;
-      const inMov=dPhase===0&&!isR&&!isB&&dDist(dBlue.col,dBlue.row,c,r)<=DEMO_MOV;
+      // Show green movement range only when not animating
+      const inMov=!dAnimating&&dPhase===0&&!isR&&!isB&&dDist(dBlue.col,dBlue.row,c,r)<=DEMO_MOV;
 
-      if(isB)              dHex(x,y,'rgba(21,101,192,0.7)','#82b1ff',2);
-      else if(isR&&dPhase===2) dHex(x,y,'rgba(100,8,8,0.55)','rgba(255,80,50,0.4)',1.5);
-      else if(isR&&canAtk) dHex(x,y,'rgba(180,20,20,0.38)','rgba(255,100,80,0.95)',2,[4,2]);
-      else if(isR)         dHex(x,y,'rgba(183,28,28,0.55)','rgba(255,138,128,0.65)',1.5);
-      else if(inMov)       dHex(x,y,'rgba(0,200,80,0.18)','rgba(0,230,118,0.8)',1.5);
-      else                 dHex(x,y,'rgba(10,30,60,0.55)','rgba(80,140,200,0.28)',1);
+      if     (isB)               dHex(x,y,'rgba(21,101,192,0.7)','#82b1ff',2);
+      else if(isR&&dPhase===2)   dHex(x,y,'rgba(100,8,8,0.55)','rgba(255,80,50,0.4)',1.5);
+      else if(isR&&canAtk)       dHex(x,y,'rgba(180,20,20,0.38)','rgba(255,100,80,0.95)',2,[4,2]);
+      else if(isR)               dHex(x,y,'rgba(183,28,28,0.55)','rgba(255,138,128,0.65)',1.5);
+      else if(inMov)             dHex(x,y,'rgba(0,200,80,0.18)','rgba(0,230,118,0.8)',1.5);
+      else                       dHex(x,y,'rgba(10,30,60,0.55)','rgba(80,140,200,0.28)',1);
 
-      dCtx.textAlign='center'; dCtx.textBaseline='middle';
+      // Unit icons — use game images when loaded, text fallback otherwise
       if(isB){
-        dCtx.fillStyle='#c8e0ff'; dCtx.font='bold 10px "Courier New"';
-        dCtx.fillText('AZL',x,y);
+        if(dIconBlue) dCtx.drawImage(dIconBlue,x-IS/2,y-IS/2,IS,IS);
+        else{ dCtx.fillStyle='#c8e0ff';dCtx.font='bold 9px "Courier New"';dCtx.textAlign='center';dCtx.textBaseline='middle';dCtx.fillText('AZL',x,y); }
       }
       if(isR&&dPhase<2){
-        dCtx.fillStyle='#ffb3ae'; dCtx.font='bold 10px "Courier New"';
-        dCtx.fillText('VRM',x,y);
+        if(dIconRed) dCtx.drawImage(dIconRed,x-IS/2,y-IS/2,IS,IS);
+        else{ dCtx.fillStyle='#ffb3ae';dCtx.font='bold 9px "Courier New"';dCtx.textAlign='center';dCtx.textBaseline='middle';dCtx.fillText('VRM',x,y); }
       }
       if(isR&&dPhase===2){
-        dCtx.font='16px serif'; dCtx.fillStyle='rgba(255,150,50,0.95)';
+        dCtx.font='18px serif';dCtx.textAlign='center';dCtx.textBaseline='middle';
+        dCtx.fillStyle='rgba(255,150,50,0.95)';
         dCtx.fillText('\u{1F4A5}',x,y);
       }
     }
 
-    // Attack trajectory
+    // Missile trajectory line after attack
     if(dPhase===2){
       const {x:bx,y:by}=dCenter(dBlue.col,dBlue.row);
       const {x:rx,y:ry}=dCenter(dRed.col,dRed.row);
-      dCtx.strokeStyle='rgba(255,220,80,0.55)'; dCtx.lineWidth=1.5;
-      dCtx.setLineDash([3,3]); dCtx.beginPath();
-      dCtx.moveTo(bx,by); dCtx.lineTo(rx,ry);
-      dCtx.stroke(); dCtx.setLineDash([]);
+      dCtx.strokeStyle='rgba(255,220,80,0.55)';dCtx.lineWidth=1.5;
+      dCtx.setLineDash([3,3]);dCtx.beginPath();dCtx.moveTo(bx,by);dCtx.lineTo(rx,ry);
+      dCtx.stroke();dCtx.setLineDash([]);
     }
   }
 
-  function demoReset() {
-    dPhase=0; dBlue={col:2,row:1}; dRed={col:6,row:1};
+  // Step the unit along path one hex at a time (340 ms/step)
+  function dAnimatePath(path, onDone){
+    dAnimating=true; demoDraw();
+    let step=0;
+    const tick=()=>{
+      if(step>=path.length){ dAnimating=false; onDone(); return; }
+      dBlue=path[step++]; demoDraw();
+      setTimeout(tick,340);
+    };
+    setTimeout(tick,340);
+  }
+
+  function demoReset(){
+    dAnimating=false; dPhase=0; dBlue={col:2,row:1}; dRed={col:6,row:1};
     demoBar.className='tut-demo-bar';
     demoBar.textContent='▣ MOVIMENTAÇÃO — clique em um hexágono verde para avançar';
     demoDraw();
   }
 
   demoCanvas.addEventListener('click', e=>{
+    if(dAnimating) return;
     const rect=demoCanvas.getBoundingClientRect();
     const mx=(e.clientX-rect.left)*(340/rect.width);
     const my=(e.clientY-rect.top)*(160/rect.height);
@@ -635,23 +682,24 @@
       if(hex.col===dBlue.col&&hex.row===dBlue.row) return;
       if(hex.col===dRed.col&&hex.row===dRed.row) return;
       if(dDist(dBlue.col,dBlue.row,hex.col,hex.row)>DEMO_MOV) return;
-      dBlue=hex; dPhase=1;
-      const ok=dDist(dBlue.col,dBlue.row,dRed.col,dRed.row)<=DEMO_RANGE;
-      demoBar.className='tut-demo-bar atk';
-      demoBar.textContent=ok
-        ? '\u{1F3AF} COMBATE — clique no navio inimigo vermelho para atacar'
-        : '⚠ Inimigo fora do alcance — reiniciando...';
-      demoDraw();
-      if(!ok) setTimeout(demoReset, 2000);
+      const path=dPath(dBlue.col,dBlue.row,hex.col,hex.row);
+      dAnimatePath(path,()=>{
+        dPhase=1;
+        const ok=dDist(dBlue.col,dBlue.row,dRed.col,dRed.row)<=DEMO_RANGE;
+        demoBar.className='tut-demo-bar atk';
+        demoBar.textContent=ok
+          ? '\u{1F3AF} COMBATE — clique no navio inimigo vermelho para atacar'
+          : '⚠ Inimigo fora do alcance — reiniciando...';
+        demoDraw();
+        if(!ok) setTimeout(demoReset,2000);
+      });
     } else if(dPhase===1){
       const ok=dDist(dBlue.col,dBlue.row,dRed.col,dRed.row)<=DEMO_RANGE;
       if(ok&&hex.col===dRed.col&&hex.row===dRed.row){
         dPhase=2; demoBar.className='tut-demo-bar result';
         demoBar.textContent='\u{1F4A5} IMPACTO DIRETO — alvo neutralizado!';
         demoDraw();
-        setTimeout(()=>{
-          demoBar.textContent='✓ Missão cumprida — você domina os fundamentos!';
-        },1500);
+        setTimeout(()=>{ demoBar.textContent='✓ Missão cumprida — você domina os fundamentos!'; },1500);
       }
     }
   });
