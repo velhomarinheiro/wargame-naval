@@ -274,38 +274,49 @@
         <div class="tvm-container">
           <img src="/mapa.jpeg" class="tvm-bg-img" alt="Mapa">
           <div class="tvm-hex-layer">
+            <!-- Flat-top hexagons (odd-q offset) matching the game engine.
+                 r=22, h=19 (≈r·sin60°). Each hex: cx+22,cy cx+11,cy-19 cx-11,cy-19 cx-22,cy cx-11,cy+19 cx+11,cy+19
+                 Even cols: y=30,68,106,144 | Odd cols (offset+19): y=49,87,125
+                 Selected unit: col4-row1 center(160,68) | Movement: 6 neighbors | Attack target: col6-row1 center(226,68) -->
             <svg viewBox="0 0 340 180" xmlns="http://www.w3.org/2000/svg" class="tvm-svg">
-              <polygon points="40,20 58,30 58,50 40,60 22,50 22,30"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="76,20 94,30 94,50 76,60 58,50 58,30"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="22,60 40,70 40,90 22,100 4,90 4,70"    fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="76,60 94,70 94,90 76,100 58,90 58,70"  fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="112,20 130,30 130,50 112,60 94,50 94,30"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="148,20 166,30 166,50 148,60 130,50 130,30" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="148,60 166,70 166,90 148,100 130,90 130,70" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="184,20 202,30 202,50 184,60 166,50 166,30"  fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="184,60 202,70 202,90 184,100 166,90 166,70" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="220,20 238,30 238,50 220,60 202,50 202,30"  fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="220,60 238,70 238,90 220,100 202,90 202,70" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="256,20 274,30 274,50 256,60 238,50 238,30"  fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="256,60 274,70 274,90 256,100 238,90 238,70" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="292,20 310,30 310,50 292,60 274,50 274,30"  fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="112,100 130,110 130,130 112,140 94,130 94,110"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="148,100 166,110 166,130 148,140 130,130 130,110" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="184,100 202,110 202,130 184,140 166,130 166,110" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <polygon points="220,100 238,110 238,130 220,140 202,130 202,110" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
-              <!-- movement hexes (green) -->
-              <polygon points="112,60 130,70 130,90 112,100 94,90 94,70"   fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
-              <polygon points="148,100 166,110 166,130 148,140 130,130 130,110" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
-              <polygon points="220,60 238,70 238,90 220,100 202,90 202,70"  fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
-              <polygon points="184,100 202,110 202,130 184,140 166,130 166,110" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
-              <polygon points="148,20 166,30 166,50 148,60 130,50 130,30" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
-              <polygon points="220,20 238,30 238,50 220,60 202,50 202,30" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
-              <!-- selected unit -->
-              <polygon points="184,60 202,70 202,90 184,100 166,90 166,70" fill="rgba(21,101,192,0.6)" stroke="#82b1ff" stroke-width="2"/>
-              <image href="/icons/porta-avioes.png" x="172" y="68" width="24" height="24" style="filter:brightness(10)"/>
-              <!-- attack target -->
-              <polygon points="256,60 274,70 274,90 256,100 238,90 238,70" fill="rgba(180,20,20,0.25)" stroke="rgba(255,100,80,0.7)" stroke-width="1.5" stroke-dasharray="4,2"/>
-              <text x="257" y="82" text-anchor="middle" fill="rgba(255,120,100,0.85)" font-size="13">⚓</text>
+              <!-- Background hexes -->
+              <polygon points="50,30 39,11 17,11 6,30 17,49 39,49"     fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="50,68 39,49 17,49 6,68 17,87 39,87"     fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="50,106 39,87 17,87 6,106 17,125 39,125" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="50,144 39,125 17,125 6,144 17,163 39,163" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="83,49 72,30 50,30 39,49 50,68 72,68"     fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="83,87 72,68 50,68 39,87 50,106 72,106"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="83,125 72,106 50,106 39,125 50,144 72,144" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="116,30 105,11 83,11 72,30 83,49 105,49"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="116,68 105,49 83,49 72,68 83,87 105,87"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="116,106 105,87 83,87 72,106 83,125 105,125" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="116,144 105,125 83,125 72,144 83,163 105,163" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="149,125 138,106 116,106 105,125 116,144 138,144" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="182,144 171,125 149,125 138,144 149,163 171,163" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="215,125 204,106 182,106 171,125 182,144 204,144" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="248,30 237,11 215,11 204,30 215,49 237,49"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="248,106 237,87 215,87 204,106 215,125 237,125" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="248,144 237,125 215,125 204,144 215,163 237,163" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="281,49 270,30 248,30 237,49 248,68 270,68"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="281,87 270,68 248,68 237,87 248,106 270,106" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="281,125 270,106 248,106 237,125 248,144 270,144" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="314,30 303,11 281,11 270,30 281,49 303,49"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="314,68 303,49 281,49 270,68 281,87 303,87"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="314,106 303,87 281,87 270,106 281,125 303,125" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="314,144 303,125 281,125 270,144 281,163 303,163" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <!-- Movement hexes — 6 neighbors of selected unit (green) -->
+              <polygon points="149,49 138,30 116,30 105,49 116,68 138,68"   fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.75)" stroke-width="1.5"/>
+              <polygon points="149,87 138,68 116,68 105,87 116,106 138,106" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.75)" stroke-width="1.5"/>
+              <polygon points="182,30 171,11 149,11 138,30 149,49 171,49"   fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.75)" stroke-width="1.5"/>
+              <polygon points="182,106 171,87 149,87 138,106 149,125 171,125" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.75)" stroke-width="1.5"/>
+              <polygon points="215,49 204,30 182,30 171,49 182,68 204,68"   fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.75)" stroke-width="1.5"/>
+              <polygon points="215,87 204,68 182,68 171,87 182,106 204,106" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.75)" stroke-width="1.5"/>
+              <!-- Selected unit (blue) -->
+              <polygon points="182,68 171,49 149,49 138,68 149,87 171,87"   fill="rgba(21,101,192,0.65)" stroke="#82b1ff" stroke-width="2"/>
+              <image href="/icons/porta-avioes.png" x="148" y="56" width="24" height="24" style="filter:brightness(10)"/>
+              <!-- Attack target (red dashed) -->
+              <polygon points="248,68 237,49 215,49 204,68 215,87 237,87"   fill="rgba(180,20,20,0.25)" stroke="rgba(255,100,80,0.75)" stroke-width="1.5" stroke-dasharray="4,2"/>
+              <text x="226" y="73" text-anchor="middle" fill="rgba(255,120,100,0.9)" font-size="14">⚓</text>
             </svg>
           </div>
           <div class="tvm-caption">▣ verde = movimentação &nbsp;·&nbsp; ▣ vermelho = alvo no alcance</div>
