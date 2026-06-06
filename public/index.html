@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Operação Atlântico Sul</title>
   <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/tutorial.css">
 </head>
 <body>
 
@@ -194,6 +195,8 @@
     <h2>INICIAR OPERAÇÃO</h2>
 
     <div id="lobby-menu" class="lobby-box">
+      <button id="btn-tutorial" class="tut-cta-btn">📖 COMO JOGAR — Tutorial</button>
+      <div class="tut-or-direct">— ou entre direto no jogo —</div>
       <button id="btn-create" class="btn-action blue">
         <span class="btn-icon">⚓</span>
         Criar Nova Sala
@@ -226,6 +229,212 @@
   <p>OPERAÇÃO ATLÂNTICO SUL · Wargame Naval © 2026 · <a href="game.html">Entrar no Teatro de Operações</a></p>
 </footer>
 
+<!-- ── TUTORIAL OVERLAY ───────────────────────────────────────────────────── -->
+<div id="tutorial-overlay" class="tut-overlay hidden">
+  <div class="tut-box">
+
+    <div class="tut-topbar">
+      <div class="tut-dots">
+        <span class="tut-dot" data-s="0"></span>
+        <span class="tut-dot" data-s="1"></span>
+        <span class="tut-dot" data-s="2"></span>
+        <span class="tut-dot" data-s="3"></span>
+        <span class="tut-dot" data-s="4"></span>
+      </div>
+      <button class="tut-skip-btn">PULAR TUTORIAL</button>
+    </div>
+
+    <!-- Step 0 — O Jogo -->
+    <div class="tut-step" data-s="0">
+      <div class="tut-visual">
+        <div class="tvi-map-bg"></div>
+        <div class="tvi-cards">
+          <div class="tvi-team blue">
+            <img class="tvi-card-img" src="/cards/Blue_SAG_P.PNG" alt="Força Azul">
+            <div class="tvi-team-label">FORÇA AZUL</div>
+          </div>
+          <div class="tvi-vs">VS</div>
+          <div class="tvi-team red">
+            <img class="tvi-card-img" src="/cards/Red_GBPA.jpg" alt="Força Vermelha">
+            <div class="tvi-team-label">FORÇA VERMELHA</div>
+          </div>
+        </div>
+      </div>
+      <div class="tut-title">OPERAÇÃO ATLÂNTICO SUL</div>
+      <div class="tut-text">
+        Wargame naval operacional para 2 jogadores.<br>
+        Comande frotas de navios e aeronaves num cenário de conflito real no Atlântico Sul.<br>
+        <b>Azul vs. Vermelho</b> — destrua, controle e negue áreas estratégicas ao adversário.
+      </div>
+    </div>
+
+    <!-- Step 1 — O Tabuleiro -->
+    <div class="tut-step" data-s="1">
+      <div class="tut-visual">
+        <div class="tvm-container">
+          <img src="/mapa.jpeg" class="tvm-bg-img" alt="Mapa">
+          <div class="tvm-hex-layer">
+            <svg viewBox="0 0 340 180" xmlns="http://www.w3.org/2000/svg" class="tvm-svg">
+              <polygon points="40,20 58,30 58,50 40,60 22,50 22,30"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="76,20 94,30 94,50 76,60 58,50 58,30"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="22,60 40,70 40,90 22,100 4,90 4,70"    fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="76,60 94,70 94,90 76,100 58,90 58,70"  fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="112,20 130,30 130,50 112,60 94,50 94,30"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="148,20 166,30 166,50 148,60 130,50 130,30" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="148,60 166,70 166,90 148,100 130,90 130,70" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="184,20 202,30 202,50 184,60 166,50 166,30"  fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="184,60 202,70 202,90 184,100 166,90 166,70" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="220,20 238,30 238,50 220,60 202,50 202,30"  fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="220,60 238,70 238,90 220,100 202,90 202,70" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="256,20 274,30 274,50 256,60 238,50 238,30"  fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="256,60 274,70 274,90 256,100 238,90 238,70" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="292,20 310,30 310,50 292,60 274,50 274,30"  fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="112,100 130,110 130,130 112,140 94,130 94,110"   fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="148,100 166,110 166,130 148,140 130,130 130,110" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="184,100 202,110 202,130 184,140 166,130 166,110" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <polygon points="220,100 238,110 238,130 220,140 202,130 202,110" fill="rgba(10,30,60,0.5)" stroke="rgba(80,140,200,0.3)" stroke-width="1"/>
+              <!-- movement hexes (green) -->
+              <polygon points="112,60 130,70 130,90 112,100 94,90 94,70"   fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
+              <polygon points="148,100 166,110 166,130 148,140 130,130 130,110" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
+              <polygon points="220,60 238,70 238,90 220,100 202,90 202,70"  fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
+              <polygon points="184,100 202,110 202,130 184,140 166,130 166,110" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
+              <polygon points="148,20 166,30 166,50 148,60 130,50 130,30" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
+              <polygon points="220,20 238,30 238,50 220,60 202,50 202,30" fill="rgba(0,200,80,0.2)" stroke="rgba(0,230,118,0.7)" stroke-width="1.5"/>
+              <!-- selected unit -->
+              <polygon points="184,60 202,70 202,90 184,100 166,90 166,70" fill="rgba(21,101,192,0.6)" stroke="#82b1ff" stroke-width="2"/>
+              <image href="/icons/porta-avioes.png" x="172" y="68" width="24" height="24" style="filter:brightness(10)"/>
+              <!-- attack target -->
+              <polygon points="256,60 274,70 274,90 256,100 238,90 238,70" fill="rgba(180,20,20,0.25)" stroke="rgba(255,100,80,0.7)" stroke-width="1.5" stroke-dasharray="4,2"/>
+              <text x="257" y="82" text-anchor="middle" fill="rgba(255,120,100,0.85)" font-size="13">⚓</text>
+            </svg>
+          </div>
+          <div class="tvm-caption">▣ verde = movimentação &nbsp;·&nbsp; ▣ vermelho = alvo no alcance</div>
+        </div>
+      </div>
+      <div class="tut-title">GRADE HEXAGONAL</div>
+      <div class="tut-text">
+        Selecione uma unidade sua — hexágonos verdes mostram onde pode se mover.<br>
+        Na fase de combate, hexágonos vermelhos indicam alvos dentro do alcance de tiro.<br>
+        Cada unidade tem <b>MOV</b> pontos de deslocamento por turno.
+      </div>
+    </div>
+
+    <!-- Step 2 — Unidades -->
+    <div class="tut-step" data-s="2">
+      <div class="tut-visual">
+        <div class="tvu-wrap">
+          <div class="tvu-card-panel">
+            <img src="/cards/Blue_SAG_P.PNG" alt="Card SAG-P">
+          </div>
+          <div class="tvu-legend">
+            <div class="tvu-row">
+              <span class="tvu-key">SP</span>
+              <span class="tvu-val">Pontos de sobrevivência<br><small>Chega a zero → unidade destruída</small></span>
+            </div>
+            <div class="tvu-row">
+              <span class="tvu-key">MOV</span>
+              <span class="tvu-val">Hexágonos de movimento<br><small>Por turno, na fase de movimentação</small></span>
+            </div>
+            <div class="tvu-row">
+              <span class="tvu-key">🚀</span>
+              <span class="tvu-val">Armamentos e munição<br><small>Quantidade limitada — não regenera</small></span>
+            </div>
+            <div class="tvu-row">
+              <span class="tvu-key">Det</span>
+              <span class="tvu-val">Alcance de detecção<br><small>S = superfície · Aé = aéreo · Sb = submarino</small></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tut-title">UNIDADES DE COMBATE</div>
+      <div class="tut-text">
+        Cada unidade tem tipo, alcance e capacidades distintos — conheça sua frota.<br>
+        Hover sobre uma unidade no mapa exibe estatísticas. <b>Clique direito</b> abre o card completo.<br>
+        Clique em uma unidade selecionada na barra lateral para ver o card completo.
+      </div>
+    </div>
+
+    <!-- Step 3 — Fases -->
+    <div class="tut-step" data-s="3">
+      <div class="tut-visual">
+        <div class="tvph-wrap">
+          <div class="tvph-phase mov">
+            <div class="tvph-content">
+              <div class="tvph-icon-row">
+                <img class="tvph-icon" src="/icons/porta-avioes.png" alt="">
+                <span class="tvph-num">FASE 1</span>
+              </div>
+              <div class="tvph-title">MOVIMENTAÇÃO</div>
+              <ul class="tvph-steps">
+                <li>Selecione uma unidade sua</li>
+                <li>Clique hexágonos <em>verdes</em></li>
+                <li>Desfaça com ↩ se quiser</li>
+                <li>Confirme: <em>Encerrar Movimentação</em></li>
+              </ul>
+            </div>
+          </div>
+          <div class="tvph-divider"></div>
+          <div class="tvph-phase atk">
+            <div class="tvph-content">
+              <div class="tvph-icon-row">
+                <img class="tvph-icon" src="/icons/navio-de-guerra.png" alt="">
+                <span class="tvph-num">FASE 2</span>
+              </div>
+              <div class="tvph-title">COMBATE</div>
+              <ul class="tvph-steps">
+                <li>Selecione seu atacante</li>
+                <li>Clique alvos <em>vermelhos</em></li>
+                <li>Ajuste quantidade de armas</li>
+                <li>Confirme: <em>Confirmar Ataques</em></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tut-title">FASES DO TURNO</div>
+      <div class="tut-text">
+        Todo turno tem 2 fases — ambos os jogadores agem <b>simultaneamente</b>.<br>
+        Movimentação primeiro: planeje as rotas e confirme. Depois, o combate resolve os ataques.<br>
+        O resultado de cada engajamento é exibido com dados e danos em tempo real.
+      </div>
+    </div>
+
+    <!-- Step 4 — Vitória -->
+    <div class="tut-step" data-s="4">
+      <div class="tut-visual">
+        <div class="tvw-wrap">
+          <div class="tvw-cards">
+            <div class="tvw-thumb"><img src="/cards/Blue_PAT_01.jpg" alt=""></div>
+            <div class="tvw-thumb"><img src="/cards/Blue_FPSO1.jpg"  alt=""></div>
+            <div class="tvw-thumb"><img src="/cards/Red_GBPA.jpg"    alt=""></div>
+          </div>
+          <div class="tvw-objs">
+            <div class="tvw-obj-title">OBJETIVOS DE VITÓRIA</div>
+            <div class="tvw-obj-row met">✓ Neutralizar grupo inimigo principal</div>
+            <div class="tvw-obj-row met">✓ Controlar plataforma FPSO Sul</div>
+            <div class="tvw-obj-row unmet">○ Preservar navio logístico</div>
+            <div class="tvw-obj-row warn">⚠ Adversário atingiu 1 objetivo</div>
+            <div class="tvw-prog">2 / 3 condições · precisa de 2 → 🏆 VITÓRIA</div>
+          </div>
+        </div>
+      </div>
+      <div class="tut-title">OBJETIVOS E VITÓRIA</div>
+      <div class="tut-text">
+        Cumpra condições táticas: neutralize alvos, controle infraestrutura, proteja ativos.<br>
+        <b>Munição e combustível são limitados</b> — gerencie com inteligência.<br>
+        O painel lateral mostra seus objetivos e os do adversário em tempo real.
+      </div>
+    </div>
+
+    <div class="tut-footer">
+      <button id="tut-prev" class="act-btn gray">← Anterior</button>
+      <span class="tut-counter">1 / 5</span>
+      <button id="tut-next" class="act-btn blue">Próximo →</button>
+    </div>
+
+  </div>
+</div>
+
 <script>
   const btnCreate = document.getElementById('btn-create');
   const btnJoin   = document.getElementById('btn-join');
@@ -257,6 +466,41 @@
     lobbyErr.classList.remove('hidden');
     setTimeout(() => lobbyErr.classList.add('hidden'), 4000);
   }
+
+  // ── Tutorial wizard ──────────────────────────────────────────────────────
+  const TUT_STEPS  = 5;
+  let   tutStep    = 0;
+  const tutOverlay = document.getElementById('tutorial-overlay');
+  const tutPrev    = document.getElementById('tut-prev');
+  const tutNext    = document.getElementById('tut-next');
+  const tutCounter = tutOverlay.querySelector('.tut-counter');
+
+  function _tutRender() {
+    tutOverlay.querySelectorAll('.tut-step').forEach(el =>
+      el.classList.toggle('active', +el.dataset.s === tutStep));
+    tutOverlay.querySelectorAll('.tut-dot').forEach(el => {
+      const s = +el.dataset.s;
+      el.classList.toggle('active', s === tutStep);
+      el.classList.toggle('done',   s < tutStep);
+    });
+    tutCounter.textContent = `${tutStep + 1} / ${TUT_STEPS}`;
+    tutPrev.classList.toggle('hidden', tutStep === 0);
+    tutNext.textContent = tutStep === TUT_STEPS - 1 ? '✓ ENTRAR NO JOGO' : 'Próximo →';
+    tutNext.className   = tutStep === TUT_STEPS - 1 ? 'act-btn green' : 'act-btn blue';
+  }
+
+  function tutShow()  { tutStep = 0; _tutRender(); tutOverlay.classList.remove('hidden'); }
+  function tutClose() { tutOverlay.classList.add('hidden'); }
+
+  tutNext.addEventListener('click', () => {
+    if (tutStep < TUT_STEPS - 1) { tutStep++; _tutRender(); } else tutClose();
+  });
+  tutPrev.addEventListener('click', () => {
+    if (tutStep > 0) { tutStep--; _tutRender(); }
+  });
+  tutOverlay.querySelectorAll('.tut-skip-btn').forEach(btn =>
+    btn.addEventListener('click', () => tutClose()));
+  document.getElementById('btn-tutorial').addEventListener('click', () => tutShow());
 </script>
 </body>
 </html>

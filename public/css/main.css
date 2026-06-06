@@ -15,6 +15,9 @@
   --text:    #d6e8f7;
   --text-dim:#7aa5c5;
   --border:  rgba(100,160,210,0.2);
+  --panel:   rgba(8,28,48,0.97);
+  --dim:     #5a8aaa;
+  --green:   #00e676;
 }
 
 html { scroll-behavior: smooth; }
