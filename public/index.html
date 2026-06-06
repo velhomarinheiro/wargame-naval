@@ -214,6 +214,20 @@
         </button>
       </div>
       <p id="lobby-err" class="lobby-err hidden"></p>
+
+      <div class="lobby-or">— ou jogue solo —</div>
+      <div class="lobby-solo">
+        <button id="btn-solo-blue" class="btn-action solo-b">
+          <span class="btn-icon">⚓</span>
+          Solo · Força Azul
+          <small>vs Computador</small>
+        </button>
+        <button id="btn-solo-red" class="btn-action solo-r">
+          <span class="btn-icon">⚔</span>
+          Solo · Força Vermelha
+          <small>vs Computador</small>
+        </button>
+      </div>
     </div>
 
     <div id="lobby-waiting" class="lobby-box waiting hidden">
@@ -497,6 +511,17 @@
   });
 
   roomInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnJoin.click(); });
+
+  document.getElementById('btn-solo-blue').addEventListener('click', () => {
+    sessionStorage.setItem('pendingAction', 'solo');
+    sessionStorage.setItem('soloTeam', 'blue');
+    location.href = '/game';
+  });
+  document.getElementById('btn-solo-red').addEventListener('click', () => {
+    sessionStorage.setItem('pendingAction', 'solo');
+    sessionStorage.setItem('soloTeam', 'red');
+    location.href = '/game';
+  });
 
   document.querySelector('.scroll-down').addEventListener('click', e => {
     e.preventDefault();

@@ -112,6 +112,7 @@ mapImg.src = '/mapa.jpeg';
 // ─── Game state ───────────────────────────────────────────────────────────────
 let myTeam      = null;
 let gameState   = null;
+let isSolo      = false;
 let prevUnitPos = new Map(); // unitId → {col, row} — for movement flash detection
 let selUnitId   = null;
 
@@ -246,6 +247,11 @@ socket.on('connect', () => {
     sessionStorage.removeItem('pendingAction');
     sessionStorage.removeItem('pendingCode');
     if (code) socket.emit('join_room', { roomId: code });
+  } else if (action === 'solo') {
+    const team = sessionStorage.getItem('soloTeam') || 'blue';
+    sessionStorage.removeItem('pendingAction');
+    sessionStorage.removeItem('soloTeam');
+    socket.emit('create_solo_room', { team });
   }
 });
 
@@ -257,8 +263,9 @@ socket.on('room_created', ({roomId, team}) => {
 });
 socket.on('join_error', msg => showLobbyErr(msg));
 
-socket.on('game_start', ({team, state}) => {
-  myTeam = team; gameState = state;
+socket.on('game_start', ({team, state, solo}) => {
+  myTeam = team; gameState = state; isSolo = !!solo;
+  if (isSolo) document.title = 'Operação Atlântico Sul · Solo vs BOT';
   selUnitId = null; selGroupIds = []; moveHexes = []; atkHexes = []; pendingAtks = [];
   activePath = []; plannedMoves.clear(); hideStackPicker();
   closeBrPanel();

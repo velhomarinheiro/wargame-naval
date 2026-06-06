@@ -356,6 +356,12 @@ h2 {
 .btn-action.blue:hover  { background: var(--blue); box-shadow: 0 0 20px rgba(33,150,243,0.3); }
 .btn-action.red   { background: #b71c1c; border-color: var(--red-l); color: #fff; }
 .btn-action.red:hover   { background: var(--red); box-shadow: 0 0 20px rgba(229,57,53,0.3); }
+.btn-action.solo-b { background: rgba(13,71,161,0.35); border-color: var(--blue-l); color: var(--blue-l); }
+.btn-action.solo-b:hover { background: rgba(13,71,161,0.6); box-shadow: 0 0 18px rgba(33,150,243,0.2); }
+.btn-action.solo-r { background: rgba(183,28,28,0.35); border-color: var(--red-l); color: var(--red-l); }
+.btn-action.solo-r:hover { background: rgba(183,28,28,0.6); box-shadow: 0 0 18px rgba(229,57,53,0.2); }
+.lobby-solo { display: flex; gap: 0.75rem; }
+.lobby-solo .btn-action { flex: 1; padding: 12px 10px; font-size: 0.72rem; }
 .btn-icon { font-size: 1.3rem; }
 .lobby-or { margin: 1rem 0; color: var(--text-dim); }
 

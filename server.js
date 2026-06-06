@@ -615,6 +615,141 @@ function nextTurn(state) {
   markRefuelEligibility(state);   // mark who is stacked at the start of the new turn
 }
 
+// ─── Bot player (solo mode) ───────────────────────────────────────────────────
+
+function botPickTarget(unit, enemies) {
+  const attackable = enemies.filter(e => rangeAgainst(unit.attackRange, e.category) > 0);
+  if (!attackable.length) return null;
+  const prio = u => {
+    if (u.type === 'carrier')  return 0;
+    if (u.type === 'amphib')   return 1;
+    if (['fragata','destroier','corveta','cruzador'].includes(u.type)) return 2;
+    if (['sub_nuclear','submarino'].includes(u.type)) return 3;
+    if (['caca','ataque','patrulha','patrulha_oc','patrulha_c'].includes(u.type)) return 4;
+    return 5;
+  };
+  return attackable.sort((a, b) =>
+    prio(a) - prio(b) ||
+    hexDist(unit.col, unit.row, a.col, a.row) - hexDist(unit.col, unit.row, b.col, b.row)
+  )[0];
+}
+
+function botMoveToward(unit, target, state) {
+  let bestPath = null;
+  let bestDist = hexDist(unit.col, unit.row, target.col, target.row);
+  const queue   = [{ pos: { col: unit.col, row: unit.row }, path: [{ col: unit.col, row: unit.row }], steps: 0 }];
+  const visited = new Set([`${unit.col},${unit.row}`]);
+  while (queue.length) {
+    const { pos, path, steps } = queue.shift();
+    if (steps > 0) {
+      const d = hexDist(pos.col, pos.row, target.col, target.row);
+      if (d < bestDist) { bestDist = d; bestPath = path; }
+    }
+    if (steps >= unit.movement) continue;
+    for (const nb of hexNeighbors(pos.col, pos.row)) {
+      const key = `${nb.col},${nb.row}`;
+      if (visited.has(key)) continue;
+      if (!canEnterTerrain(unit.category, getTerrain(nb.col, nb.row))) continue;
+      visited.add(key);
+      queue.push({ pos: nb, path: [...path, nb], steps: steps + 1 });
+    }
+  }
+  return bestPath;
+}
+
+function computeBotMoves(state, botTeam) {
+  const moves   = [];
+  const enemies = state.units.filter(u => u.team !== botTeam && u.hp > 0);
+  for (const unit of state.units.filter(u => u.team === botTeam && u.hp > 0 && !u.moved)) {
+    if (!unit.movement || unit.category === 'land' || isFuelDisabled(unit)) continue;
+    const target = botPickTarget(unit, enemies);
+    if (!target) continue;
+    if (hexDist(unit.col, unit.row, target.col, target.row) <= rangeAgainst(unit.attackRange, target.category)) continue;
+    const path = botMoveToward(unit, target, state);
+    if (path && path.length >= 2) moves.push({ unitId: unit.id, path });
+  }
+  return moves;
+}
+
+function computeBotAttacks(state, botTeam) {
+  const attacks = [];
+  const prio = u => {
+    if (u.type === 'carrier') return 0; if (u.type === 'amphib') return 1;
+    if (['fragata','destroier','corveta','cruzador'].includes(u.type)) return 2;
+    if (['sub_nuclear','submarino'].includes(u.type)) return 3; return 4;
+  };
+  const sorted = state.units.filter(u => u.team !== botTeam && u.hp > 0)
+                            .sort((a, b) => prio(a) - prio(b));
+  for (const unit of state.units.filter(u => u.team === botTeam && u.hp > 0)) {
+    if (!canAttack(unit)) continue;
+    const inRange = sorted.filter(e => {
+      const r = rangeAgainst(unit.attackRange, e.category);
+      return r > 0 && hexDist(unit.col, unit.row, e.col, e.row) <= r;
+    });
+    if (inRange.length) attacks.push({ attackerId: unit.id, targetId: inRange[0].id });
+  }
+  return attacks;
+}
+
+function applyBotMoves(room) {
+  const { state } = room;
+  if (!state || state.phase !== 'movement') return;
+  const bt  = room.botTeam;
+  const key = bt === 'blue' ? 'blueDone' : 'redDone';
+  if (state[key]) return;
+
+  const moves = computeBotMoves(state, bt);
+  gameLogger.logMoves(room.id, state.turn, state.period, bt, moves, state);
+
+  for (const { unitId, path } of moves) {
+    if (!Array.isArray(path) || path.length < 2) continue;
+    const unit = state.units.find(u => u.id === unitId && u.hp > 0);
+    if (!unit) continue;
+    const dest = path[path.length - 1];
+    unit.col = dest.col; unit.row = dest.row; unit.moved = true;
+    state.log.unshift(`${unit.name}(${bt}) → ${String.fromCharCode(65 + dest.col)}${dest.row + 1}`);
+    const dist = path.length - 1;
+    if (unit.category !== 'air') {
+      spendNavalFuel(unit, navalMoveCost(dist));
+    } else {
+      unit.airStatus = 'airborne';
+      spendAirFuel(unit, dist);
+      if (isAirRefuelLocation(unit, state)) unit.fuel.wasAtRefuelLocation = true;
+    }
+  }
+  for (const u of state.units) {
+    if (u.hp <= 0 || u.team !== bt || u.moved) continue;
+    if (u.category === 'air') {
+      if (u.airStatus === 'airborne') {
+        if (isAirRefuelLocation(u, state)) u.fuel.wasAtRefuelLocation = true;
+        else spendAirFuel(u, 1);
+      }
+    } else { spendNavalFuel(u, navalMoveCost(0)); }
+  }
+  state[key] = true;
+
+  if (state.blueDone && state.redDone) {
+    const navalEmpty = checkNavalFuelZero(state);
+    for (const u of navalEmpty) {
+      const pid = room.players[u.team];
+      if (pid) io.to(pid).emit('fuel_alert', { unitId: u.id, name: u.name, type: 'naval_empty' });
+      state.log.unshift(`⛽ ${u.name}(${u.team}) sem combustível: não pode mover, atacar ou se defender.`);
+    }
+    const airLost = checkAirFuelLosses(state);
+    for (const u of airLost) {
+      const pid = room.players[u.team];
+      if (pid) io.to(pid).emit('fuel_alert', { unitId: u.id, name: u.name, type: 'air_lost' });
+      state.log.unshift(`✈ ${u.name}(${u.team}) perdida por falta de combustível.`);
+    }
+    state.phase = 'combat';
+    state.log.unshift('Fase de Combate iniciada. Declare seus ataques.');
+  } else {
+    state.log.unshift('BOT encerrou a movimentação.');
+  }
+  if (state.log.length > 50) state.log = state.log.slice(0, 50);
+  broadcast(room);
+}
+
 // ─── Server ───────────────────────────────────────────────────────────────────
 const app    = express();
 const server = http.createServer(app);
@@ -641,6 +776,20 @@ io.on('connection', socket => {
     socket.data.roomId=id; socket.data.team='blue';
     socket.join(id);
     socket.emit('room_created',{roomId:id,team:'blue'});
+  });
+
+  socket.on('create_solo_room', ({ team } = {}) => {
+    if (!['blue','red'].includes(team)) { socket.emit('join_error','Equipe inválida.'); return; }
+    const id      = genId();
+    const botTeam = team === 'blue' ? 'red' : 'blue';
+    const room    = { id, players: { blue: null, red: null }, state: null, solo: true, botTeam };
+    room.players[team] = socket.id;
+    rooms.set(id, room);
+    socket.data.roomId = id; socket.data.team = team;
+    socket.join(id);
+    room.state = newGame();
+    gameLogger.logStart(room.id, room.state);
+    socket.emit('game_start', { team, state: stateFor(room.state, team), solo: true });
   });
 
   socket.on('join_room', ({roomId}) => {
@@ -747,6 +896,15 @@ io.on('connection', socket => {
     }
     if (state.log.length>50) state.log=state.log.slice(0,50);
     broadcast(room);
+    // Solo: agendar movimentação do bot após o humano confirmar
+    if (room.solo) {
+      const btKey = room.botTeam === 'blue' ? 'blueDone' : 'redDone';
+      if (!state[btKey]) {
+        const snap = state;
+        setTimeout(() => { if (room.state === snap) applyBotMoves(room); },
+          900 + Math.floor(Math.random() * 700));
+      }
+    }
   });
 
   // ── Combat ────────────────────────────────────────────────────────────────
@@ -758,6 +916,17 @@ io.on('connection', socket => {
     gameLogger.logAttacks(room.id, state.turn, state.period, team, attacks, state);
     if (team==='blue') state.blueAttacks=attacks||[]; else state.redAttacks=attacks||[];
     state.log.unshift(`${team==='blue'?'Força Azul':'Força Vermelha'} confirmou ${(attacks||[]).length} ataque(s).`);
+    // Solo: bot declara ataques imediatamente após o humano
+    if (room.solo) {
+      const btAtkKey = room.botTeam === 'blue' ? 'blueAttacks' : 'redAttacks';
+      if (state[btAtkKey] === null) {
+        const botAtks = computeBotAttacks(state, room.botTeam);
+        gameLogger.logAttacks(room.id, state.turn, state.period, room.botTeam, botAtks, state);
+        state[btAtkKey] = botAtks;
+        const botLabel = room.botTeam === 'blue' ? 'Força Azul (BOT)' : 'Força Vermelha (BOT)';
+        state.log.unshift(`${botLabel} confirmou ${botAtks.length} ataque(s).`);
+      }
+    }
     if (state.blueAttacks!==null && state.redAttacks!==null) {
       state.log.unshift('── Resolução de Combate ──');
       state.combatQueue            = buildCombatQueue(state);
@@ -780,6 +949,7 @@ io.on('connection', socket => {
     const {state}=room, {team}=socket.data;
     if (state.phase !== 'combat') return;
     state.battleRoundDecisions[team] = decision;
+    if (room.solo) state.battleRoundDecisions[room.botTeam] = 'continue';
     const { blue, red } = state.battleRoundDecisions;
     if (blue && red) processBattleRoundDecision(room);
   });
@@ -793,8 +963,8 @@ io.on('connection', socket => {
     }
     room.state=newGame();
     gameLogger.logStart(room.id, room.state);
-    io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue')});
-    io.to(room.players.red ).emit('game_start',{team:'red', state:stateFor(room.state,'red')});
+    if (room.players.blue) io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue'),solo:!!room.solo});
+    if (room.players.red)  io.to(room.players.red ).emit('game_start',{team:'red', state:stateFor(room.state,'red'), solo:!!room.solo});
   });
 
   socket.on('abandon_game', () => {
