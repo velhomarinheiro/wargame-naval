@@ -458,6 +458,55 @@ def _sync_opsesp(units: list[dict]):
 def is_air_base(u: dict) -> bool:
     return u.get("cat") == "land" and (u.get("port") or u.get("id","").startswith("BLUE-AERO"))
 
+# ── Combustível e munição ─────────────────────────────────────────────────────
+
+def _fuel_critical(u: dict) -> bool:
+    """True quando a unidade naval está abaixo de 40% do FP máximo."""
+    f = u.get("fuel") or {}
+    if f.get("fuelType") != "naval": return False
+    cur = f.get("current", 0)
+    mx  = f.get("max", 1)
+    return cur > 0 and cur < max(4, int(mx * 0.40))
+
+def _nearest_refuel_provider(unit: dict, all_units: list[dict]) -> dict | None:
+    """Retorna a unidade amiga mais próxima capaz de reabastecer (tanque, logístico, porto)."""
+    providers = []
+    for u in all_units:
+        if u["team"] != unit["team"] or u.get("hp", 0) <= 0: continue
+        if u.get("_tanker") or u.get("_logistic"): providers.append(u)
+        elif unit["team"] == "blue" and u.get("_port"):  providers.append(u)
+    if not providers: return None
+    return min(providers, key=lambda p: hex_dist(unit["col"],unit["row"],p["col"],p["row"]))
+
+def _logistics_target(u: dict, all_units: list[dict]) -> dict | None:
+    """Tanque/logístico: retorna aliado com menos FP que precisa de reabastecimento."""
+    needy = []
+    for a in all_units:
+        if a["team"] != u["team"] or a.get("hp",0) <= 0 or a["id"] == u["id"]: continue
+        f = a.get("fuel") or {}
+        if f.get("fuelType") != "naval": continue
+        cur = f.get("current", 0); mx = f.get("max", 1)
+        if cur < mx:  # precisa de combustível
+            needy.append((cur / max(1, mx), a))
+    if not needy: return None
+    needy.sort(key=lambda x: x[0])
+    return needy[0][1]
+
+def _salvo_size(unit: dict, wpn: str, turn: int) -> int:
+    """Tamanho de salva com conservação de munição.
+    Nos primeiros turnos dispara apenas 1. Nunca gasta mais de 30% do estoque inicial."""
+    profile = WEAPON_PROFILES.get(wpn, {})
+    if not profile.get("expendable"): return 1
+    current = get_qty(unit, wpn)
+    if current <= 0: return 0
+    init    = (unit.get("init_weapons") or {}).get(wpn, {}).get("q", current)
+    base    = SALVO_SIZE.get(wpn, 1)
+    # Turnos 1-3: sempre dispara 1 (conserva munição inicial)
+    if turn <= 3: return 1
+    # Nunca gasta mais de 30% do estoque original por salva
+    max_spend = max(1, int(init * 0.30))
+    return min(base, max_spend, current)
+
 # ── Motor de combate ───────────────────────────────────────────────────────────
 
 def d6() -> int: return random.randint(1, 6)
@@ -787,20 +836,43 @@ def _via(unit: dict, wp_col: int, wp_row: int, all_units: list[dict],
 
 # ─ Aggressive ─────────────────────────────────────────────────────────────────
 
+def _refuel_move(u: dict, all_units: list[dict]) -> list[dict] | None:
+    """Se combustível crítico, retorna caminho até o abastecedor mais próximo."""
+    if not _fuel_critical(u): return None
+    prov = _nearest_refuel_provider(u, all_units)
+    if not prov: return None
+    if prov["col"] == u["col"] and prov["row"] == u["row"]: return None  # já junto
+    occupied = {(x["col"],x["row"]) for x in all_units
+                if x["hp"]>0 and x["id"] != u["id"]}
+    return bfs(u["cat"], u["col"], u["row"],
+               prov["col"], prov["row"], u["mov"], occupied)
+
 def aggressive_moves(team: str, units: list[dict], all_units: list[dict],
                      noise: float) -> list[dict]:
     enemies = [u for u in all_units if u["team"] != team and u["hp"] > 0]
     results = []
     for u in units:
         if u["mov"] == 0 or not fuel_ok(u): continue
-        if u.get("_logistic") or u.get("_tanker") or u.get("_carrier") or u.get("_amphib"): continue
+        if u.get("_carrier") or u.get("_amphib"): continue
         if u.get("_opsesp"): continue
-        if random.random() < noise * 0.3: continue   # ocasionalmente fica parado
+        if u.get("_logistic") or u.get("_tanker"):
+            needy = _logistics_target(u, all_units)
+            if needy and hex_dist(u["col"], u["row"], needy["col"], needy["row"]) > 1:
+                path = _towards(u, needy, all_units, u["mov"])
+                if path: results.append({"unitId": u["id"], "path": path})
+            continue
+        # Prioridade 1: reabastecimento de emergência
+        ref_path = _refuel_move(u, all_units)
+        if ref_path and len(ref_path) >= 2:
+            results.append({"unitId":u["id"],
+                            "path":[{"col":c,"row":r} for c,r in ref_path]})
+            continue
+        if random.random() < noise * 0.3: continue
         tgt = pick_target(u, enemies, "aggressive")
         if not tgt: continue
-        ideal_range = max_wpn_range(u, tgt["cat"])  # alcance real da melhor arma
+        ideal_range = max_wpn_range(u, tgt["cat"])
         if hex_dist(u["col"],u["row"],tgt["col"],tgt["row"]) <= ideal_range:
-            continue  # já está no alcance
+            continue
         eff_mov = air_mov_range(u)
         path = _towards(u, tgt, all_units, eff_mov)
         if path: results.append({"unitId":u["id"],"path":path})
@@ -817,7 +889,8 @@ def _opsesp_attack(u: dict, enemies: list[dict], strategy: str) -> dict | None:
                                     + random.gauss(0, 0.3))
     return {"attackerId": u["id"], "targetId": best["id"], "amount": 1}
 
-def aggressive_attacks(team: str, units: list[dict], all_units: list[dict]) -> list[dict]:
+def aggressive_attacks(team: str, units: list[dict], all_units: list[dict],
+                       turn: int = 1) -> list[dict]:
     enemies = [u for u in all_units if u["team"] != team and u["hp"] > 0]
     results = []
     for u in units:
@@ -829,7 +902,7 @@ def aggressive_attacks(team: str, units: list[dict], all_units: list[dict]) -> l
         tgt, wpn = pick_attack_target(u, enemies, "aggressive")
         if not tgt or not wpn: continue
         results.append({"attackerId":u["id"],"targetId":tgt["id"],
-                        "amount":SALVO_SIZE.get(wpn,1)})
+                        "amount": _salvo_size(u, wpn, turn)})
     return results
 
 # ─ Defensive ──────────────────────────────────────────────────────────────────
@@ -852,9 +925,21 @@ def defensive_moves(team: str, units: list[dict], all_units: list[dict],
     results = []
     for u in units:
         if u["mov"] == 0 or not fuel_ok(u): continue
-        if u.get("_logistic") or u.get("_tanker") or u.get("_carrier") or u.get("_amphib"): continue
+        if u.get("_carrier") or u.get("_amphib"): continue
         if u.get("_opsesp"): continue
+        if u.get("_logistic") or u.get("_tanker"):
+            needy = _logistics_target(u, all_units)
+            if needy and hex_dist(u["col"], u["row"], needy["col"], needy["row"]) > 1:
+                path = _towards(u, needy, all_units, u["mov"])
+                if path: results.append({"unitId": u["id"], "path": path})
+            continue
         if u["cat"] == "land": continue
+        # Prioridade 1: reabastecimento de emergência
+        ref_path = _refuel_move(u, all_units)
+        if ref_path and len(ref_path) >= 2:
+            results.append({"unitId":u["id"],
+                            "path":[{"col":c,"row":r} for c,r in ref_path]})
+            continue
         det = max(u["atr"].values(), default=2)
         close_enemies = [e for e in enemies
                          if hex_dist(u["col"],u["row"],e["col"],e["row"]) <= det + 1]
@@ -876,7 +961,8 @@ def defensive_moves(team: str, units: list[dict], all_units: list[dict],
         if path: results.append({"unitId":u["id"],"path":path})
     return results
 
-def defensive_attacks(team: str, units: list[dict], all_units: list[dict]) -> list[dict]:
+def defensive_attacks(team: str, units: list[dict], all_units: list[dict],
+                      turn: int = 1) -> list[dict]:
     enemies = [u for u in all_units if u["team"] != team and u["hp"] > 0]
     results = []
     oc, or_ = _nearest_own_objective({"team":team,"col":8,"row":5}, all_units)
@@ -895,7 +981,8 @@ def defensive_attacks(team: str, units: list[dict], all_units: list[dict]) -> li
         if not in_range: continue
         in_range.sort(key=lambda t: hex_dist(t[0]["col"],t[0]["row"],oc,or_))
         tgt, wpn = in_range[0]
-        results.append({"attackerId":u["id"],"targetId":tgt["id"],"amount":1})
+        results.append({"attackerId":u["id"],"targetId":tgt["id"],
+                        "amount": _salvo_size(u, wpn, turn)})
     return results
 
 # ─ Flanking ───────────────────────────────────────────────────────────────────
@@ -927,8 +1014,20 @@ def flanking_moves(team: str, units: list[dict], all_units: list[dict],
     results = []
     for u in units:
         if u["mov"] == 0 or not fuel_ok(u): continue
-        if u.get("_logistic") or u.get("_tanker") or u.get("_carrier") or u.get("_amphib"): continue
+        if u.get("_carrier") or u.get("_amphib"): continue
         if u.get("_opsesp"): continue
+        if u.get("_logistic") or u.get("_tanker"):
+            needy = _logistics_target(u, all_units)
+            if needy and hex_dist(u["col"], u["row"], needy["col"], needy["row"]) > 1:
+                path = _towards(u, needy, all_units, u["mov"])
+                if path: results.append({"unitId": u["id"], "path": path})
+            continue
+        # Prioridade 1: reabastecimento de emergência
+        ref_path = _refuel_move(u, all_units)
+        if ref_path and len(ref_path) >= 2:
+            results.append({"unitId":u["id"],
+                            "path":[{"col":c,"row":r} for c,r in ref_path]})
+            continue
         if random.random() < noise * 0.2: continue
         tgt = pick_target(u, enemies, "flanking")
         if not tgt: continue
@@ -944,7 +1043,8 @@ def flanking_moves(team: str, units: list[dict], all_units: list[dict],
         if path: results.append({"unitId":u["id"],"path":path})
     return results
 
-def flanking_attacks(team: str, units: list[dict], all_units: list[dict]) -> list[dict]:
+def flanking_attacks(team: str, units: list[dict], all_units: list[dict],
+                     turn: int = 1) -> list[dict]:
     enemies = [u for u in all_units if u["team"] != team and u["hp"] > 0]
     results = []
     for u in units:
@@ -956,7 +1056,7 @@ def flanking_attacks(team: str, units: list[dict], all_units: list[dict]) -> lis
         tgt, wpn = pick_attack_target(u, enemies, "flanking")
         if not tgt or not wpn: continue
         results.append({"attackerId":u["id"],"targetId":tgt["id"],
-                        "amount":SALVO_SIZE.get(wpn,1)})
+                        "amount": _salvo_size(u, wpn, turn)})
     return results
 
 # ── Dispatcher de estratégia ──────────────────────────────────────────────────
@@ -967,10 +1067,11 @@ def strategy_moves(strat: str, team: str, units: list[dict], all_units: list[dic
     if strat == "defensive":  return defensive_moves (team, units, all_units, noise)
     return                           flanking_moves  (team, units, all_units, noise)
 
-def strategy_attacks(strat: str, team: str, units: list[dict], all_units: list[dict]) -> list[dict]:
-    if strat == "aggressive": return aggressive_attacks(team, units, all_units)
-    if strat == "defensive":  return defensive_attacks (team, units, all_units)
-    return                           flanking_attacks  (team, units, all_units)
+def strategy_attacks(strat: str, team: str, units: list[dict], all_units: list[dict],
+                     turn: int = 1) -> list[dict]:
+    if strat == "aggressive": return aggressive_attacks(team, units, all_units, turn)
+    if strat == "defensive":  return defensive_attacks (team, units, all_units, turn)
+    return                           flanking_attacks  (team, units, all_units, turn)
 
 # ── Simulador de partida ───────────────────────────────────────────────────────
 
@@ -1076,10 +1177,10 @@ def simulate_game(game_idx: int, blue_strat: str, red_strat: str,
 
             blue_atks = strategy_attacks(blue_strat, "blue",
                                          [u for u in units if u["team"]=="blue" and u["hp"]>0],
-                                         units)
+                                         units, turn)
             red_atks  = strategy_attacks(red_strat, "red",
                                           [u for u in units if u["team"]=="red"  and u["hp"]>0],
-                                          units)
+                                          units, turn)
             if blue_atks:
                 ev({"event":"attacks_declared","ts":_ts(),"room":room_id,
                     "turn":turn,"period":cur_period,"team":"blue",

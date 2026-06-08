@@ -142,6 +142,12 @@ function effectiveMovement(unit) {
   return unit.movement ?? 0;
 }
 
+// ── Tipos de unidade reabastecedoras por equipe ───────────────────────────────
+const REFUEL_TYPES = {
+  blue: new Set(['tanque', 'logistico', 'porto']),
+  red:  new Set(['tanque', 'logistico']),
+};
+
 // ── Decisão de movimentação ───────────────────────────────────────────────────
 
 async function botMove(state, team) {
@@ -164,7 +170,36 @@ async function botMove(state, team) {
   const moves = [];
   for (const unit of myUnits) {
     const movRange = effectiveMovement(unit);
-    // Find the highest-scored hex reachable within this unit's movement range
+
+    // ── Emergência de combustível: redireciona para abastecedor ──────────────
+    if (unit.fuel?.fuelType === 'naval') {
+      const fp    = unit.fuel.current ?? 0;
+      const fpMax = unit.fuel.max ?? 1;
+      if (fp > 0 && fp / fpMax < 0.35) {
+        const refuelTypes = REFUEL_TYPES[team] ?? new Set();
+        const providers = state.units
+          .filter(u => u.team === team && (u.hp ?? 0) > 0 && refuelTypes.has(u.type))
+          .sort((a, b) =>
+            hexDist(unit.col, unit.row, a.col, a.row) -
+            hexDist(unit.col, unit.row, b.col, b.row));
+        if (providers.length > 0) {
+          const prov = providers[0];
+          // Já está junto ao abastecedor — não precisa mover
+          if (hexDist(unit.col, unit.row, prov.col, prov.row) > 0) {
+            const path = bfsPath(unit.category, unit.col, unit.row,
+                                 prov.col, prov.row, movRange, occupied);
+            if (path && path.length >= 2) {
+              moves.push({ unitId: unit.id, path });
+              occupied.delete(`${unit.col},${unit.row}`);
+              occupied.add(`${path[path.length-1].col},${path[path.length-1].row}`);
+              continue;  // emergência tratada — ignora rede neural para esta unidade
+            }
+          }
+        }
+      }
+    }
+
+    // ── Seleção normal pela rede neural ──────────────────────────────────────
     for (const dst of ranked.slice(0, 30)) {
       if (dst.col === unit.col && dst.row === unit.row) continue;
       if (!canEnter(unit.category, dst.col, dst.row)) continue;
