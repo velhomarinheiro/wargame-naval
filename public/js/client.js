@@ -40,6 +40,30 @@ const unitTooltipEl     = $('unit-tooltip');
 const cardModal         = $('card-modal');
 const cardModalImg      = $('card-modal-img');
 const sfxToggle         = $('sfx-toggle');
+const weaponPicker      = $('weapon-picker');
+const wpBody            = $('wp-body');
+const wpTargetName      = $('wp-target-name');
+const wpConfirmBtn      = $('wp-confirm');
+const wpCancelBtn       = $('wp-cancel');
+
+// ─── Weapon metadata (mirrors server COMBAT_CONFIG) ──────────────────────────
+const WEAPON_TARGETS = {
+  ascm:['surface'], mss:['surface'], torpedo:['surface','submarine'],
+  lacm:['land'], asbm:['surface'], navalGun:['surface','land'],
+  airDefense:['air'], bmd:['air'], asw:['submarine'],
+  airAttack:['surface','air','land'], raid:['land','surface'],
+};
+const WEAPON_EXPENDABLE = {ascm:true,mss:true,torpedo:true,lacm:true,asbm:true};
+const WEAPON_LABELS = {
+  ascm:'ASCM', mss:'MSS', torpedo:'TORPEDO', lacm:'LACM', asbm:'ASBM',
+  navalGun:'CANHÃO', airDefense:'DEFA', bmd:'BMD', asw:'ASW',
+  airAttack:'AT.AÉR', raid:'OP.ESP.',
+};
+
+function unitMovementRange(unit) {
+  if (unit.category !== 'air') return unit.movement;
+  return Math.floor((unit.fuel?.current ?? unit.movement) / 2);
+}
 
 // ─── Canvas setup ─────────────────────────────────────────────────────────────
 canvas.width  = CVS_W;
@@ -185,7 +209,9 @@ function hideCardModal() {
 }
 $('card-modal-close').addEventListener('click', hideCardModal);
 cardModal.addEventListener('click', e => { if (e.target === cardModal) hideCardModal(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') hideCardModal(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { hideCardModal(); closeWeaponPicker(); }
+});
 
 // ─── Tooltip (tier 1) ─────────────────────────────────────────────────────────
 let _tooltipTimer = null;
@@ -227,6 +253,7 @@ let pendingAtks = [];
 let hoverHex    = null;
 let activePath   = [];          // [{col,row},...] path being traced; [0] = unit start
 let plannedMoves = new Map();   // unitId → [{col,row},...] committed trajectories
+let wpPickerCtx  = null;        // {attackerId, targetId} when weapon picker is open
 let selGroupIds  = [];          // unit ids acting together as a group (empty = single)
 
 // ─── Socket ───────────────────────────────────────────────────────────────────
@@ -267,7 +294,7 @@ socket.on('game_start', ({team, state, solo}) => {
   myTeam = team; gameState = state; isSolo = !!solo;
   if (isSolo) document.title = 'Operação Atlântico Sul · Solo vs BOT';
   selUnitId = null; selGroupIds = []; moveHexes = []; atkHexes = []; pendingAtks = [];
-  activePath = []; plannedMoves.clear(); hideStackPicker();
+  activePath = []; plannedMoves.clear(); hideStackPicker(); closeWeaponPicker();
   closeBrPanel();
   prevUnitPos = new Map(state.units.map(u => [u.id, {col: u.col, row: u.row}]));
   lobbyScreen.classList.add('hidden');
@@ -587,8 +614,9 @@ function handleClick(col, row) {
   if (col < 0 || col >= GRID_W || row < 0 || row >= GRID_H) return;
   const {phase} = gameState;
 
-  // Dismiss open picker
-  if (!stackPicker.classList.contains('hidden')) { hideStackPicker(); return; }
+  // Dismiss open pickers
+  if (!stackPicker.classList.contains('hidden'))  { hideStackPicker();   return; }
+  if (!weaponPicker.classList.contains('hidden')) { closeWeaponPicker(); return; }
 
   // ── Combat phase ──
   if (phase === 'combat') {
@@ -615,11 +643,22 @@ function handleClick(col, row) {
             SFX.play('attack');
           }
         } else {
-          const idx = pendingAtks.findIndex(a => a.attackerId === selUnitId && a.targetId === atk.unitId);
-          if (idx >= 0) { pendingAtks.splice(idx, 1); SFX.play('attackRemove'); }
-          else { pendingAtks.push({attackerId: selUnitId, targetId: atk.unitId, amount: 1}); SFX.play('attack'); }
+          // If already declared, remove; otherwise open weapon picker
+          const existing = pendingAtks.findIndex(a => a.attackerId === selUnitId && a.targetId === atk.unitId);
+          if (existing >= 0) {
+            pendingAtks.splice(existing, 1);
+            SFX.play('attackRemove');
+            updateUI(); render();
+          } else {
+            const dist = hexDist(
+              gameState.units.find(u => u.id === selUnitId)?.col ?? 0,
+              gameState.units.find(u => u.id === selUnitId)?.row ?? 0,
+              atk.col, atk.row
+            );
+            openWeaponPicker(selUnitId, atk.unitId, atk.category, dist);
+          }
         }
-        updateUI(); render(); return;
+        return;
       }
     }
     const ownUnits = gameState.units.filter(u => u.col === col && u.row === row && u.hp > 0 && u.team === myTeam);
@@ -709,7 +748,7 @@ function undoStep() {
 function recalcHighlightsGroup(units) {
   const {phase} = gameState;
   if (phase === 'movement' && isMyTurn()) {
-    const minMov     = Math.min(...units.map(u => u.movement));
+    const minMov     = Math.min(...units.map(u => unitMovementRange(u)));
     const stepsTaken = activePath.length - 1;
     if (stepsTaken < minMov) {
       const lastHex = activePath[activePath.length - 1];
@@ -762,6 +801,91 @@ function showStackPicker(col, row, units) {
 
 function hideStackPicker() { stackPicker.classList.add('hidden'); }
 
+// ─── Weapon picker ────────────────────────────────────────────────────────────
+function openWeaponPicker(attackerId, targetId, targetCategory, dist) {
+  const attUnit = gameState?.units.find(u => u.id === attackerId);
+  if (!attUnit) return;
+
+  const available = Object.entries(attUnit.weapons || {}).filter(([wpn, info]) => {
+    if ((info.quantity ?? 0) <= 0) return false;
+    const targets = WEAPON_TARGETS[wpn] || [];
+    if (!targets.includes(targetCategory)) return false;
+    const range = info.range ?? 0;
+    if (dist > range) return false;
+    return true;
+  });
+
+  if (available.length === 0) return;
+
+  // Single non-expendable weapon: skip picker
+  if (available.length === 1 && !WEAPON_EXPENDABLE[available[0][0]]) {
+    const [wpnType] = available[0];
+    addOrToggleAttack(attackerId, targetId, wpnType, 1);
+    return;
+  }
+
+  const tgtUnit = gameState?.units.find(u => u.id === targetId);
+  wpTargetName.textContent = `→ ${tgtUnit?.name || targetId}`;
+
+  wpBody.innerHTML = available.map(([wpn, info], i) => {
+    const label  = WEAPON_LABELS[wpn] || wpn.toUpperCase();
+    const qty    = info.quantity ?? 0;
+    const isExp  = !!WEAPON_EXPENDABLE[wpn];
+    return `<div class="wp-row">
+      <label class="wp-label">
+        <input type="radio" name="wp-radio" value="${wpn}" ${i === 0 ? 'checked' : ''}>
+        <span class="wp-name">${label}</span>
+        <span class="wp-qty">${isExp ? `(${qty} disp.)` : '(ilimitado)'}</span>
+      </label>
+      ${isExp ? `<div class="wp-qty-ctrl" data-max="${qty}">
+        <button class="wp-adj" data-adj="-1">−</button>
+        <span class="wp-amt">1</span>
+        <button class="wp-adj" data-adj="1">+</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+
+  // Quantity controls
+  wpBody.querySelectorAll('.wp-adj').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ctrl  = btn.closest('.wp-qty-ctrl');
+      const max   = parseInt(ctrl.dataset.max) || 1;
+      const amtEl = ctrl.querySelector('.wp-amt');
+      let val = parseInt(amtEl.textContent) + parseInt(btn.dataset.adj);
+      amtEl.textContent = String(Math.max(1, Math.min(max, val)));
+    });
+  });
+
+  wpPickerCtx = { attackerId, targetId };
+  weaponPicker.classList.remove('hidden');
+}
+
+function closeWeaponPicker() {
+  weaponPicker.classList.add('hidden');
+  wpPickerCtx = null;
+}
+
+function addOrToggleAttack(attackerId, targetId, weaponType, amount) {
+  const idx = pendingAtks.findIndex(a => a.attackerId === attackerId && a.targetId === targetId);
+  if (idx >= 0) { pendingAtks.splice(idx, 1); SFX.play('attackRemove'); }
+  else { pendingAtks.push({ attackerId, targetId, weaponType, amount }); SFX.play('attack'); }
+  updateUI(); render();
+}
+
+wpConfirmBtn.addEventListener('click', () => {
+  if (!wpPickerCtx) return;
+  const { attackerId, targetId } = wpPickerCtx;
+  const radio = wpBody.querySelector('input[name="wp-radio"]:checked');
+  if (!radio) return;
+  const wpn = radio.value;
+  const ctrl = wpBody.querySelector(`.wp-qty-ctrl`);
+  const amount = ctrl ? parseInt(ctrl.querySelector('.wp-amt').textContent) || 1 : 1;
+  closeWeaponPicker();
+  addOrToggleAttack(attackerId, targetId, wpn, amount);
+});
+
+wpCancelBtn.addEventListener('click', closeWeaponPicker);
+
 function _selectUnit(unit) {
   selGroupIds = [];
   SFX.play('select');
@@ -799,7 +923,7 @@ function recalcHighlights(unit) {
 
   if (phase === 'movement' && isMyTurn()) {
     const stepsTaken = activePath.length - 1;
-    if (stepsTaken < unit.movement) {
+    if (stepsTaken < unitMovementRange(unit)) {
       const lastHex = activePath[activePath.length - 1];
       const inPath  = new Set(activePath.map(h => `${h.col},${h.row}`));
       moveHexes = hexNeighbors(lastHex.col, lastHex.row).filter(nb => {
@@ -858,19 +982,21 @@ function fuelRow(unit) {
 function buildAtkListHtml(atks) {
   if (!atks.length) return '';
   const items = atks.map(a => {
-    const tgt = gameState?.units.find(u => u.id === a.targetId);
+    const tgt     = gameState?.units.find(u => u.id === a.targetId);
     const tgtName = tgt?.name || a.targetId;
-    // Max amount: largest weapon quantity on the attacker (server will cap anyway)
     const attUnit = gameState?.units.find(u => u.id === a.attackerId);
-    const maxAmt  = attUnit ? Math.max(1, ...Object.values(attUnit.weapons || {}).map(w => w.quantity || 0)) : 4;
-    const amt = a.amount || 1;
+    const wpnInfo = attUnit?.weapons?.[a.weaponType];
+    const isExp   = a.weaponType ? !!WEAPON_EXPENDABLE[a.weaponType] : false;
+    const maxAmt  = wpnInfo?.quantity ?? (attUnit ? Math.max(1, ...Object.values(attUnit.weapons || {}).map(w => w.quantity || 0)) : 4);
+    const amt     = a.amount || 1;
+    const wpnTag  = a.weaponType ? `<span class="atk-wpn-tag">[${WEAPON_LABELS[a.weaponType] || a.weaponType.toUpperCase()}]</span>` : '';
     return `<div class="atk-entry">
-      <span class="atk-target">→ ${tgtName}</span>
-      <span class="atk-amt-ctrl">
+      <span class="atk-target">→ ${tgtName} ${wpnTag}</span>
+      ${isExp ? `<span class="atk-amt-ctrl">
         <button class="atk-adj-btn" data-atk-adj data-attacker="${a.attackerId}" data-target="${a.targetId}" data-atk_adj="-1" data-max="${maxAmt}">−</button>
         <span class="atk-amt-val">${amt}</span>
         <button class="atk-adj-btn" data-atk-adj data-attacker="${a.attackerId}" data-target="${a.targetId}" data-atk_adj="1" data-max="${maxAmt}">+</button>
-      </span>
+      </span>` : ''}
     </div>`;
   }).join('');
   return `<div class="atk-list"><div class="atk-list-title">Ataques declarados:</div>${items}</div>`;

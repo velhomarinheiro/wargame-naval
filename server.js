@@ -40,7 +40,7 @@ function getTerrain(col, row) {
   return TERRAIN_MAP[row][col];
 }
 function canEnterTerrain(category, terrain) {
-  if (category === 'air')       return true;
+  if (category === 'air' || category === 'specops') return true;
   if (category === 'land')      return terrain === T_LAND || terrain === T_SHALLOW;
   if (category === 'submarine') return terrain !== T_LAND && terrain !== T_SHALLOW;
   return terrain !== T_LAND; // surface
@@ -48,6 +48,7 @@ function canEnterTerrain(category, terrain) {
 
 // ─── Display type: primary composition type → counter icon type ───────────────
 const COMP_DISPLAY_TYPE = {
+  'operacoes_especiais':   'specops',
   'navio_aeródromo':       'carrier',
   'navio_doca':            'amphib',
   'navio_desembarque':     'amphib',
@@ -75,7 +76,7 @@ const COMP_DISPLAY_TYPE = {
   'porto':                 'porto',
   'aeroporto':             'aeroporto',
 };
-const DISPLAY_TYPE_FALLBACK = { surface: 'fragata', submarine: 'submarino', air: 'patrulha', land: 'corveta' };
+const DISPLAY_TYPE_FALLBACK = { surface: 'fragata', submarine: 'submarino', air: 'patrulha', land: 'corveta', specops: 'specops' };
 
 // ─── Range helper ─────────────────────────────────────────────────────────────
 function rangeAgainst(rangeTable, targetCategory) {
@@ -153,7 +154,11 @@ function stateFor(state, team) {
       })
     : mine;
 
-  const detected = enemies.filter(enemy => {
+  // Specops are always invisible to the enemy; land units are always detected
+  const enemiesForDetection = enemies.filter(e => e.category !== 'specops');
+
+  const detected = enemiesForDetection.filter(enemy => {
+    if (enemy.category === 'land') return true; // fixed positions always known
     const stealthy  = !!enemy.stealthy;
     const deepBonus = getTerrain(enemy.col, enemy.row) === T_DEEP ? 1 : 0;
     return mineForDetection.some(f => {
@@ -197,6 +202,12 @@ function selectBestWeapon(attacker, target, dist) {
   return null;
 }
 
+// ─── Air movement range (FP/2, matching the doubled fuel model) ───────────────
+function airMovementRange(unit) {
+  if (unit.category !== 'air') return unit.movement;
+  return Math.floor((unit.fuel?.current ?? unit.movement) / 2);
+}
+
 // ─── Unit factory ─────────────────────────────────────────────────────────────
 function makeUnit(team, spec) {
   const pos     = spec.position || spec.start || { col: 0, row: 0 };
@@ -215,7 +226,7 @@ function makeUnit(team, spec) {
     row:           pos.row,
     hp:            spec.stayingPower,
     maxHp:         spec.stayingPower,
-    stealthy:      spec.category === 'submarine',
+    stealthy:      spec.category === 'submarine' || !!spec.stealthy,
     moved:         false,
     weapons,
     initWeapons:   JSON.parse(JSON.stringify(weapons)),
@@ -226,6 +237,9 @@ function makeUnit(team, spec) {
   unit.initDetectionRange = JSON.parse(JSON.stringify(unit.detectionRange || {}));
   unit.initCapabilities   = JSON.parse(JSON.stringify(unit.capabilities   || {}));
   unit.initFuelMax        = unit.fuel?.max ?? 0;
+  unit.baseHex            = { col: pos.col, row: pos.row };
+  unit.baseUnitId         = spec.embarked || null;
+  unit.hostId             = spec.hostId   || null;
   return unit;
 }
 
@@ -273,7 +287,10 @@ function buildCombatQueue(state) {
     const def = state.units.find(u => u.id === atk.targetId   && u.hp > 0);
     if (!att || !def) return null;
     const dist      = hexDist(att.col, att.row, def.col, def.row);
-    const wpnType   = selectBestWeapon(att, def, dist);
+    const reqWpn    = atk.weaponType;
+    const wpnType   = (reqWpn && getWeaponQuantity(att, reqWpn) > 0)
+      ? reqWpn
+      : selectBestWeapon(att, def, dist);
     if (!wpnType) return null;
     const profile   = COMBAT_CONFIG.weaponProfiles?.[wpnType];
     const qty       = getWeaponQuantity(att, wpnType);
@@ -332,6 +349,14 @@ function resolveBattleRound(state, engagement, initiativeBonusTeam = null) {
 
     if (eng.destroyed) {
       state.log.unshift(`💥 ${def.name} DESTRUÍDO por ${att.name} [${eng.weaponLabel}]`);
+      // Cascade: kill embarked aircraft and hosted specops
+      for (const u of state.units) {
+        if ((u.hp ?? 0) <= 0) continue;
+        if (u.baseUnitId === def.id || u.hostId === def.id) {
+          u.hp = 0;
+          state.log.unshift(`💥 ${u.name} perdido com ${def.name}`);
+        }
+      }
     } else if (eng.totalDamage > 0) {
       const intStr = eng.interception?.intercepted > 0 ? ` (${eng.interception.intercepted} intercept.)` : '';
       state.log.unshift(`✓ ${att.name} → ${def.name} −${eng.totalDamage}SP [${eng.weaponLabel}${intStr}]`);
@@ -453,8 +478,24 @@ function finishCurrentEngagement(room) {
   }
 }
 
+function returnAircraftToBases(state) {
+  for (const u of state.units) {
+    if (u.category !== 'air' || (u.hp ?? 0) <= 0) continue;
+    if (u.airStatus !== 'airborne') continue;
+    if (u.baseUnitId) {
+      const base = state.units.find(b => b.id === u.baseUnitId && (b.hp ?? 0) > 0);
+      if (base) { u.col = base.col; u.row = base.row; }
+    } else if (u.baseHex) {
+      u.col = u.baseHex.col;
+      u.row = u.baseHex.row;
+    }
+    u.fuel.wasAtRefuelLocation = true;
+  }
+}
+
 function finishCombatPhase(room) {
   const state = room.state;
+  returnAircraftToBases(state);
   state.log.unshift('── Fase de Combate encerrada. ──');
 
   state.combatQueue             = [];
@@ -708,7 +749,7 @@ function botMoveToward(unit, target, state) {
       const d = hexDist(pos.col, pos.row, target.col, target.row);
       if (d < bestDist) { bestDist = d; bestPath = path; }
     }
-    if (steps >= unit.movement) continue;
+    if (steps >= airMovementRange(unit)) continue;
     for (const nb of hexNeighbors(pos.col, pos.row)) {
       const key = `${nb.col},${nb.row}`;
       if (visited.has(key)) continue;
@@ -884,7 +925,8 @@ io.on('connection', socket => {
       if (unit.movement === 0) { socket.emit('action_error',`${unit.name}: unidade fixa.`); return; }
       if (isFuelDisabled(unit)) { socket.emit('action_error',`${unit.name}: sem combustível — não pode se mover.`); return; }
       if (path[0].col!==unit.col||path[0].row!==unit.row) { socket.emit('action_error',`Caminho inválido para ${unit.name}.`); return; }
-      if (path.length-1>unit.movement) { socket.emit('action_error',`${unit.name}: caminho excede alcance máximo.`); return; }
+      const maxRange = unit.category === 'air' ? airMovementRange(unit) : unit.movement;
+      if (path.length-1>maxRange) { socket.emit('action_error',`${unit.name}: caminho excede alcance máximo.`); return; }
       for (let i=1;i<path.length;i++) {
         const {col,row}=path[i];
         if (col<0||col>=GRID_W||row<0||row>=GRID_H) { socket.emit('action_error',`${unit.name}: posição fora do tabuleiro.`); return; }
@@ -911,9 +953,10 @@ io.on('connection', socket => {
         // Aircraft that moved: become airborne, spend distance FP
         unit.airStatus = 'airborne';
         spendAirFuel(unit, dist);
-        // If they flew to a base, mark for refuel next turn
+        // If they flew to a base, mark for refuel and update home base
         if (isAirRefuelLocation(unit, state)) {
           unit.fuel.wasAtRefuelLocation = true;
+          unit.baseHex = { col: dest.col, row: dest.row };
         }
       }
     }
@@ -933,6 +976,14 @@ io.on('connection', socket => {
       } else {
         spendNavalFuel(u, navalMoveCost(0)); // stationary = 1 FP
       }
+    }
+
+    // Sync unmoved specops to their current host position
+    for (const u of state.units) {
+      if (u.category !== 'specops' || (u.hp ?? 0) <= 0 || u.moved || u.team !== team) continue;
+      if (!u.hostId) continue;
+      const host = state.units.find(h => h.id === u.hostId && (h.hp ?? 0) > 0);
+      if (host) { u.col = host.col; u.row = host.row; }
     }
 
     if (team==='blue') state.blueDone=true; else state.redDone=true;

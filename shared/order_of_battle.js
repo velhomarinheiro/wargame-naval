@@ -156,6 +156,19 @@ const ORDER_OF_BATTLE = {
         "notes":"S42 Tonelero. Posição secreta."
       },
       {
+        "id":"BLUE-SEOP","name":"OpEsp Azul","category":"specops",
+        "composition":[{"type":"operacoes_especiais","quantity":1}],
+        "stayingPower":2,"movement":2,
+        "detectionRange":{"surface":0,"air":0,"submarine":0,"land":1},
+        "attackRange":{"surface":1,"air":0,"submarine":0,"land":2},
+        "weapons":{"raid":{"quantity":3,"range":2}},
+        "capabilities":{},
+        "position":{"col":6,"row":2},
+        "hostId":"BLUE-SUB-1",
+        "stealthy":true,
+        "notes":"Equipe de Operações Especiais. Embarcada no SB1."
+      },
+      {
         "id":"BLUE-MPRA-1","name":"PATMAR1","category":"air",
         "composition":[{"type":"patrulha_maritima","quantity":2}],
         "stayingPower":2,"movement":16,
@@ -490,6 +503,7 @@ const ORDER_OF_BATTLE = {
         "weapons":{},
         "capabilities":{"airDefense":8,"airAttack":8},
         "position":{"col":15,"row":1},
+        "embarked":"RED-GBPA",
         "notes":"KMF-22 Sturmadler 4.5a ger. Embarcado no KCV. Raio 20 hex."
       },
       {
@@ -501,6 +515,7 @@ const ORDER_OF_BATTLE = {
         "weapons":{},
         "capabilities":{"airDefense":8,"airAttack":8},
         "position":{"col":15,"row":1},
+        "embarked":"RED-GBPA",
         "notes":"KMF-22 Sturmadler 4.5a ger. Embarcado no KCV."
       },
       {
@@ -511,7 +526,8 @@ const ORDER_OF_BATTLE = {
         "attackRange":{"surface":2,"air":0,"submarine":1,"land":0},
         "weapons":{"ascm":{"quantity":2,"range":6},"mss":{"quantity":2,"range":2},"torpedo":{"quantity":2,"range":2}},
         "capabilities":{"asw":2,"airAttack":2},
-        "position":{"col":15,"row":1}
+        "position":{"col":15,"row":1},
+        "embarked":"RED-GBPA"
       },
       {
         "id":"RED-MPRA-K2","name":"PATMAR2","category":"air",
@@ -522,6 +538,7 @@ const ORDER_OF_BATTLE = {
         "weapons":{"ascm":{"quantity":2,"range":6},"mss":{"quantity":2,"range":2},"torpedo":{"quantity":2,"range":2}},
         "capabilities":{"asw":2,"airAttack":2},
         "position":{"col":15,"row":1},
+        "embarked":"RED-GBPA",
         "notes":"K-32 Stormwatch. Raio 60 hex. ASW + anti-superfície. Embarcado KCV."
       },
       {
@@ -532,7 +549,21 @@ const ORDER_OF_BATTLE = {
         "attackRange":{"surface":0,"air":0,"submarine":0,"land":0},
         "weapons":{},"capabilities":{},
         "position":{"col":15,"row":1},
+        "embarked":"RED-GBPA",
         "notes":"K-99 Argus. Raio ISR 9 hex. Crítico. Embarcado KCV."
+      },
+      {
+        "id":"RED-SEOP","name":"OpEsp Verm","category":"specops",
+        "composition":[{"type":"operacoes_especiais","quantity":1}],
+        "stayingPower":2,"movement":2,
+        "detectionRange":{"surface":0,"air":0,"submarine":0,"land":1},
+        "attackRange":{"surface":1,"air":0,"submarine":0,"land":2},
+        "weapons":{"raid":{"quantity":3,"range":2}},
+        "capabilities":{},
+        "position":{"col":15,"row":1},
+        "hostId":"RED-GBPA",
+        "stealthy":true,
+        "notes":"Equipe de Operações Especiais. Embarcada no CSG."
       }
     ]
   }

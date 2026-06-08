@@ -61,11 +61,13 @@ function usesNavalFuel(unit) {
 function initializeFuel(unit) {
   if (unit.category === 'air') {
     unit.airStatus = 'ready';     // ready | airborne
+    // FP = 2 × movement so that movement_range = floor(FP/2) = movement
+    const fp = (unit.movement ?? 0) * 2;
     unit.fuel = {
       usesFuel: true,
       fuelType: 'air',
-      current:  unit.movement ?? 0,
-      max:      unit.movement ?? 0,
+      current:  fp,
+      max:      fp,
       wasAtRefuelLocation: false,
     };
     return;

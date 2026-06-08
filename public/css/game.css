@@ -194,6 +194,7 @@ body {
 .atk-list-title { color: var(--red-l); margin-bottom: 4px; letter-spacing: 0.5px; }
 .atk-entry { display: flex; align-items: center; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid rgba(80,120,160,0.12); }
 .atk-target { color: var(--text); flex: 1; }
+.atk-wpn-tag { color: var(--gold); font-size: 0.68rem; margin-left: 4px; }
 .atk-amt-ctrl { display: flex; align-items: center; gap: 4px; }
 .atk-adj-btn {
   background: rgba(80,120,160,0.25);
@@ -321,6 +322,58 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
 }
 .sp-unit-btn:hover { background: rgba(21,101,192,0.25); border-color: var(--blue-l); }
 .sp-group { font-size: 0.72rem; padding: 6px 10px; margin-top: 2px; }
+
+/* ─── Weapon picker ──────────────────────────────────────────────────────── */
+.weapon-picker {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--panel);
+  border: 1px solid var(--blue-l);
+  padding: 14px 16px;
+  min-width: 240px;
+  max-width: 300px;
+  z-index: 200;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+}
+.wp-title {
+  font-size: 0.62rem; letter-spacing: 2px; color: var(--dim);
+  margin-bottom: 4px; text-align: center;
+}
+.wp-subtitle {
+  font-size: 0.8rem; color: var(--blue-l);
+  margin-bottom: 10px; text-align: center;
+}
+.wp-list { margin-bottom: 10px; }
+.wp-row {
+  border: 1px solid var(--border);
+  padding: 6px 8px; margin-bottom: 6px;
+  background: rgba(5,20,40,0.8);
+}
+.wp-row:last-child { margin-bottom: 0; }
+.wp-label {
+  display: flex; align-items: center; gap: 8px;
+  cursor: pointer; font-size: 0.8rem;
+}
+.wp-label input[type="radio"] { accent-color: var(--blue-l); }
+.wp-name { color: var(--gold); font-weight: bold; flex: 1; }
+.wp-qty  { color: var(--dim); font-size: 0.72rem; }
+.wp-qty-ctrl {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 6px; padding-left: 20px;
+}
+.wp-adj {
+  width: 22px; height: 22px; padding: 0;
+  background: rgba(21,101,192,0.3); border: 1px solid var(--border);
+  color: var(--text); cursor: pointer; font-size: 0.85rem;
+  font-family: 'Courier New', monospace;
+}
+.wp-adj:hover { background: rgba(21,101,192,0.6); border-color: var(--blue-l); }
+.wp-amt { min-width: 24px; text-align: center; font-size: 0.85rem; }
+.wp-footer {
+  display: flex; gap: 8px; justify-content: flex-end;
+  border-top: 1px solid var(--border); padding-top: 10px;
+}
 
 /* ─── Zoom controls ──────────────────────────────────────────────────────── */
 .zoom-controls {

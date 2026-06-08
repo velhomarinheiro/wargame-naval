@@ -76,7 +76,7 @@ const INFRA = [
 
 // ─── Movement rules ───────────────────────────────────────────────────────────
 function canEnterTerrain(unitTypeOrCategory, terrain) {
-  if (unitTypeOrCategory === 'air' || unitTypeOrCategory === 'helicoptero' || unitTypeOrCategory === 'patrulha')
+  if (unitTypeOrCategory === 'air' || unitTypeOrCategory === 'helicoptero' || unitTypeOrCategory === 'patrulha' || unitTypeOrCategory === 'specops')
     return true;
   if (unitTypeOrCategory === 'land')
     return terrain === T_LAND || terrain === T_SHALLOW;
