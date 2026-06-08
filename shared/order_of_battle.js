@@ -171,7 +171,7 @@ const ORDER_OF_BATTLE = {
       {
         "id":"BLUE-MPRA-1","name":"PATMAR1","category":"air",
         "composition":[{"type":"patrulha_maritima","quantity":2}],
-        "stayingPower":2,"movement":16,
+        "stayingPower":2,"movement":12,
         "detectionRange":{"surface":4,"air":1,"submarine":1,"land":2},
         "attackRange":{"surface":3,"air":0,"submarine":1,"land":0},
         "weapons":{"mss":{"quantity":4,"range":2},"torpedo":{"quantity":2,"range":2}},
@@ -182,7 +182,7 @@ const ORDER_OF_BATTLE = {
       {
         "id":"BLUE-MPRA-2","name":"PATMAR2","category":"air",
         "composition":[{"type":"patrulha_maritima","quantity":2}],
-        "stayingPower":2,"movement":16,
+        "stayingPower":2,"movement":12,
         "detectionRange":{"surface":4,"air":1,"submarine":1,"land":2},
         "attackRange":{"surface":3,"air":0,"submarine":1,"land":0},
         "weapons":{"mss":{"quantity":4,"range":2},"torpedo":{"quantity":2,"range":2}},
@@ -193,7 +193,7 @@ const ORDER_OF_BATTLE = {
       {
         "id":"BLUE-CACA-1","name":"PAC1","category":"air",
         "composition":[{"type":"caca","quantity":6}],
-        "stayingPower":6,"movement":8,
+        "stayingPower":6,"movement":7,
         "detectionRange":{"surface":2,"air":2,"submarine":0,"land":1},
         "attackRange":{"surface":0,"air":2,"submarine":0,"land":0},
         "weapons":{},
@@ -204,7 +204,7 @@ const ORDER_OF_BATTLE = {
       {
         "id":"BLUE-CACA-2","name":"PAC2","category":"air",
         "composition":[{"type":"caca","quantity":6}],
-        "stayingPower":6,"movement":8,
+        "stayingPower":6,"movement":7,
         "detectionRange":{"surface":2,"air":2,"submarine":0,"land":1},
         "attackRange":{"surface":0,"air":2,"submarine":0,"land":0},
         "weapons":{},
@@ -215,7 +215,7 @@ const ORDER_OF_BATTLE = {
       {
         "id":"BLUE-CJAT-1","name":"APAER1","category":"air",
         "composition":[{"type":"ataque","quantity":2}],
-        "stayingPower":2,"movement":6,
+        "stayingPower":2,"movement":5,
         "detectionRange":{"surface":2,"air":1,"submarine":0,"land":1},
         "attackRange":{"surface":1,"air":1,"submarine":0,"land":1},
         "weapons":{"ascm":{"quantity":4,"range":6},"mss":{"quantity":2,"range":2},"lacm":{"quantity":2,"range":10}},
@@ -226,7 +226,7 @@ const ORDER_OF_BATTLE = {
       {
         "id":"BLUE-CJAT-2","name":"APAER2","category":"air",
         "composition":[{"type":"ataque","quantity":2}],
-        "stayingPower":2,"movement":6,
+        "stayingPower":2,"movement":5,
         "detectionRange":{"surface":2,"air":1,"submarine":0,"land":1},
         "attackRange":{"surface":1,"air":1,"submarine":0,"land":1},
         "weapons":{"ascm":{"quantity":4,"range":6},"mss":{"quantity":2,"range":2},"lacm":{"quantity":2,"range":10}},
@@ -497,7 +497,7 @@ const ORDER_OF_BATTLE = {
       {
         "id":"RED-KMF-1","name":"PAC1","category":"air",
         "composition":[{"type":"caca","quantity":8}],
-        "stayingPower":8,"movement":10,
+        "stayingPower":8,"movement":6,
         "detectionRange":{"surface":2,"air":2,"submarine":0,"land":1},
         "attackRange":{"surface":2,"air":2,"submarine":0,"land":1},
         "weapons":{},
@@ -509,7 +509,7 @@ const ORDER_OF_BATTLE = {
       {
         "id":"RED-KMF-2","name":"PAC2","category":"air",
         "composition":[{"type":"caca","quantity":8}],
-        "stayingPower":8,"movement":10,
+        "stayingPower":8,"movement":6,
         "detectionRange":{"surface":2,"air":2,"submarine":0,"land":1},
         "attackRange":{"surface":2,"air":2,"submarine":0,"land":1},
         "weapons":{},
@@ -521,7 +521,7 @@ const ORDER_OF_BATTLE = {
       {
         "id":"RED-MPRA-K1","name":"PATMAR1","category":"air",
         "composition":[{"type":"patrulha_maritima","quantity":2}],
-        "stayingPower":2,"movement":12,
+        "stayingPower":2,"movement":10,
         "detectionRange":{"surface":3,"air":1,"submarine":2,"land":1},
         "attackRange":{"surface":2,"air":0,"submarine":1,"land":0},
         "weapons":{"ascm":{"quantity":2,"range":6},"mss":{"quantity":2,"range":2},"torpedo":{"quantity":2,"range":2}},
@@ -532,7 +532,7 @@ const ORDER_OF_BATTLE = {
       {
         "id":"RED-MPRA-K2","name":"PATMAR2","category":"air",
         "composition":[{"type":"patrulha_maritima","quantity":2}],
-        "stayingPower":2,"movement":12,
+        "stayingPower":2,"movement":10,
         "detectionRange":{"surface":3,"air":1,"submarine":2,"land":1},
         "attackRange":{"surface":2,"air":0,"submarine":1,"land":0},
         "weapons":{"ascm":{"quantity":2,"range":6},"mss":{"quantity":2,"range":2},"torpedo":{"quantity":2,"range":2}},
@@ -544,7 +544,7 @@ const ORDER_OF_BATTLE = {
       {
         "id":"RED-AWACS-K","name":"AWACS","category":"air",
         "composition":[{"type":"aew","quantity":2}],
-        "stayingPower":2,"movement":10,
+        "stayingPower":2,"movement":8,
         "detectionRange":{"surface":3,"air":4,"submarine":0,"land":1},
         "attackRange":{"surface":0,"air":0,"submarine":0,"land":0},
         "weapons":{},"capabilities":{},
