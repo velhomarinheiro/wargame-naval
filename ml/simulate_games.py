@@ -462,6 +462,58 @@ def max_wpn_range(unit: dict, tgt_cat: str) -> int:
         best = max(best, get_range(unit, wpn))
     return best or 1
 
+_DEGRADE_SEQ = ["movement", "airDefense", "asw", "detection", "fuel"]
+
+def degrade_capabilities(unit: dict, damage: int):
+    if damage <= 0: return
+    max_hp = unit.get("maxHp", 1) or 1
+    hit_n  = unit.get("_hit_count", 0)
+    unit["_hit_count"] = hit_n + 1
+    cap_type = _DEGRADE_SEQ[hit_n % len(_DEGRADE_SEQ)]
+    ratio = damage / max_hp
+
+    if cap_type == "movement":
+        base = unit.get("_base_mov", unit.get("mov", 0))
+        if base > 0:
+            loss = max(1, round(ratio * base))
+            unit["mov"]      = max(0, unit.get("mov", 0) - loss)
+            unit["movement"] = unit["mov"]
+
+    elif cap_type == "airDefense":
+        caps = unit.get("capabilities") or {}
+        base_caps = unit.get("_base_caps") or {}
+        base = base_caps.get("airDefense", caps.get("airDefense", 0))
+        if base > 0 and caps.get("airDefense", 0) > 0:
+            loss = max(1, round(ratio * base))
+            caps["airDefense"] = max(0, caps["airDefense"] - loss)
+
+    elif cap_type == "asw":
+        caps = unit.get("capabilities") or {}
+        base_caps = unit.get("_base_caps") or {}
+        base = base_caps.get("asw", caps.get("asw", 0))
+        if base > 0 and caps.get("asw", 0) > 0:
+            loss = max(1, round(ratio * base))
+            caps["asw"] = max(0, caps["asw"] - loss)
+
+    elif cap_type == "detection":
+        atr = unit.get("atr") or {}
+        base_atr = unit.get("_base_atr") or {}
+        for k in atr:
+            base = base_atr.get(k, atr[k])
+            if base > 0:
+                loss = max(1, round(ratio * base))
+                atr[k] = max(0, atr[k] - loss)
+        unit["attackRange"] = dict(atr)
+
+    elif cap_type == "fuel":
+        f = unit.get("fuel") or {}
+        if f.get("fuelType") == "naval":
+            base = unit.get("_base_fuel_max", f.get("max", 0))
+            if base > 0 and f.get("max", 0) > 0:
+                loss = max(1, round(ratio * base))
+                f["max"]     = max(0, f.get("max", 0) - loss)
+                f["current"] = min(f.get("current", 0), f["max"])
+
 def resolve_attack(attacker: dict, defender: dict) -> int:
     """Returns total damage dealt; mutates defender.hp and attacker weapons."""
     dist = hex_dist(attacker["col"], attacker["row"], defender["col"], defender["row"])
@@ -478,6 +530,8 @@ def resolve_attack(attacker: dict, defender: dict) -> int:
     total       = sum(roll_damage(profile["damageProfile"], defender["cat"])
                       for _ in range(effective))
     defender["hp"] = max(0, defender["hp"] - total)
+    if total > 0:
+        degrade_capabilities(defender, total)
     return total
 
 # ── Fábrica de unidades e snapshot ────────────────────────────────────────────
@@ -514,8 +568,15 @@ def make_unit(team: str, spec: dict) -> dict:
         "_carrier": spec.get("carrier",False),
         "_amphib":  spec.get("amphib",False),
         "_nuclear": spec.get("nuclear",False),
+        # capability degradation tracking
+        "_hit_count":    0,
+        "_base_mov":     spec["mov"],
+        "_base_caps":    dict(spec.get("cap", {})),
+        "_base_atr":     dict(spec["atr"]),
+        "_base_fuel_max":0,
     }
     init_fuel(u, spec)
+    u["_base_fuel_max"] = (u.get("fuel") or {}).get("max", 0)
     return u
 
 def snapshot(units: list[dict], turn: int, period: str, phase: str) -> dict:
