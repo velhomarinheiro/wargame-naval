@@ -222,6 +222,10 @@ function makeUnit(team, spec) {
     capabilities:  spec.capabilities ? { ...spec.capabilities } : {},
   };
   initializeFuel(unit);
+  unit.initMovement       = unit.movement;
+  unit.initDetectionRange = JSON.parse(JSON.stringify(unit.detectionRange || {}));
+  unit.initCapabilities   = JSON.parse(JSON.stringify(unit.capabilities   || {}));
+  unit.initFuelMax        = unit.fuel?.max ?? 0;
   return unit;
 }
 
@@ -332,6 +336,8 @@ function resolveBattleRound(state, engagement, initiativeBonusTeam = null) {
       const intStr = eng.interception?.intercepted > 0 ? ` (${eng.interception.intercepted} intercept.)` : '';
       state.log.unshift(`✓ ${att.name} → ${def.name} −${eng.totalDamage}SP [${eng.weaponLabel}${intStr}]`);
       spendDamageFuel(def);    // defender burns extra FP absorbing the hit
+      const degrad = applyDegradation(def, eng.totalDamage);
+      if (degrad) { state.log.unshift(`  ↘ ${def.name}: ${degrad}`); eng.degradation = degrad; }
     } else {
       const intStr = eng.interception?.intercepted > 0 ? ` (${eng.interception.intercepted} intercept.)` : '';
       state.log.unshift(`✗ ${att.name} → ${def.name} falhou [${eng.weaponLabel}${intStr}]`);
@@ -613,6 +619,63 @@ function nextTurn(state) {
   if (state.log.length > 50) state.log = state.log.slice(0, 50);
   saveMovementSnapshot(state);
   markRefuelEligibility(state);   // mark who is stacked at the start of the new turn
+}
+
+// ─── Damage degradation ───────────────────────────────────────────────────────
+function applyDegradation(unit, damageDealt) {
+  const ratio = damageDealt / (unit.maxHp || 1);
+
+  // Build pool of categories that can still lose at least 1 point
+  const pool = [];
+
+  if (unit.initDetectionRange && Object.values(unit.detectionRange || {}).some(v => v > 1))
+    pool.push('detection');
+  if ((unit.movement ?? 0) > 1)
+    pool.push('movement');
+  if (Object.values(unit.capabilities || {}).some(v => v > 1))
+    pool.push('combat_capability');
+  if (unit.fuel?.fuelType === 'naval' && (unit.fuel.max ?? 0) > 1)
+    pool.push('fuel');
+
+  if (pool.length === 0) return null;
+
+  const category = pool[Math.floor(Math.random() * pool.length)];
+
+  if (category === 'detection') {
+    const initMax   = Math.max(1, ...Object.values(unit.initDetectionRange));
+    const reduction = Math.max(1, Math.floor(ratio * initMax));
+    for (const key of Object.keys(unit.detectionRange)) {
+      if ((unit.detectionRange[key] ?? 0) > 0)
+        unit.detectionRange[key] = Math.max(1, unit.detectionRange[key] - reduction);
+    }
+    return `Detecção −${reduction}`;
+  }
+
+  if (category === 'movement') {
+    const reduction = Math.max(1, Math.floor(ratio * (unit.initMovement || 1)));
+    unit.movement = Math.max(1, unit.movement - reduction);
+    return `Movimentação −${reduction}`;
+  }
+
+  if (category === 'combat_capability') {
+    const caps = unit.capabilities || {};
+    const sorted = Object.entries(caps).filter(([, v]) => v > 1).sort(([, a], [, b]) => b - a);
+    if (sorted.length === 0) return null;
+    const [capKey, capVal] = sorted[0];
+    const initVal   = unit.initCapabilities?.[capKey] ?? capVal;
+    const reduction = Math.max(1, Math.floor(ratio * initVal));
+    caps[capKey] = Math.max(1, capVal - reduction);
+    return `${capKey} −${reduction}`;
+  }
+
+  if (category === 'fuel') {
+    const reduction = Math.max(1, Math.floor(ratio * (unit.initFuelMax || 1) * 0.5));
+    unit.fuel.max     = Math.max(1, unit.fuel.max - reduction);
+    if (unit.fuel.current > unit.fuel.max) unit.fuel.current = unit.fuel.max;
+    return `Combustível −${reduction}FP`;
+  }
+
+  return null;
 }
 
 // ─── Bot player (solo mode) ───────────────────────────────────────────────────
