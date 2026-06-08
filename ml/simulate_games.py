@@ -78,6 +78,8 @@ WEAPON_PROFILES = {
                   "interceptableBy":[], "damageProfile":"asw"},
     "airAttack": {"expendable":False, "defaultRange":4,  "targets":["surface","air","land"],
                   "interceptableBy":["airDefense"], "damageProfile":"airAttack"},
+    "sabotage":  {"expendable":True,  "defaultRange":2,  "targets":["surface","land"],
+                  "interceptableBy":[], "damageProfile":"sabotage"},
 }
 
 # 'd' = rolar 1d6 adicional para dano
@@ -85,8 +87,8 @@ _D = "d"
 DAMAGE_TABLES = {
     "ascmSurface": {"surface":   {1:0,2:0,3:0,4:_D,5:_D,6:_D}},
     "mssSurface":  {"surface":   {1:0,2:0,3:1,4:1, 5:1, 6:_D}},
-    "torpedo":     {"surface":   {1:0,2:0,3:0,4:1, 5:_D,6:_D},
-                    "submarine": {1:0,2:0,3:0,4:1, 5:_D,6:_D}},
+    "torpedo":     {"surface":   {1:0,2:0,3:1,4:1, 5:_D,6:_D},
+                    "submarine": {1:0,2:0,3:1,4:1, 5:_D,6:_D}},
     "lacm":        {"land":      {1:0,2:0,3:1,4:1, 5:_D,6:_D}},
     "asbmSurface": {"surface":   {1:0,2:0,3:0,4:_D,5:_D,6:_D}},
     "navalGun":    {"surface":   {1:0,2:0,3:1,4:1, 5:1, 6:1},
@@ -95,18 +97,27 @@ DAMAGE_TABLES = {
                     "missile":   {1:0,2:0,3:0,4:0, 5:1, 6:1}},
     "bmd":         {"air":       {1:0,2:0,3:0,4:0, 5:1, 6:1},
                     "missile":   {1:0,2:0,3:0,4:0, 5:1, 6:1}},
-    "asw":         {"submarine": {1:0,2:0,3:0,4:0, 5:1, 6:_D}},
+    "asw":         {"submarine": {1:0,2:0,3:0,4:1, 5:1, 6:_D}},
+    "sabotage":    {"surface":   {1:0,2:0,3:1,4:1, 5:2, 6:_D},
+                    "land":      {1:0,2:0,3:1,4:1, 5:2, 6:_D}},
     "airAttack":   {"surface":   {1:0,2:0,3:0,4:1, 5:_D,6:_D},
                     "air":       {1:0,2:0,3:0,4:1, 5:1, 6:_D},
                     "land":      {1:0,2:0,3:0,4:1, 5:1, 6:_D}},
 }
 
 WEAPON_PRIORITY = {
-    "surface":   ["ascm","asbm","mss","torpedo","airAttack","navalGun"],
+    "surface":   ["ascm","asbm","mss","torpedo","airAttack","navalGun","sabotage"],
     "submarine": ["asw","torpedo"],
     "air":       ["airDefense","airAttack"],
-    "land":      ["lacm","airAttack","navalGun"],
+    "land":      ["lacm","airAttack","navalGun","sabotage"],
 }
+
+# Alvos legítimos para sabotagem por equipes de Op.Esp.
+_OPSESP_TARGET_IDS = frozenset({
+    "BLUE-FPSO1","BLUE-FPSO2","BLUE-FPSO3","BLUE-FPSO4",
+    "BLUE-PORTO-S","BLUE-PORTO-RJ","BLUE-PORTO-V","BLUE-PORTO-ACU",
+    "BLUE-AERO-RJ","BLUE-AERO-SP","BLUE-AERO-CF",
+})
 
 SALVO_SIZE = {"ascm":2,"mss":2,"torpedo":1,"lacm":1,"asbm":1}
 
@@ -215,6 +226,12 @@ OOB: dict[str, list[dict]] = {
    "atr":{"surface":0,"air":0,"submarine":0,"land":0},"wpn":{},"cap":{},"port":True},
   {"id":"BLUE-PORTO-ACU","cat":"land",      "col":4, "row":3,"hp":12,"mov":0,
    "atr":{"surface":0,"air":0,"submarine":0,"land":0},"wpn":{},"cap":{},"port":True},
+  {"id":"BLUE-AERO-RJ", "cat":"land",      "col":0, "row":3,"hp":10,"mov":0,
+   "atr":{"surface":1,"air":2,"submarine":0,"land":1},"wpn":{},"cap":{},"aero":True},
+  {"id":"BLUE-AERO-SP", "cat":"land",      "col":1, "row":3,"hp":10,"mov":0,
+   "atr":{"surface":1,"air":2,"submarine":0,"land":1},"wpn":{},"cap":{},"aero":True},
+  {"id":"BLUE-AERO-CF", "cat":"land",      "col":2, "row":3,"hp":10,"mov":0,
+   "atr":{"surface":1,"air":2,"submarine":0,"land":1},"wpn":{},"cap":{},"aero":True},
 ],
 "red": [
   {"id":"RED-GBPA",     "cat":"surface",   "col":15,"row":1,"hp":6, "mov":4,
@@ -267,6 +284,12 @@ OOB: dict[str, list[dict]] = {
   {"id":"RED-AWACS-K",  "cat":"air",       "col":15,"row":1,"hp":2, "mov":10,
    "atr":{"surface":0,"air":0,"submarine":0,"land":0},
    "wpn":{},"cap":{}},
+  {"id":"RED-OPSESP-1","cat":"surface",   "col":15,"row":1,"hp":2, "mov":0,
+   "atr":{"surface":2,"air":0,"submarine":0,"land":2},
+   "wpn":{"sabotage":{"q":3,"r":2}},"cap":{},"opsesp":True,"host":"RED-GBPA"},
+  {"id":"RED-OPSESP-2","cat":"surface",   "col":1, "row":8,"hp":2, "mov":0,
+   "atr":{"surface":2,"air":0,"submarine":0,"land":2},
+   "wpn":{"sabotage":{"q":3,"r":2}},"cap":{},"opsesp":True,"host":"RED-KS-1"},
 ],
 }
 
@@ -332,6 +355,8 @@ def _uses_naval_fuel(spec: dict) -> bool:
     if spec.get("carrier"):  return False    # RED-GBPA nuclear carrier
     if spec.get("fpso"):     return False
     if spec.get("port"):     return False
+    if spec.get("aero"):     return False
+    if spec.get("opsesp"):   return False    # equipe Op.Esp. sem combustível naval
     return spec["cat"] in ("surface", "submarine") and not spec.get("nuclear")
 
 def init_fuel(u: dict, spec: dict):
@@ -390,14 +415,47 @@ def reset_fuel_counters(units: list[dict]):
             f["spentThisTurn"] = 0
 
 def recover_aircraft(units: list[dict]):
-    """All aircraft recover at end of each half-turn (simplified model)."""
+    """Aeronaves retornam automaticamente à base após o engajamento.
+    Aeronaves vermelhas são destruídas se o porta-aviões for afundado."""
+    carrier = next((u for u in units if u["id"] == "RED-GBPA" and u["hp"] > 0), None)
     for u in units:
-        if u.get("cat") != "air" or u.get("hp", 0) <= 0:
-            continue
+        if u["cat"] != "air" or u["hp"] <= 0: continue
+        if u["team"] == "red":
+            if carrier is None:
+                u["hp"] = 0  # porta-aviões afundado → aeronave perdida
+                continue
+            u["col"] = carrier["col"]
+            u["row"] = carrier["row"]
+        else:
+            u["col"] = u.get("_base_col", u["col"])
+            u["row"] = u.get("_base_row", u["row"])
         f = u.get("fuel") or {}
         if f.get("fuelType") == "air":
-            u["airStatus"] = "ready"
-            f["current"]   = f["max"]
+            f["current"] = f["max"]
+            f["wasAtRefuelLocation"] = True
+        u["airStatus"] = "ready"
+
+def air_mov_range(u: dict) -> int:
+    """Alcance de movimentação real de aeronave = floor(FP_max / 2)."""
+    if u["cat"] != "air": return u["mov"]
+    fp_max = (u.get("fuel") or {}).get("max", u.get("mov", 0))
+    return max(1, fp_max // 2)
+
+def _sync_opsesp(units: list[dict]):
+    """Equipes de Op.Esp. seguem a posição da unidade hospedeira.
+    Se a hospedeira for destruída, a equipe também é considerada perdida."""
+    uid_map = {u["id"]: u for u in units}
+    for u in units:
+        if not u.get("_opsesp") or u["hp"] <= 0: continue
+        host_id = u.get("_host_id")
+        if not host_id: continue
+        host = uid_map.get(host_id)
+        if host:
+            if host["hp"] > 0:
+                u["col"] = host["col"]
+                u["row"] = host["row"]
+            else:
+                u["hp"] = 0  # hospedeira afundada
 
 def is_air_base(u: dict) -> bool:
     return u.get("cat") == "land" and (u.get("port") or u.get("id","").startswith("BLUE-AERO"))
@@ -568,6 +626,12 @@ def make_unit(team: str, spec: dict) -> dict:
         "_carrier": spec.get("carrier",False),
         "_amphib":  spec.get("amphib",False),
         "_nuclear": spec.get("nuclear",False),
+        "_aero":    spec.get("aero",False),
+        "_opsesp":  spec.get("opsesp",False),
+        "_host_id": spec.get("host",None),
+        # base de retorno para aeronaves
+        "_base_col": spec["col"],
+        "_base_row": spec["row"],
         # capability degradation tracking
         "_hit_count":    0,
         "_base_mov":     spec["mov"],
@@ -638,10 +702,12 @@ _BLUE_TARGET_VALUE = {
     "RED-AOR-G":7,"RED-GLOG":6,"RED-AKE":6,
     "RED-KS-1":4,"RED-KMF-1":3,"RED-KMF-2":3,
     "RED-MPRA-K1":2,"RED-MPRA-K2":2,"RED-AWACS-K":2,
+    "RED-OPSESP-1":3,"RED-OPSESP-2":4,  # OPSESP-2 mais perigosa (perto da costa)
 }
 _RED_TARGET_VALUE = {
     "BLUE-FPSO1":10,"BLUE-FPSO2":10,"BLUE-FPSO3":10,"BLUE-FPSO4":10,
     "BLUE-PORTO-S":11,"BLUE-PORTO-RJ":11,"BLUE-PORTO-V":10,"BLUE-PORTO-ACU":9,
+    "BLUE-AERO-RJ":5,"BLUE-AERO-SP":5,"BLUE-AERO-CF":4,
     "BLUE-LOG-A":6,"BLUE-LOG-T":6,
     "BLUE-SAG-P":7,"BLUE-ANFIB":5,
     "BLUE-SAG-S1":5,"BLUE-SAG-S2":5,
@@ -730,21 +796,38 @@ def aggressive_moves(team: str, units: list[dict], all_units: list[dict],
     for u in units:
         if u["mov"] == 0 or not fuel_ok(u): continue
         if u.get("_logistic") or u.get("_tanker") or u.get("_carrier") or u.get("_amphib"): continue
+        if u.get("_opsesp"): continue
         if random.random() < noise * 0.3: continue   # ocasionalmente fica parado
         tgt = pick_target(u, enemies, "aggressive")
         if not tgt: continue
         ideal_range = max_wpn_range(u, tgt["cat"])  # alcance real da melhor arma
         if hex_dist(u["col"],u["row"],tgt["col"],tgt["row"]) <= ideal_range:
             continue  # já está no alcance
-        path = _towards(u, tgt, all_units, u["mov"])
+        eff_mov = air_mov_range(u)
+        path = _towards(u, tgt, all_units, eff_mov)
         if path: results.append({"unitId":u["id"],"path":path})
     return results
+
+def _opsesp_attack(u: dict, enemies: list[dict], strategy: str) -> dict | None:
+    """Retorna um ataque de sabotagem da equipe Op.Esp. se houver alvo a ≤2 hexes."""
+    if get_qty(u, "sabotage") <= 0: return None
+    valid = [e for e in enemies
+             if e["id"] in _OPSESP_TARGET_IDS and e["hp"] > 0
+             and hex_dist(u["col"],u["row"],e["col"],e["row"]) <= 2]
+    if not valid: return None
+    best = max(valid, key=lambda e: _target_value(e["id"], u["team"], strategy)
+                                    + random.gauss(0, 0.3))
+    return {"attackerId": u["id"], "targetId": best["id"], "amount": 1}
 
 def aggressive_attacks(team: str, units: list[dict], all_units: list[dict]) -> list[dict]:
     enemies = [u for u in all_units if u["team"] != team and u["hp"] > 0]
     results = []
     for u in units:
         if not fuel_ok(u): continue
+        if u.get("_opsesp"):
+            atk = _opsesp_attack(u, enemies, "aggressive")
+            if atk: results.append(atk)
+            continue
         tgt, wpn = pick_attack_target(u, enemies, "aggressive")
         if not tgt or not wpn: continue
         results.append({"attackerId":u["id"],"targetId":tgt["id"],
@@ -772,28 +855,26 @@ def defensive_moves(team: str, units: list[dict], all_units: list[dict],
     for u in units:
         if u["mov"] == 0 or not fuel_ok(u): continue
         if u.get("_logistic") or u.get("_tanker") or u.get("_carrier") or u.get("_amphib"): continue
-        # land units: recolher para perto de objetivo se muito avançadas
+        if u.get("_opsesp"): continue
         if u["cat"] == "land": continue
-        # avança apenas se inimigo está próximo (dentro de detecção+1)
         det = max(u["atr"].values(), default=2)
         close_enemies = [e for e in enemies
                          if hex_dist(u["col"],u["row"],e["col"],e["row"]) <= det + 1]
+        eff_mov = air_mov_range(u)
         if not close_enemies:
-            # recuar para objetivo mais próximo
             oc, or_ = _nearest_own_objective(u, all_units)
             if hex_dist(u["col"],u["row"],oc,or_) > 2:
-                path = _via(u, oc, or_, all_units, u["mov"])
+                path = _via(u, oc, or_, all_units, eff_mov)
                 if path: results.append({"unitId":u["id"],"path":path})
             continue
         if random.random() < noise * 0.4: continue
-        # interceptar o inimigo mais próximo ao objetivo
         oc, or_ = _nearest_own_objective(u, all_units)
         tgt = min(close_enemies,
                   key=lambda e: hex_dist(e["col"],e["row"],oc,or_))
         ideal_range = max(1, u["atr"].get(tgt["cat"],1))
         if hex_dist(u["col"],u["row"],tgt["col"],tgt["row"]) <= ideal_range:
             continue
-        path = _towards(u, tgt, all_units, u["mov"])
+        path = _towards(u, tgt, all_units, eff_mov)
         if path: results.append({"unitId":u["id"],"path":path})
     return results
 
@@ -803,7 +884,10 @@ def defensive_attacks(team: str, units: list[dict], all_units: list[dict]) -> li
     oc, or_ = _nearest_own_objective({"team":team,"col":8,"row":5}, all_units)
     for u in units:
         if not fuel_ok(u): continue
-        # attack enemies within weapon range that are near own objective
+        if u.get("_opsesp"):
+            atk = _opsesp_attack(u, enemies, "defensive")
+            if atk: results.append(atk)
+            continue
         in_range = []
         for e in enemies:
             dist_e = hex_dist(u["col"],u["row"],e["col"],e["row"])
@@ -846,18 +930,19 @@ def flanking_moves(team: str, units: list[dict], all_units: list[dict],
     for u in units:
         if u["mov"] == 0 or not fuel_ok(u): continue
         if u.get("_logistic") or u.get("_tanker") or u.get("_carrier") or u.get("_amphib"): continue
+        if u.get("_opsesp"): continue
         if random.random() < noise * 0.2: continue
         tgt = pick_target(u, enemies, "flanking")
         if not tgt: continue
         ideal_range = max_wpn_range(u, tgt["cat"])
         if hex_dist(u["col"],u["row"],tgt["col"],tgt["row"]) <= ideal_range:
             continue
+        eff_mov = air_mov_range(u)
         wc, wr = _flanking_waypoint(u, tgt)
-        # Se já perto do waypoint, mover direto ao alvo
         if hex_dist(u["col"],u["row"],wc,wr) <= 1:
-            path = _towards(u, tgt, all_units, u["mov"])
+            path = _towards(u, tgt, all_units, eff_mov)
         else:
-            path = _via(u, wc, wr, all_units, u["mov"])
+            path = _via(u, wc, wr, all_units, eff_mov)
         if path: results.append({"unitId":u["id"],"path":path})
     return results
 
@@ -866,6 +951,10 @@ def flanking_attacks(team: str, units: list[dict], all_units: list[dict]) -> lis
     results = []
     for u in units:
         if not fuel_ok(u): continue
+        if u.get("_opsesp"):
+            atk = _opsesp_attack(u, enemies, "flanking")
+            if atk: results.append(atk)
+            continue
         tgt, wpn = pick_attack_target(u, enemies, "flanking")
         if not tgt or not wpn: continue
         results.append({"attackerId":u["id"],"targetId":tgt["id"],
@@ -970,6 +1059,7 @@ def simulate_game(game_idx: int, blue_strat: str, red_strat: str,
                 "turn":turn,"period":cur_period,"team":"blue",
                 "moves":blue_moves,"state":s_pre})
             _apply_moves(units, blue_moves, "blue")
+            _sync_opsesp(units)
 
             # ── Movimento: Red ───────────────────────────────────────────────
             s_after_blue = snapshot(units, turn, cur_period, "movement")
@@ -981,6 +1071,7 @@ def simulate_game(game_idx: int, blue_strat: str, red_strat: str,
                 "turn":turn,"period":cur_period,"team":"red",
                 "moves":red_moves,"state":s_after_blue})
             _apply_moves(units, red_moves, "red")
+            _sync_opsesp(units)
 
             # ── Combate ──────────────────────────────────────────────────────
             s_combat = snapshot(units, turn, cur_period, "combat")
@@ -1013,7 +1104,8 @@ def simulate_game(game_idx: int, blue_strat: str, red_strat: str,
                 u["moved"] = False
             reset_fuel_counters(units)
             recover_fuel(units)
-            recover_aircraft(units)
+            recover_aircraft(units)   # retorno automático à base + destruição se porta-aviões afundou
+            _sync_opsesp(units)       # hospedeira afundada → Op.Esp. destruída
             _reload_weapons(units, turn)
 
             winner = check_winner(units)
