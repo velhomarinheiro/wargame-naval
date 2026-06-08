@@ -136,6 +136,15 @@ function bfsPath(category, sc, sr, dc, dr, maxSteps, occupied) {
   return null;
 }
 
+// ── Alcance efetivo de movimentação ──────────────────────────────────────────
+// Aeronaves: mov_efetivo = floor(FP_atual / 2).
+// Demais categorias: usa unit.movement sem alteração.
+function effectiveMovement(unit) {
+  if (unit.category !== 'air') return unit.movement ?? 0;
+  const fp = unit.fuel?.current ?? unit.movement ?? 0;
+  return Math.max(1, Math.floor(fp / 2));
+}
+
 // ── Decisão de movimentação ───────────────────────────────────────────────────
 
 async function botMove(state, team) {
@@ -157,15 +166,16 @@ async function botMove(state, team) {
 
   const moves = [];
   for (const unit of myUnits) {
+    const movRange = effectiveMovement(unit);
     // Find the highest-scored hex reachable within this unit's movement range
     for (const dst of ranked.slice(0, 30)) {
       if (dst.col === unit.col && dst.row === unit.row) continue;
       if (!canEnter(unit.category, dst.col, dst.row)) continue;
       const distToCheck = hexDist(unit.col, unit.row, dst.col, dst.row);
-      if (distToCheck > unit.movement) continue;
+      if (distToCheck > movRange) continue;
 
       const path = bfsPath(unit.category, unit.col, unit.row, dst.col, dst.row,
-                           unit.movement, occupied);
+                           movRange, occupied);
       if (path && path.length >= 2) {
         moves.push({ unitId: unit.id, path });
         occupied.delete(`${unit.col},${unit.row}`);
