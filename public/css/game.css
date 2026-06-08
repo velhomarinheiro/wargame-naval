@@ -550,6 +550,7 @@ input::placeholder { color: #2a4a60; text-transform: none; letter-spacing: 1px; 
 .br-wpn        { color: var(--gold); margin-right: 4px; font-size: 0.72rem; }
 .br-adv        { color: #ffd54f; font-size: 0.72rem; }
 .br-detail     { margin-top: 3px; font-weight: bold; }
+.br-degrad     { margin-top: 3px; font-size: 0.72rem; color: #ffb74d; font-weight: normal; letter-spacing: 0.3px; }
 .br-rolls      { margin-top: 2px; opacity: 0.65; font-size: 0.72rem; letter-spacing: 0.3px; }
 .br-decision-made    { color: #90caf9; font-style: italic; margin-top: 6px; }
 .br-decision-summary { color: var(--dim); font-style: italic; }

@@ -1448,6 +1448,7 @@ function buildResultHtml(eng) {
   } else if (eng.totalDamage > 0) {
     cls = 'br-hit'; icon = '✓';
     detail = `−${eng.totalDamage}SP  (restante: ${eng.remainingHp}SP)`;
+    if (eng.degradation) detail += `<div class="br-degrad">↘ Capacidade degradada: ${eng.degradation}</div>`;
   } else {
     cls = 'br-miss'; icon = '✗';
     detail = `sem dano  (restante: ${eng.remainingHp}SP)`;
