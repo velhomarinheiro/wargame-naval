@@ -564,6 +564,19 @@ const ORDER_OF_BATTLE = {
         "hostId":"RED-GBPA",
         "stealthy":true,
         "notes":"Equipe de Operações Especiais. Embarcada no CSG."
+      },
+      {
+        "id":"RED-SEOP-2","name":"OpEsp Verm 2","category":"specops",
+        "composition":[{"type":"operacoes_especiais","quantity":1}],
+        "stayingPower":2,"movement":2,
+        "detectionRange":{"surface":0,"air":0,"submarine":0,"land":1},
+        "attackRange":{"surface":1,"air":0,"submarine":0,"land":2},
+        "weapons":{"raid":{"quantity":3,"range":2}},
+        "capabilities":{},
+        "position":{"col":1,"row":8},
+        "hostId":"RED-KS-1",
+        "stealthy":true,
+        "notes":"Equipe de Operações Especiais. Embarcada no submarino convencional."
       }
     ]
   }
