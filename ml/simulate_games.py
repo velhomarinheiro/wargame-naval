@@ -178,23 +178,23 @@ OOB: dict[str, list[dict]] = {
   {"id":"BLUE-SUB-3",    "cat":"submarine", "col":4, "row":4,"hp":2, "mov":2,
    "atr":{"surface":2,"air":0,"submarine":1,"land":0},
    "wpn":{"mss":{"q":2,"r":2},"torpedo":{"q":6,"r":2}},"cap":{"asw":1}},
-  {"id":"BLUE-MPRA-1",   "cat":"air",       "col":1, "row":3,"hp":2, "mov":16,
+  {"id":"BLUE-MPRA-1",   "cat":"air",       "col":1, "row":3,"hp":2, "mov":12,
    "atr":{"surface":3,"air":0,"submarine":1,"land":0},
    "wpn":{"mss":{"q":4,"r":2},"torpedo":{"q":2,"r":2}},"cap":{"asw":2,"airAttack":2}},
-  {"id":"BLUE-MPRA-2",   "cat":"air",       "col":1, "row":3,"hp":2, "mov":16,
+  {"id":"BLUE-MPRA-2",   "cat":"air",       "col":1, "row":3,"hp":2, "mov":12,
    "atr":{"surface":3,"air":0,"submarine":1,"land":0},
    "wpn":{"mss":{"q":4,"r":2},"torpedo":{"q":2,"r":2}},"cap":{"asw":2,"airAttack":2}},
-  {"id":"BLUE-CACA-1",   "cat":"air",       "col":0, "row":3,"hp":6, "mov":8,
+  {"id":"BLUE-CACA-1",   "cat":"air",       "col":0, "row":3,"hp":6, "mov":7,
    "atr":{"surface":0,"air":2,"submarine":0,"land":0},
    "wpn":{},"cap":{"airDefense":6,"airAttack":6}},
-  {"id":"BLUE-CACA-2",   "cat":"air",       "col":0, "row":3,"hp":6, "mov":8,
+  {"id":"BLUE-CACA-2",   "cat":"air",       "col":0, "row":3,"hp":6, "mov":7,
    "atr":{"surface":0,"air":2,"submarine":0,"land":0},
    "wpn":{},"cap":{"airDefense":6,"airAttack":6}},
-  {"id":"BLUE-CJAT-1",   "cat":"air",       "col":3, "row":3,"hp":2, "mov":6,
+  {"id":"BLUE-CJAT-1",   "cat":"air",       "col":3, "row":3,"hp":2, "mov":5,
    "atr":{"surface":1,"air":1,"submarine":0,"land":1},
    "wpn":{"ascm":{"q":4,"r":6},"mss":{"q":2,"r":2},"lacm":{"q":2,"r":10}},
    "cap":{"airAttack":2}},
-  {"id":"BLUE-CJAT-2",   "cat":"air",       "col":3, "row":3,"hp":2, "mov":6,
+  {"id":"BLUE-CJAT-2",   "cat":"air",       "col":3, "row":3,"hp":2, "mov":5,
    "atr":{"surface":1,"air":1,"submarine":0,"land":1},
    "wpn":{"ascm":{"q":4,"r":6},"mss":{"q":2,"r":2},"lacm":{"q":2,"r":10}},
    "cap":{"airAttack":2}},
@@ -267,21 +267,21 @@ OOB: dict[str, list[dict]] = {
   {"id":"RED-KS-1",     "cat":"submarine", "col":1, "row":8,"hp":2, "mov":2,
    "atr":{"surface":2,"air":0,"submarine":1,"land":0},
    "wpn":{"ascm":{"q":4,"r":6},"torpedo":{"q":6,"r":2}},"cap":{"asw":1}},
-  {"id":"RED-KMF-1",    "cat":"air",       "col":15,"row":1,"hp":8, "mov":10,
+  {"id":"RED-KMF-1",    "cat":"air",       "col":15,"row":1,"hp":8, "mov":6,
    "atr":{"surface":2,"air":2,"submarine":0,"land":1},
    "wpn":{},"cap":{"airDefense":8,"airAttack":8}},
-  {"id":"RED-KMF-2",    "cat":"air",       "col":15,"row":1,"hp":8, "mov":10,
+  {"id":"RED-KMF-2",    "cat":"air",       "col":15,"row":1,"hp":8, "mov":6,
    "atr":{"surface":2,"air":2,"submarine":0,"land":1},
    "wpn":{},"cap":{"airDefense":8,"airAttack":8}},
-  {"id":"RED-MPRA-K1",  "cat":"air",       "col":15,"row":1,"hp":2, "mov":12,
+  {"id":"RED-MPRA-K1",  "cat":"air",       "col":15,"row":1,"hp":2, "mov":10,
    "atr":{"surface":2,"air":0,"submarine":1,"land":0},
    "wpn":{"ascm":{"q":2,"r":6},"mss":{"q":2,"r":2},"torpedo":{"q":2,"r":2}},
    "cap":{"asw":2,"airAttack":2}},
-  {"id":"RED-MPRA-K2",  "cat":"air",       "col":15,"row":1,"hp":2, "mov":12,
+  {"id":"RED-MPRA-K2",  "cat":"air",       "col":15,"row":1,"hp":2, "mov":10,
    "atr":{"surface":2,"air":0,"submarine":1,"land":0},
    "wpn":{"ascm":{"q":2,"r":6},"mss":{"q":2,"r":2},"torpedo":{"q":2,"r":2}},
    "cap":{"asw":2,"airAttack":2}},
-  {"id":"RED-AWACS-K",  "cat":"air",       "col":15,"row":1,"hp":2, "mov":10,
+  {"id":"RED-AWACS-K",  "cat":"air",       "col":15,"row":1,"hp":2, "mov":8,
    "atr":{"surface":0,"air":0,"submarine":0,"land":0},
    "wpn":{},"cap":{}},
   {"id":"RED-OPSESP-1","cat":"surface",   "col":15,"row":1,"hp":2, "mov":0,
@@ -436,10 +436,8 @@ def recover_aircraft(units: list[dict]):
         u["airStatus"] = "ready"
 
 def air_mov_range(u: dict) -> int:
-    """Alcance de movimentação real de aeronave = floor(FP_max / 2)."""
-    if u["cat"] != "air": return u["mov"]
-    fp_max = (u.get("fuel") or {}).get("max", u.get("mov", 0))
-    return max(1, fp_max // 2)
+    """Alcance de movimentação efetivo = mov fixo da unidade."""
+    return u["mov"]
 
 def _sync_opsesp(units: list[dict]):
     """Equipes de Op.Esp. seguem a posição da unidade hospedeira.

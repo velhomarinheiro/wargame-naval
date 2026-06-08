@@ -137,12 +137,9 @@ function bfsPath(category, sc, sr, dc, dr, maxSteps, occupied) {
 }
 
 // ── Alcance efetivo de movimentação ──────────────────────────────────────────
-// Aeronaves: mov_efetivo = floor(FP_atual / 2).
-// Demais categorias: usa unit.movement sem alteração.
+// Todas as categorias usam unit.movement diretamente (valor fixo por unidade).
 function effectiveMovement(unit) {
-  if (unit.category !== 'air') return unit.movement ?? 0;
-  const fp = unit.fuel?.current ?? unit.movement ?? 0;
-  return Math.max(1, Math.floor(fp / 2));
+  return unit.movement ?? 0;
 }
 
 // ── Decisão de movimentação ───────────────────────────────────────────────────
