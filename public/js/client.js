@@ -45,6 +45,8 @@ const wpBody            = $('wp-body');
 const wpTargetName      = $('wp-target-name');
 const wpConfirmBtn      = $('wp-confirm');
 const wpCancelBtn       = $('wp-cancel');
+const targetPicker      = $('target-picker');
+const tpList            = $('tp-list');
 
 // ─── Weapon metadata (mirrors server COMBAT_CONFIG) ──────────────────────────
 const WEAPON_TARGETS = {
@@ -210,7 +212,7 @@ function hideCardModal() {
 $('card-modal-close').addEventListener('click', hideCardModal);
 cardModal.addEventListener('click', e => { if (e.target === cardModal) hideCardModal(); });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { hideCardModal(); closeWeaponPicker(); }
+  if (e.key === 'Escape') { hideCardModal(); closeWeaponPicker(); hideTargetPicker(); }
 });
 
 // ─── Tooltip (tier 1) ─────────────────────────────────────────────────────────
@@ -294,7 +296,7 @@ socket.on('game_start', ({team, state, solo}) => {
   myTeam = team; gameState = state; isSolo = !!solo;
   if (isSolo) document.title = 'Operação Atlântico Sul · Solo vs BOT';
   selUnitId = null; selGroupIds = []; moveHexes = []; atkHexes = []; pendingAtks = [];
-  activePath = []; plannedMoves.clear(); hideStackPicker(); closeWeaponPicker();
+  activePath = []; plannedMoves.clear(); hideStackPicker(); hideTargetPicker(); closeWeaponPicker();
   closeBrPanel();
   prevUnitPos = new Map(state.units.map(u => [u.id, {col: u.col, row: u.row}]));
   lobbyScreen.classList.add('hidden');
@@ -616,47 +618,18 @@ function handleClick(col, row) {
 
   // Dismiss open pickers
   if (!stackPicker.classList.contains('hidden'))  { hideStackPicker();   return; }
+  if (!targetPicker.classList.contains('hidden')) { hideTargetPicker();  return; }
   if (!weaponPicker.classList.contains('hidden')) { closeWeaponPicker(); return; }
 
   // ── Combat phase ──
   if (phase === 'combat') {
     if (isMyTurn() && selUnitId !== null) {
-      const atk = atkHexes.find(h => h.col === col && h.row === row);
-      if (atk) {
-        if (selGroupIds.length > 0) {
-          // Toggle attacks for all group units that can reach this target
-          const allDeclared = selGroupIds.every(id =>
-            pendingAtks.some(a => a.attackerId === id && a.targetId === atk.unitId));
-          if (allDeclared) {
-            pendingAtks = pendingAtks.filter(a =>
-              !(selGroupIds.includes(a.attackerId) && a.targetId === atk.unitId));
-            SFX.play('attackRemove');
-          } else {
-            for (const id of selGroupIds) {
-              const gu = gameState.units.find(u => u.id === id && u.hp > 0);
-              if (!gu) continue;
-              if (rangeAgainst(gu.attackRange, atk.category) >= 1 && hexDist(gu.col, gu.row, atk.col, atk.row) <= rangeAgainst(gu.attackRange, atk.category)
-                  && !pendingAtks.some(a => a.attackerId === id && a.targetId === atk.unitId)) {
-                pendingAtks.push({attackerId: id, targetId: atk.unitId, amount: 1});
-              }
-            }
-            SFX.play('attack');
-          }
+      const hexAtks = atkHexes.filter(h => h.col === col && h.row === row);
+      if (hexAtks.length > 0) {
+        if (hexAtks.length > 1) {
+          showTargetPicker(col, row, hexAtks);
         } else {
-          // If already declared, remove; otherwise open weapon picker
-          const existing = pendingAtks.findIndex(a => a.attackerId === selUnitId && a.targetId === atk.unitId);
-          if (existing >= 0) {
-            pendingAtks.splice(existing, 1);
-            SFX.play('attackRemove');
-            updateUI(); render();
-          } else {
-            const dist = hexDist(
-              gameState.units.find(u => u.id === selUnitId)?.col ?? 0,
-              gameState.units.find(u => u.id === selUnitId)?.row ?? 0,
-              atk.col, atk.row
-            );
-            openWeaponPicker(selUnitId, atk.unitId, atk.category, dist);
-          }
+          _onTargetChosen(hexAtks[0]);
         }
         return;
       }
@@ -800,6 +773,74 @@ function showStackPicker(col, row, units) {
 }
 
 function hideStackPicker() { stackPicker.classList.add('hidden'); }
+
+// ─── Target picker (enemy stacked units in combat phase) ──────────────────────
+function showTargetPicker(col, row, atkEntries) {
+  tpList.innerHTML = '';
+  for (const entry of atkEntries) {
+    const enemy = gameState.units.find(u => u.id === entry.unitId);
+    const btn   = document.createElement('button');
+    btn.className = 'sp-unit-btn';
+    const hpPct = enemy ? Math.round((enemy.hp / enemy.maxHp) * 100) : 0;
+    btn.innerHTML = `<span style="color:var(--red-l)">${enemy?.name || entry.unitId}</span> · ${enemy?.hp ?? '?'}/${enemy?.maxHp ?? '?'}SP (${hpPct}%)`;
+    btn.addEventListener('click', () => {
+      hideTargetPicker();
+      _onTargetChosen(entry);
+    });
+    tpList.appendChild(btn);
+  }
+
+  // Position near the clicked hex (same logic as stack-picker)
+  const {x, y} = hexToPixel(col, row);
+  const rect  = canvas.getBoundingClientRect();
+  const wrap  = canvas.parentElement.getBoundingClientRect();
+  const scale = rect.width / canvas.width;
+  const wx = (x * zoom + panX) * scale;
+  const wy = ((y + HEX_R) * zoom + panY) * scale;
+  const sx = rect.left - wrap.left + wx;
+  const sy = rect.top  - wrap.top  + wy + 6;
+  targetPicker.style.left = `${Math.round(sx - 85)}px`;
+  targetPicker.style.top  = `${Math.round(sy)}px`;
+  targetPicker.classList.remove('hidden');
+  SFX.play('stackPick');
+}
+
+function hideTargetPicker() { targetPicker.classList.add('hidden'); }
+
+function _onTargetChosen(atk) {
+  if (selGroupIds.length > 0) {
+    const allDeclared = selGroupIds.every(id =>
+      pendingAtks.some(a => a.attackerId === id && a.targetId === atk.unitId));
+    if (allDeclared) {
+      pendingAtks = pendingAtks.filter(a =>
+        !(selGroupIds.includes(a.attackerId) && a.targetId === atk.unitId));
+      SFX.play('attackRemove');
+    } else {
+      for (const id of selGroupIds) {
+        const gu = gameState.units.find(u => u.id === id && u.hp > 0);
+        if (!gu) continue;
+        if (rangeAgainst(gu.attackRange, atk.category) >= 1 &&
+            hexDist(gu.col, gu.row, atk.col, atk.row) <= rangeAgainst(gu.attackRange, atk.category) &&
+            !pendingAtks.some(a => a.attackerId === id && a.targetId === atk.unitId)) {
+          pendingAtks.push({ attackerId: id, targetId: atk.unitId, amount: 1 });
+        }
+      }
+      SFX.play('attack');
+    }
+    updateUI(); render();
+  } else {
+    const existing = pendingAtks.findIndex(a => a.attackerId === selUnitId && a.targetId === atk.unitId);
+    if (existing >= 0) {
+      pendingAtks.splice(existing, 1);
+      SFX.play('attackRemove');
+      updateUI(); render();
+    } else {
+      const attUnit = gameState.units.find(u => u.id === selUnitId);
+      const dist = hexDist(attUnit?.col ?? 0, attUnit?.row ?? 0, atk.col, atk.row);
+      openWeaponPicker(selUnitId, atk.unitId, atk.category, dist);
+    }
+  }
+}
 
 // ─── Weapon picker ────────────────────────────────────────────────────────────
 function openWeaponPicker(attackerId, targetId, targetCategory, dist) {
