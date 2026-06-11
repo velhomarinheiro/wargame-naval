@@ -61,6 +61,11 @@ const WEAPON_LABELS = {
   navalGun:'CANHÃO', airDefense:'DEFA', bmd:'BMD', asw:'ASW',
   airAttack:'AT.AÉR', raid:'OP.ESP.',
 };
+// Default ranges for capability-based weapons (not present in unit.weapons)
+const WEAPON_DEFAULT_RANGE = {
+  ascm:6, mss:3, torpedo:2, lacm:10, asbm:10,
+  navalGun:1, airDefense:1, bmd:1, asw:2, airAttack:4, raid:2,
+};
 
 function unitMovementRange(unit) {
   if (unit.category !== 'air') return unit.movement;
@@ -847,19 +852,32 @@ function openWeaponPicker(attackerId, targetId, targetCategory, dist) {
   const attUnit = gameState?.units.find(u => u.id === attackerId);
   if (!attUnit) return;
 
-  const available = Object.entries(attUnit.weapons || {}).filter(([wpn, info]) => {
-    if ((info.quantity ?? 0) <= 0) return false;
+  // Expendable weapons live in unit.weapons; combat-capability weapons
+  // (navalGun, airDefense, bmd, asw, airAttack) live in unit.capabilities
+  // and are unlimited / non-expendable.
+  const available = [];
+  for (const [wpn, info] of Object.entries(attUnit.weapons || {})) {
+    if ((info.quantity ?? 0) <= 0) continue;
     const targets = WEAPON_TARGETS[wpn] || [];
-    if (!targets.includes(targetCategory)) return false;
-    const range = info.range ?? 0;
-    if (dist > range) return false;
-    return true;
-  });
+    if (!targets.includes(targetCategory)) continue;
+    const range = info.range ?? WEAPON_DEFAULT_RANGE[wpn] ?? 0;
+    if (dist > range) continue;
+    available.push([wpn, { quantity: info.quantity, range, expendable: true }]);
+  }
+  for (const [wpn, val] of Object.entries(attUnit.capabilities || {})) {
+    if (attUnit.weapons?.[wpn] != null) continue; // already covered above
+    if ((val ?? 0) <= 0) continue;
+    const targets = WEAPON_TARGETS[wpn] || [];
+    if (!targets.includes(targetCategory)) continue;
+    const range = WEAPON_DEFAULT_RANGE[wpn] ?? 1;
+    if (dist > range) continue;
+    available.push([wpn, { quantity: val, range, expendable: false }]);
+  }
 
   if (available.length === 0) return;
 
   // Single non-expendable weapon: skip picker
-  if (available.length === 1 && !WEAPON_EXPENDABLE[available[0][0]]) {
+  if (available.length === 1 && !available[0][1].expendable) {
     const [wpnType] = available[0];
     addOrToggleAttack(attackerId, targetId, wpnType, 1);
     return;
@@ -871,7 +889,7 @@ function openWeaponPicker(attackerId, targetId, targetCategory, dist) {
   wpBody.innerHTML = available.map(([wpn, info], i) => {
     const label  = WEAPON_LABELS[wpn] || wpn.toUpperCase();
     const qty    = info.quantity ?? 0;
-    const isExp  = !!WEAPON_EXPENDABLE[wpn];
+    const isExp  = !!info.expendable;
     return `<div class="wp-row">
       <label class="wp-label">
         <input type="radio" name="wp-radio" value="${wpn}" ${i === 0 ? 'checked' : ''}>
