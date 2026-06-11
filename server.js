@@ -3,6 +3,8 @@ const express  = require('express');
 const http     = require('http');
 const { Server } = require('socket.io');
 const path     = require('path');
+const fs       = require('fs');
+const archiver = require('archiver');
 const { ORDER_OF_BATTLE }  = require('./shared/order_of_battle');
 const { COMBAT_CONFIG }    = require('./shared/combat_config');
 const { resolveEngagement, getWeaponQuantity, getWeaponRange } = require('./shared/combat_engine');
@@ -862,6 +864,26 @@ const io     = new Server(server, { cors: { origin: '*' } });
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/',     (_, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/game', (_, res) => res.sendFile(path.join(__dirname, 'public', 'game.html')));
+
+// Exporta os logs de partidas (data/game-logs/*.jsonl) gravados neste servidor
+// como um .zip, para download manual e inclusão no dataset de treinamento.
+app.get('/api/export-logs', (_, res) => {
+  const logDir = path.join(__dirname, 'data', 'game-logs');
+  const files = fs.existsSync(logDir)
+    ? fs.readdirSync(logDir).filter(f => f.endsWith('.jsonl'))
+    : [];
+
+  if (files.length === 0) {
+    return res.status(404).json({ error: 'Nenhum log de partida encontrado neste servidor.' });
+  }
+
+  res.attachment(`game-logs_${new Date().toISOString().slice(0, 10)}.zip`);
+  const archive = archiver('zip', { zlib: { level: 9 } });
+  archive.on('error', err => res.status(500).end(String(err)));
+  archive.pipe(res);
+  for (const f of files) archive.file(path.join(logDir, f), { name: f });
+  archive.finalize();
+});
 
 const rooms = new Map();
 function genId() { return Math.random().toString(36).slice(2,8).toUpperCase(); }
