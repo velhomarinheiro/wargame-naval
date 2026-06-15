@@ -11,7 +11,7 @@ name: Sync Game Logs
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # diariamente às 06:00 UTC
+    - cron: '*/15 * * * *'  # a cada 15 minutos
   workflow_dispatch: {}
 
 permissions:

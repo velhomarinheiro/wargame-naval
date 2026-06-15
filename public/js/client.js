@@ -35,6 +35,7 @@ const spList       = $('sp-list');
 const spGroupBtn   = $('sp-group-btn');
 const objectivesContent = $('objectives-content');
 const exportLogBtn      = $('export-log-btn');
+const exportFullLogBtn  = $('export-full-log-btn');
 const abandonBtn        = $('abandon-btn');
 const unitTooltipEl     = $('unit-tooltip');
 const cardModal         = $('card-modal');
@@ -144,6 +145,7 @@ mapImg.src = '/mapa.jpeg';
 let myTeam      = null;
 let gameState   = null;
 let isSolo      = false;
+let currentRoomId = null;
 let prevUnitPos = new Map(); // unitId → {col, row} — for movement flash detection
 let selUnitId   = null;
 
@@ -297,8 +299,9 @@ socket.on('room_created', ({roomId, team}) => {
 });
 socket.on('join_error', msg => showLobbyErr(msg));
 
-socket.on('game_start', ({team, state, solo}) => {
+socket.on('game_start', ({team, state, solo, roomId}) => {
   myTeam = team; gameState = state; isSolo = !!solo;
+  if (roomId) currentRoomId = roomId;
   if (isSolo) document.title = 'Operação Atlântico Sul · Solo vs BOT';
   selUnitId = null; selGroupIds = []; moveHexes = []; atkHexes = []; pendingAtks = [];
   activePath = []; plannedMoves.clear(); hideStackPicker(); hideTargetPicker(); closeWeaponPicker();
@@ -473,12 +476,14 @@ cancelBtn.addEventListener('click', () => { SFX.play('click'); hideStackPicker()
 
 $('btn-restart').addEventListener('click', () => { SFX.play('click'); socket.emit('restart'); gameOver.classList.add('hidden'); });
 $('btn-export-over').addEventListener('click', () => exportLog());
+$('btn-export-full-over').addEventListener('click', () => exportFullLog());
 $('br-btn-continue').addEventListener('click', () => { SFX.play('click'); sendBrDecision('continue'); });
 $('br-btn-stop'    ).addEventListener('click', () => { SFX.play('click'); sendBrDecision('stop'); });
 $('br-btn-ok'      ).addEventListener('click', () => { SFX.play('click'); onBrOk(); });
 $('btn-back').addEventListener('click', () => location.reload());
 
 exportLogBtn.addEventListener('click', () => exportLog());
+exportFullLogBtn.addEventListener('click', () => exportFullLog());
 
 abandonBtn.addEventListener('click', () => {
   if (!gameState || gameState.winner) return;
@@ -1165,6 +1170,7 @@ function updateUI() {
   // Show/hide game-level buttons
   const inGame = !winner;
   exportLogBtn.classList.toggle('hidden', !gameState);
+  exportFullLogBtn.classList.toggle('hidden', !gameState || !currentRoomId);
   abandonBtn.classList.toggle('hidden', !inGame);
 
   updateObjectives();
@@ -1265,6 +1271,31 @@ function exportLog() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// Exporta o log completo da partida (.jsonl com estado inicial, movimentos,
+// ataques, engajamentos e estado final), gerado pelo game_logger no servidor.
+async function exportFullLog() {
+  if (!currentRoomId) { alert('ID da partida não disponível para exportação completa.'); return; }
+  try {
+    const res = await fetch(`/api/export-logs/${currentRoomId}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || 'Não foi possível exportar o log completo desta partida.');
+      return;
+    }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `game_${currentRoomId}.jsonl`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Erro ao exportar log completo: ' + e.message);
+  }
 }
 
 // ═══ RENDERING ════════════════════════════════════════════════════════════════

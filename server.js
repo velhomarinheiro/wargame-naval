@@ -902,6 +902,25 @@ app.get('/api/export-logs', (_, res) => {
   archive.finalize();
 });
 
+// Exporta o log completo (.jsonl) de UMA partida específica — usado pelo botão
+// "Exportar Log Completo" ao final do jogo. Contém todos os eventos registrados
+// pelo game_logger (estado inicial, movimentos, ataques, engajamentos e estado final).
+app.get('/api/export-logs/:roomId', (req, res) => {
+  const roomId = String(req.params.roomId || '').toUpperCase();
+  if (!/^[A-Z0-9]+$/.test(roomId)) {
+    return res.status(400).json({ error: 'ID de sala inválido.' });
+  }
+  const logDir = path.join(__dirname, 'data', 'game-logs');
+  const file = fs.existsSync(logDir)
+    ? fs.readdirSync(logDir).find(f => f.endsWith(`_${roomId}.jsonl`))
+    : null;
+
+  if (!file) {
+    return res.status(404).json({ error: 'Log não encontrado para esta partida neste servidor.' });
+  }
+  res.download(path.join(logDir, file), file);
+});
+
 const rooms = new Map();
 function genId() { return Math.random().toString(36).slice(2,8).toUpperCase(); }
 function broadcast(room) {
@@ -932,7 +951,7 @@ io.on('connection', socket => {
     socket.join(id);
     room.state = newGame();
     gameLogger.logStart(room.id, room.state);
-    socket.emit('game_start', { team, state: stateFor(room.state, team), solo: true });
+    socket.emit('game_start', { team, state: stateFor(room.state, team), solo: true, roomId: room.id });
   });
 
   socket.on('join_room', ({roomId}) => {
@@ -943,8 +962,8 @@ io.on('connection', socket => {
     socket.join(room.id);
     room.state=newGame();
     gameLogger.logStart(room.id, room.state);
-    io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue')});
-    socket.emit('game_start',{team:'red',state:stateFor(room.state,'red')});
+    io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue'),roomId:room.id});
+    socket.emit('game_start',{team:'red',state:stateFor(room.state,'red'),roomId:room.id});
   });
 
   // ── Movement ──────────────────────────────────────────────────────────────
@@ -1116,8 +1135,8 @@ io.on('connection', socket => {
     }
     room.state=newGame();
     gameLogger.logStart(room.id, room.state);
-    if (room.players.blue) io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue'),solo:!!room.solo});
-    if (room.players.red)  io.to(room.players.red ).emit('game_start',{team:'red', state:stateFor(room.state,'red'), solo:!!room.solo});
+    if (room.players.blue) io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue'),solo:!!room.solo,roomId:room.id});
+    if (room.players.red)  io.to(room.players.red ).emit('game_start',{team:'red', state:stateFor(room.state,'red'), solo:!!room.solo,roomId:room.id});
   });
 
   socket.on('abandon_game', () => {
