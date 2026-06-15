@@ -282,8 +282,25 @@ function isSingleRoundWeapon(weaponType) {
   return ['lacm', 'asbm'].includes(weaponType);
 }
 
+// Intercala os ataques declarados pelas duas equipes, alternando a ordem de
+// avaliação/aplicação de dano. Sem isso, todos os ataques azuis seriam
+// resolvidos antes de qualquer ataque vermelho, dando vantagem involuntária
+// ao azul (alvos podem morrer antes de conseguir atacar de volta). A equipe
+// que age primeiro também alterna a cada turno para não fixar a vantagem.
+function interleaveAttacks(blueAtks, redAtks, turn) {
+  const blueFirst = (turn % 2) === 1;
+  const [first, second] = blueFirst ? [blueAtks, redAtks] : [redAtks, blueAtks];
+  const result  = [];
+  const maxLen  = Math.max(first.length, second.length);
+  for (let i = 0; i < maxLen; i++) {
+    if (i < first.length)  result.push(first[i]);
+    if (i < second.length) result.push(second[i]);
+  }
+  return result;
+}
+
 function buildCombatQueue(state) {
-  const all = [...(state.blueAttacks || []), ...(state.redAttacks || [])];
+  const all = interleaveAttacks(state.blueAttacks || [], state.redAttacks || [], state.turn);
   return all.map((atk, i) => {
     const att = state.units.find(u => u.id === atk.attackerId && u.hp > 0);
     const def = state.units.find(u => u.id === atk.targetId   && u.hp > 0);
