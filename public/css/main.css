@@ -405,3 +405,29 @@ footer {
 }
 footer a { color: var(--gold); text-decoration: none; }
 footer a:hover { text-decoration: underline; }
+
+/* ═══ ENTRADA SUAVE (landing) ═══════════════════════════════════════════════ */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.hero-content { animation: fadeInUp 0.7s ease-out both; }
+.concept, .oob-section, .howto, .lobby-section {
+  animation: fadeInUp 0.6s ease-out both;
+}
+
+/* Profundidade e foco nos botões (consistente com a tela de jogo) */
+.btn-primary, .btn-action {
+  box-shadow: 0 1px 2px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.btn-primary:active, .btn-action:active { transform: translateY(1px); }
+.btn-primary:focus-visible, .btn-action:focus-visible {
+  outline: 2px solid var(--gold-l);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-content, .concept, .oob-section, .howto, .lobby-section {
+    animation: none !important;
+  }
+}
