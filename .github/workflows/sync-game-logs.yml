@@ -53,21 +53,6 @@ jobs:
           fetch_logs "railway" "$RAILWAY_LOGS_URL"
           fetch_logs "render"  "$RENDER_LOGS_URL"
 
-      - name: "[TEMP] Verificar deploy do endpoint /api/export-logs/:roomId"
-        env:
-          RAILWAY_LOGS_URL: ${{ secrets.RAILWAY_LOGS_URL }}
-          RENDER_LOGS_URL:  ${{ secrets.RENDER_LOGS_URL }}
-        run: |
-          check() {
-            local name="$1" url="$2"
-            if [ -z "$url" ]; then echo "[$name] URL não configurada."; return; fi
-            echo "[$name] GET ${url%/}/api/export-logs/ZZZZZZ"
-            curl -s -D - -o /tmp/body.txt "${url%/}/api/export-logs/ZZZZZZ"
-            echo "[$name] body: $(cat /tmp/body.txt)"
-          }
-          check "railway" "$RAILWAY_LOGS_URL"
-          check "render"  "$RENDER_LOGS_URL"
-
       - name: Commit e push se houver logs novos
         run: |
           git config user.name "github-actions[bot]"
