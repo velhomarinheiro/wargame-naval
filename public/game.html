@@ -111,6 +111,10 @@
     <div id="lobby-waiting" class="hidden">
       <p>Sala criada! Compartilhe o código:</p>
       <div id="room-display" class="room-code">——</div>
+      <button type="button" class="btn-copy"
+        onclick="const c=document.getElementById('room-display').textContent.trim(); if(navigator.clipboard){navigator.clipboard.writeText(c);} const t=this.textContent; this.textContent='✓ Copiado'; this.classList.add('copied'); setTimeout(()=>{this.textContent=t; this.classList.remove('copied');},1500);">
+        ⧉ Copiar código
+      </button>
       <p class="spinner">Aguardando oponente...</p>
     </div>
   </div>
