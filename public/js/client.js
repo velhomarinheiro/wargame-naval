@@ -385,7 +385,20 @@ socket.on('game_over', ({winner, state, objectives, reason}) => {
   renderOverObjectives(objectives, winner, reason);
   gameOver.classList.remove('hidden');
 });
-socket.on('opponent_disconnected', () => disconnected.classList.remove('hidden'));
+socket.on('opponent_disconnected', () => {
+  $('disconnect-msg').textContent = 'Oponente desconectou.';
+  disconnected.classList.remove('hidden');
+});
+// Própria conexão caiu (rede/aba/sleep): o servidor já encerra a partida ao
+// detectar a queda, então não há reconexão útil — avisar em vez de "travar".
+socket.on('disconnect', reason => {
+  if (reason === 'io client disconnect') return; // navegação intencional (ex.: Voltar ao Lobby)
+  if (gameScreen.classList.contains('hidden')) return; // ainda no lobby
+  if (!gameOver.classList.contains('hidden')) return;   // partida já tinha terminado normalmente
+  if (!disconnected.classList.contains('hidden')) return; // já exibindo aviso
+  $('disconnect-msg').textContent = 'Conexão perdida com o servidor.';
+  disconnected.classList.remove('hidden');
+});
 socket.on('action_error', msg => {
   SFX.play('error');
   flashError(msg);
