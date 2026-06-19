@@ -326,8 +326,26 @@ function buildCombatQueue(state) {
       maxBattleRounds: isSingleRoundWeapon(wpnType) ? 1 : 2,
       status:          'pending',
       results:         [],
+      // Snapshot of the target's hex/identity at queue-build time, so the
+      // defending stack can be reconstructed for the group counter-attack even
+      // if the primary target is destroyed by the incoming volley first.
+      targetCol:       def.col,
+      targetRow:       def.row,
+      targetTeam:      def.team,
+      targetCategory:  def.category,
     };
   }).filter(Boolean);
+}
+
+// Units that form the defending stack on a hex: alive same-team units sharing
+// the same cell. A surface unit stacked with allies defends — and counter-attacks
+// — as a group; the attacker's chosen target only sets the primary recipient of
+// the incoming damage. Lone units (or non-surface targets) keep 1-on-1 behavior.
+function defendingGroup(state, col, row, team, category) {
+  if (category !== 'surface') return null;
+  const stack = state.units.filter(u =>
+    (u.hp ?? 0) > 0 && u.team === team && u.col === col && u.row === row);
+  return stack.length > 1 ? stack : null;
 }
 
 function resolveBattleRound(state, engagement, initiativeBonusTeam = null) {
@@ -350,9 +368,20 @@ function resolveBattleRound(state, engagement, initiativeBonusTeam = null) {
   const initLabel = initiativeBonusTeam ? ` ★${initiativeBonusTeam.toUpperCase()}` : '';
   state.log.unshift(`──── ${brTag}${initLabel} ────`);
 
+  // Group defense: a stacked surface task group pools its interceptors. Only
+  // units that can still defend (naval FP > 0) contribute.
+  const stack = defendingGroup(state, def.col, def.row, def.team, def.category);
+  const interceptors = stack
+    ? stack.filter(canDefend)
+    : (isFuelDisabled(def) ? [] : [def]);
+  if (stack && interceptors.length > 1 && !engagement.id.includes('CTR')) {
+    state.log.unshift(`🛡 ${def.name} defende em grupo (${interceptors.length} unid. no mesmo hex).`);
+  }
+
   const dist = hexDist(att.col, att.row, def.col, def.row);
   const eng  = resolveEngagement({
     attacker: att, defender: def,
+    defenders:  interceptors,
     weaponType: engagement.weaponType,
     amount:     engagement.amount,
     distance:   dist,
@@ -420,39 +449,65 @@ function startCurrentEngagement(room) {
   emitBrResult(room, engagement, result, true);
 }
 
-function resolveCounterAttack(state, engagement, blue, red) {
-  // Original defender fires back at the original attacker in BR#2.
+function resolveCounterAttacks(state, engagement, blue, red) {
+  // The defending stack fires back at the original attacker in BR#2.
   // Restricted to close-range weapons (no LACM / ASBM strategic strikes).
   const att = state.units.find(u => u.id === engagement.attackerId && u.hp > 0);
-  const def = state.units.find(u => u.id === engagement.targetId   && u.hp > 0);
-  if (!att || !def) return null;
+  if (!att) return [];
 
-  const dist       = hexDist(def.col, def.row, att.col, att.row);
-  const counterWpn = selectBestWeapon(def, att, dist);
-  if (!counterWpn || isSingleRoundWeapon(counterWpn)) return null;
+  // Reconstruct the defending group from the target's hex (the primary target
+  // may already be destroyed by the incoming volley, but surviving stackmates —
+  // even a single one — still counter-attack). For a non-surface target, only
+  // the target itself counters, matching the classic 1-on-1 behavior.
+  let group;
+  if (engagement.targetCategory === 'surface') {
+    group = state.units.filter(u =>
+      (u.hp ?? 0) > 0 && u.team === engagement.targetTeam &&
+      u.col === engagement.targetCol && u.row === engagement.targetRow);
+  } else {
+    const def = state.units.find(u => u.id === engagement.targetId && (u.hp ?? 0) > 0);
+    group = def ? [def] : [];
+  }
 
-  const profile      = COMBAT_CONFIG.weaponProfiles?.[counterWpn];
-  const qty          = getWeaponQuantity(def, counterWpn);
-  const counterAmt   = profile?.expendable ? Math.min(qty, SALVO_SIZE[counterWpn] || 1) : 1;
+  // Initiative for the counter: if the defending team chose continue and the
+  // attacker chose stop, the whole defending group counters with advantage.
+  const defDecision = engagement.targetTeam === 'blue' ? blue : red;
+  const attDecision = att.team === 'blue' ? blue : red;
+  const counterInit = (defDecision === 'continue' && attDecision === 'stop')
+    ? engagement.targetTeam : null;
 
-  // Initiative for the counter: if the defending team chose continue and attacker chose stop
-  const defDecision  = def.team === 'blue' ? blue : red;
-  const attDecision  = att.team === 'blue' ? blue : red;
-  const counterInit  = (defDecision === 'continue' && attDecision === 'stop') ? def.team : null;
+  const results = [];
+  let idx = 0;
+  for (const unit of group) {
+    if ((unit.hp ?? 0) <= 0 || !canAttack(unit) || unit.id === att.id) continue;
 
-  const counterEng = {
-    id: `${engagement.id}-CTR`,
-    attackerId:      def.id,
-    targetId:        att.id,
-    weaponType:      counterWpn,
-    amount:          counterAmt,
-    battleRound:     2,
-    maxBattleRounds: 2,
-    status:          'pending',
-    results:         [],
-  };
+    const dist       = hexDist(unit.col, unit.row, att.col, att.row);
+    const counterWpn = selectBestWeapon(unit, att, dist);
+    if (!counterWpn || isSingleRoundWeapon(counterWpn)) continue;
 
-  return resolveBattleRound(state, counterEng, counterInit);
+    const profile    = COMBAT_CONFIG.weaponProfiles?.[counterWpn];
+    const qty        = getWeaponQuantity(unit, counterWpn);
+    const counterAmt = profile?.expendable ? Math.min(qty, SALVO_SIZE[counterWpn] || 1) : 1;
+
+    const counterEng = {
+      id: `${engagement.id}-CTR${++idx}`,
+      attackerId:      unit.id,
+      targetId:        att.id,
+      weaponType:      counterWpn,
+      amount:          counterAmt,
+      battleRound:     2,
+      maxBattleRounds: 2,
+      status:          'pending',
+      results:         [],
+    };
+
+    const r = resolveBattleRound(state, counterEng, counterInit);
+    if (r) results.push(r);
+    // Attacker destroyed by the counter-fire: remaining stackmates have nothing to hit.
+    if (!state.units.find(u => u.id === att.id && (u.hp ?? 0) > 0)) break;
+  }
+
+  return results;
 }
 
 function processBattleRoundDecision(room) {
@@ -475,11 +530,11 @@ function processBattleRoundDecision(room) {
   if (red  === 'continue' && blue === 'stop') initiativeBonusTeam = 'red';
 
   engagement.battleRound = 2;
-  const result        = resolveBattleRound(state, engagement, initiativeBonusTeam);
-  const counterResult = resolveCounterAttack(state, engagement, blue, red);
+  const result         = resolveBattleRound(state, engagement, initiativeBonusTeam);
+  const counterResults = resolveCounterAttacks(state, engagement, blue, red);
 
   emitBrResult(room, engagement, result, false,
-    { decisions: { blue, red }, initiativeBonusTeam, counterResult });
+    { decisions: { blue, red }, initiativeBonusTeam, counterResults });
   finishCurrentEngagement(room);
 }
 
@@ -1167,4 +1222,13 @@ io.on('connection', socket => {
   });
 });
 
-server.listen(PORT, () => console.log(`Servidor em http://localhost:${PORT}`));
+if (require.main === module) {
+  server.listen(PORT, () => console.log(`Servidor em http://localhost:${PORT}`));
+}
+
+// Exported for tests (combat internals). Importing the module does not start
+// the HTTP/Socket.IO listener thanks to the require.main guard above.
+module.exports = {
+  newGame, buildCombatQueue, defendingGroup,
+  resolveBattleRound, resolveCounterAttacks,
+};

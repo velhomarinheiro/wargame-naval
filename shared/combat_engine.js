@@ -47,19 +47,25 @@ function applyDamage(unit, damage) {
   if (damage > 0) unit.hp = Math.max(0, unit.hp - damage);
 }
 
-// Returns how many incoming missiles are shot down by the defender's interceptors
-function resolveInterception(defender, incomingWeaponType, incomingAmount, defenderDisabled = false) {
-  if (defenderDisabled) return { intercepted: 0, remaining: incomingAmount, details: [] };
+// Returns how many incoming missiles are shot down by the defending group's
+// interceptors. `defenders` is an array of units sharing the target's hex that
+// contribute to the defense (stacked task group); for a lone target it is just
+// [target]. Interceptor capacity for each weapon type is pooled across the group.
+function resolveInterception(defenders, incomingWeaponType, incomingAmount) {
+  const group = Array.isArray(defenders) ? defenders : [defenders];
+  if (group.length === 0) return { intercepted: 0, remaining: incomingAmount, details: [] };
   const profile = COMBAT.weaponProfiles?.[incomingWeaponType];
   if (!profile?.interceptableBy?.length) {
     return { intercepted: 0, remaining: incomingAmount, details: [] };
   }
 
+  const team = group[0].team;
   let remaining = incomingAmount;
   const details = [];
 
   for (const defWeapon of profile.interceptableBy) {
-    const defQty = getWeaponQuantity(defender, defWeapon);
+    // Pool the interceptor capacity of the whole stack for this weapon type.
+    const defQty = group.reduce((sum, u) => sum + getWeaponQuantity(u, defWeapon), 0);
     if (defQty <= 0) continue;
 
     const defProfile = COMBAT.weaponProfiles?.[defWeapon];
@@ -70,7 +76,7 @@ function resolveInterception(defender, incomingWeaponType, incomingAmount, defen
     const rolls = [];
     for (let i = 0; i < shots; i++) {
       // Interception rolls never receive initiative advantage
-      const r = resolveDamageRoll(defender.team, defProfile.damageProfile, 'missile');
+      const r = resolveDamageRoll(team, defProfile.damageProfile, 'missile');
       rolls.push(r.roll);
       if (r.damage > 0) intercepted++;
     }
@@ -83,8 +89,10 @@ function resolveInterception(defender, incomingWeaponType, incomingAmount, defen
 }
 
 // initiativeBonusTeam: team name that rolled with advantage this round, or null
-// defenderDisabled: true when defender has 0 naval FP — skips interception
-function resolveEngagement({ attacker, defender, weaponType, amount, distance, initiativeBonusTeam = null, defenderDisabled = false }) {
+// defenderDisabled: true when defender has 0 naval FP — skips its own interception
+// defenders: optional array of units forming the defending stack (group defense).
+//            When omitted, falls back to the lone defender (or none, if disabled).
+function resolveEngagement({ attacker, defender, defenders, weaponType, amount, distance, initiativeBonusTeam = null, defenderDisabled = false }) {
   const profile = COMBAT.weaponProfiles?.[weaponType];
   if (!profile) return { ok: false, reason: 'Tipo de arma desconhecido: ' + weaponType };
 
@@ -103,7 +111,10 @@ function resolveEngagement({ attacker, defender, weaponType, amount, distance, i
   const launched = Math.min(amount, qty);
   spendWeapon(attacker, weaponType, launched);
 
-  const interception = resolveInterception(defender, weaponType, launched, defenderDisabled);
+  const interceptors = Array.isArray(defenders)
+    ? defenders
+    : (defenderDisabled ? [] : [defender]);
+  const interception = resolveInterception(interceptors, weaponType, launched);
   const effectiveShots = interception.remaining;
 
   const advantage = initiativeBonusTeam !== null && initiativeBonusTeam === attacker.team;

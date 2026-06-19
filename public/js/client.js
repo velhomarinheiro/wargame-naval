@@ -1693,7 +1693,7 @@ function buildResultHtml(eng) {
     </div>`;
 }
 
-function renderBrPanel({ engagement, result, mustDecide, decisions, initiativeBonusTeam, counterResult }) {
+function renderBrPanel({ engagement, result, mustDecide, decisions, initiativeBonusTeam, counterResult, counterResults }) {
   brDecisionMade = false;
 
   const brLabel = `${engagement.id} · Battle Round ${engagement.battleRound}`;
@@ -1741,26 +1741,32 @@ function renderBrPanel({ engagement, result, mustDecide, decisions, initiativeBo
   }
 
   // Counter-attack block (BR#2 only)
-  if (counterResult) {
-    const cAtt = gameState?.units.find(u => u.id === counterResult.attackerId);
-    const cDef = gameState?.units.find(u => u.id === counterResult.defenderId);
-    const cAttName = cAtt?.name || counterResult.attackerId;
-    const cDefName = cDef?.name || counterResult.defenderId;
-    const cAttCls  = cAtt?.team === 'blue' ? 'cm-blue' : 'cm-red';
-    const cDefCls  = cDef?.team === 'blue' ? 'cm-blue' : 'cm-red';
+  // Counter-attack: the defending stack fires back as a group, so several
+  // contributors may appear. Accept the legacy single `counterResult` too.
+  const counters = counterResults || (counterResult ? [counterResult] : []);
+  if (counters.length) {
+    const grpLabel = counters.length > 1 ? ' em grupo' : '';
+    html += `<div class="br-counter-header">── Contrataque${grpLabel} ──</div>`;
+    for (const cr of counters) {
+      const cAtt = gameState?.units.find(u => u.id === cr.attackerId);
+      const cDef = gameState?.units.find(u => u.id === cr.defenderId);
+      const cAttName = cAtt?.name || cr.attackerId;
+      const cDefName = cDef?.name || cr.defenderId;
+      const cAttCls  = cAtt?.team === 'blue' ? 'cm-blue' : 'cm-red';
+      const cDefCls  = cDef?.team === 'blue' ? 'cm-blue' : 'cm-red';
 
-    html += `<div class="br-counter-header">── Contrataque ──</div>`;
-    html += `<div class="br-combatants">
-      <span class="${cAttCls}">${cAttName}</span>
-      <span class="br-arrow"> ↩ </span>
-      <span class="${cDefCls}">${cDefName}</span>
-      <span class="br-wpn-tag"> [${(counterResult.weaponType || '').toUpperCase()}]</span>
-    </div>`;
-    if (counterResult.advantage) {
-      const cBonusLabel = cAtt?.team === myTeam ? 'SUA FORÇA' : 'FORÇA ADVERSÁRIA';
-      html += `<div class="br-init-bonus">★ Bônus de iniciativa: ${cBonusLabel} (2d6, maior valor)</div>`;
+      html += `<div class="br-combatants">
+        <span class="${cAttCls}">${cAttName}</span>
+        <span class="br-arrow"> ↩ </span>
+        <span class="${cDefCls}">${cDefName}</span>
+        <span class="br-wpn-tag"> [${(cr.weaponType || '').toUpperCase()}]</span>
+      </div>`;
+      if (cr.advantage) {
+        const cBonusLabel = cAtt?.team === myTeam ? 'SUA FORÇA' : 'FORÇA ADVERSÁRIA';
+        html += `<div class="br-init-bonus">★ Bônus de iniciativa: ${cBonusLabel} (2d6, maior valor)</div>`;
+      }
+      html += buildResultHtml(cr);
     }
-    html += buildResultHtml(counterResult);
   }
 
   $('br-panel-body').innerHTML = html;
