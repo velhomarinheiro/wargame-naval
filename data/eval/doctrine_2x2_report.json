@@ -1,0 +1,82 @@
+{
+  "offensive|concentrated": {
+    "n": 150,
+    "win_pct": {
+      "blue": 83.3,
+      "red": 16.7
+    },
+    "reason_pct": {
+      "timeout": 52.0,
+      "victory": 48.0
+    },
+    "avg_turns": 12.19,
+    "avg_units_lost": {
+      "blue": 4.39,
+      "red": 6.94
+    },
+    "avg_dmg_taken": {
+      "blue": 43.87,
+      "red": 34.75
+    }
+  },
+  "offensive|dispersed": {
+    "n": 150,
+    "win_pct": {
+      "red": 14.7,
+      "blue": 85.3
+    },
+    "reason_pct": {
+      "victory": 44.7,
+      "timeout": 55.3
+    },
+    "avg_turns": 12.43,
+    "avg_units_lost": {
+      "blue": 4.31,
+      "red": 6.41
+    },
+    "avg_dmg_taken": {
+      "blue": 44.67,
+      "red": 31.99
+    }
+  },
+  "defensive|concentrated": {
+    "n": 150,
+    "win_pct": {
+      "blue": 77.3,
+      "red": 22.7
+    },
+    "reason_pct": {
+      "timeout": 60.0,
+      "victory": 40.0
+    },
+    "avg_turns": 14.01,
+    "avg_units_lost": {
+      "blue": 5.55,
+      "red": 5.41
+    },
+    "avg_dmg_taken": {
+      "blue": 54.27,
+      "red": 27.76
+    }
+  },
+  "defensive|dispersed": {
+    "n": 150,
+    "win_pct": {
+      "blue": 80.7,
+      "red": 19.3
+    },
+    "reason_pct": {
+      "timeout": 63.3,
+      "victory": 36.7
+    },
+    "avg_turns": 14.54,
+    "avg_units_lost": {
+      "blue": 5.73,
+      "red": 5.41
+    },
+    "avg_dmg_taken": {
+      "blue": 55.39,
+      "red": 27.85
+    }
+  }
+}
