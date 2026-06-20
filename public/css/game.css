@@ -1048,7 +1048,7 @@ input[type=text]:focus-visible {
 
 @media (max-width: 860px) {
   .header-title { font-size: 0.62rem; letter-spacing: 1.5px; }
-  .game-header  { gap: 0.5rem; padding: 6px 10px; }
+  .game-header  { gap: 0.5rem; padding: 6px 10px; position: relative; z-index: 65; }
   .header-meta  { gap: 0.4rem; }
   .meta-item    { font-size: 0.66rem; }
 
