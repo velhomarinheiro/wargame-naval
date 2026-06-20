@@ -446,3 +446,21 @@ footer a:hover { text-decoration: underline; }
   }
   .feature:hover, .oob-side:hover { transform: none !important; }
 }
+
+/* ═══ RESPONSIVIDADE — mobile / tablet ═══════════════════════════════════════ */
+@media (max-width: 600px) {
+  .container { padding: 0 1rem; }
+  h2 { font-size: 1.15rem; letter-spacing: 2px; }
+
+  .lobby-box { padding: 1.6rem 1.2rem; }
+  .lobby-solo { flex-direction: column; }
+  .lobby-solo .btn-action { padding: 12px; }
+  .room-code { font-size: 2rem; letter-spacing: 5px; padding: 10px; }
+
+  .oob-table { font-size: 0.62rem; }
+  .oob-table td { padding: 3px 3px; }
+  /* Coluna "Cat." dispensável em telas estreitas — esconde cabeçalho e células juntos */
+  .oob-table th:nth-child(4), .oob-table td:nth-child(4) { display: none; }
+
+  .compass-rose { width: 56px; height: 56px; bottom: 1rem; right: 1rem; }
+}

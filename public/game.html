@@ -24,6 +24,8 @@
       <span id="period-label" class="meta-item">☀ Diurno</span>
       <span id="phase-label"  class="meta-item phase">Movimentação</span>
       <button id="sfx-toggle" class="sfx-toggle" title="Som (S)">🔊</button>
+      <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Abrir painel lateral" aria-label="Abrir painel lateral"
+        onclick="document.querySelector('.game-body').classList.toggle('sidebar-open')">☰</button>
     </div>
   </header>
 
@@ -32,14 +34,14 @@
 
     <!-- Canvas -->
     <div class="canvas-wrap">
-      <canvas id="game-canvas"></canvas>
+      <canvas id="game-canvas" aria-label="Tabuleiro hexagonal do teatro de operações"></canvas>
       <div class="zoom-controls">
         <button id="zoom-in"    class="zoom-btn" title="Zoom in (+)">+</button>
         <button id="zoom-reset" class="zoom-btn" title="Resetar zoom">⊙</button>
         <button id="zoom-out"   class="zoom-btn" title="Zoom out (−)">−</button>
       </div>
       <div id="terrain-tip" class="terrain-tip"></div>
-      <div id="error-flash" class="error-flash hidden"></div>
+      <div id="error-flash" class="error-flash hidden" role="alert"></div>
       <div id="stack-picker" class="stack-picker hidden">
         <div class="sp-title">UNIDADES EMPILHADAS</div>
         <div id="sp-list"></div>
@@ -48,7 +50,9 @@
     </div>
 
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <div class="sidebar-backdrop"
+      onclick="document.querySelector('.game-body').classList.remove('sidebar-open')"></div>
+    <aside class="sidebar" aria-label="Painel de controle">
 
       <div class="panel fleet-panel">
         <div class="panel-title">FROTAS</div>

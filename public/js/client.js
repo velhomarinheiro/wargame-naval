@@ -1178,7 +1178,9 @@ function updateUI() {
   } else {
     unitPanel.innerHTML = '<p class="no-sel">Clique em uma unidade sua</p>';
   }
-  logEl.innerHTML = (log||[]).map(l=>`<p>${l}</p>`).join('');
+  logEl.innerHTML = (log && log.length)
+    ? log.map(l=>`<p>${l}</p>`).join('')
+    : '<p class="no-sel no-log">Nenhum evento registrado ainda</p>';
 
   // Show/hide game-level buttons
   const inGame = !winner;

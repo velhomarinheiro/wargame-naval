@@ -14,7 +14,7 @@
   --gold-l: #ffd54f;
   --green:  #00e676;
   --text:   #d0e8f4;
-  --dim:    #5a8aaa;
+  --dim:    #6f9fc4; /* contraste ampliado p/ WCAG AA (~6:1 sobre fundos navy) */
   /* Escala tipográfica — legibilidade (ganhos rápidos) */
   --fs-xs:   0.68rem;
   --fs-sm:   0.78rem;
@@ -187,6 +187,7 @@ body {
   font-size: 1.5rem;
   color: rgba(90,138,170,0.45);
 }
+.no-sel.no-log::before { content: '▤'; }
 
 .u-name { font-size: 0.95rem; font-weight: bold; margin-bottom: 6px; }
 .u-name.blue { color: var(--blue-l); }
@@ -1028,6 +1029,69 @@ input[type=text]:focus-visible {
   background: rgba(130,177,255,0.6);
 }
 
+/* ═══ ACESSIBILIDADE — foco visível (cobertura ampliada) ════════════════════ */
+.zoom-btn:focus-visible,
+.sfx-toggle:focus-visible,
+.card-modal-close:focus-visible,
+.btn-copy:focus-visible,
+.wp-adj:focus-visible,
+.atk-adj-btn:focus-visible,
+.sp-unit-btn:focus-visible,
+.sidebar-toggle-btn:focus-visible {
+  outline: 2px solid var(--gold-l);
+  outline-offset: 2px;
+}
+
+/* ═══ RESPONSIVIDADE — mobile / tablet ═══════════════════════════════════════ */
+.sidebar-toggle-btn { display: none; }
+.sidebar-backdrop   { display: none; }
+
+@media (max-width: 860px) {
+  .header-title { font-size: 0.62rem; letter-spacing: 1.5px; }
+  .game-header  { gap: 0.5rem; padding: 6px 10px; }
+  .header-meta  { gap: 0.4rem; }
+  .meta-item    { font-size: 0.66rem; }
+
+  .sidebar-toggle-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px;
+    background: rgba(5,18,38,0.88);
+    border: 1px solid var(--border);
+    color: var(--dim);
+    border-radius: 3px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .sidebar-toggle-btn:hover { border-color: var(--gold); color: var(--gold-l); }
+
+  .game-body { position: relative; }
+  .sidebar {
+    position: fixed;
+    top: 0; right: 0;
+    height: 100%;
+    width: min(86vw, 320px);
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    z-index: 60;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.6);
+  }
+  .game-body.sidebar-open .sidebar { transform: translateX(0); }
+  .sidebar-backdrop {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 55;
+  }
+  .game-body.sidebar-open .sidebar-backdrop { display: block; }
+
+  .lobby-box  { min-width: 0; width: 90vw; padding: 1.8rem 1.4rem; }
+  .room-code  { font-size: 1.8rem; letter-spacing: 5px; }
+  .combat-box,
+  .br-box     { width: 92vw; min-width: 0; padding: 1.2rem 1.2rem 1rem; }
+  .weapon-picker { width: 88vw; min-width: 0; max-width: 88vw; }
+}
+
 /* ═══ ACESSIBILIDADE — menos movimento ══════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
   .overlay, .over-box, .combat-box, .br-box, .weapon-picker, .lobby-box,
@@ -1035,5 +1099,6 @@ input[type=text]:focus-visible {
     animation: none !important;
   }
   .card-thumb:hover { transform: none !important; }
+  .sidebar { transition: none !important; }
 }
 
