@@ -200,6 +200,22 @@ class EvalStats:
                     st["ammo_games"] += 1
                     st["ammo_pct_sum"] += cur_total / init_total
 
+    def merge_into(self, other: "EvalStats"):
+        """Acumula os contadores brutos de self dentro de other (para compor
+        subconjuntos, ex.: só partidas concluídas por vitória decisiva)."""
+        other.games += self.games
+        other.wins.update(self.wins)
+        other.reasons.update(self.reasons)
+        other.turns.extend(self.turns)
+        for t in ("blue", "red"):
+            other.team_damage[t].extend(self.team_damage[t])
+            other.team_losses[t].extend(self.team_losses[t])
+        for uid, st in self.unit.items():
+            other.unit_team[uid] = self.unit_team[uid]
+            other.unit_cat[uid]  = self.unit_cat[uid]
+            for k, v in st.items():
+                other.unit[uid][k] += v
+
 # ── Loop de partida ───────────────────────────────────────────────────────────
 
 def simulate_nn_game(move_sess, attack_sess, stats: EvalStats):
