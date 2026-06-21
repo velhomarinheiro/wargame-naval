@@ -2,81 +2,81 @@
   "offensive|concentrated": {
     "n": 150,
     "win_pct": {
-      "blue": 83.3,
-      "red": 16.7
+      "blue": 82.7,
+      "red": 17.3
     },
     "reason_pct": {
-      "timeout": 52.0,
-      "victory": 48.0
+      "timeout": 46.0,
+      "victory": 54.0
     },
-    "avg_turns": 12.19,
+    "avg_turns": 11.76,
     "avg_units_lost": {
-      "blue": 4.39,
-      "red": 6.94
+      "blue": 4.73,
+      "red": 7.41
     },
     "avg_dmg_taken": {
-      "blue": 43.87,
-      "red": 34.75
+      "blue": 48.58,
+      "red": 37.29
     }
   },
   "offensive|dispersed": {
     "n": 150,
     "win_pct": {
-      "red": 14.7,
-      "blue": 85.3
+      "blue": 82.0,
+      "red": 18.0
     },
     "reason_pct": {
-      "victory": 44.7,
-      "timeout": 55.3
+      "victory": 50.0,
+      "timeout": 50.0
     },
-    "avg_turns": 12.43,
+    "avg_turns": 12.14,
     "avg_units_lost": {
-      "blue": 4.31,
-      "red": 6.41
+      "blue": 4.45,
+      "red": 6.94
     },
     "avg_dmg_taken": {
-      "blue": 44.67,
-      "red": 31.99
+      "blue": 46.55,
+      "red": 34.98
     }
   },
   "defensive|concentrated": {
     "n": 150,
     "win_pct": {
-      "blue": 77.3,
-      "red": 22.7
+      "red": 25.3,
+      "blue": 74.7
     },
     "reason_pct": {
-      "timeout": 60.0,
-      "victory": 40.0
+      "victory": 44.7,
+      "timeout": 55.3
     },
-    "avg_turns": 14.01,
+    "avg_turns": 13.69,
     "avg_units_lost": {
-      "blue": 5.55,
-      "red": 5.41
+      "blue": 5.56,
+      "red": 5.63
     },
     "avg_dmg_taken": {
-      "blue": 54.27,
-      "red": 27.76
+      "blue": 53.85,
+      "red": 29.55
     }
   },
   "defensive|dispersed": {
     "n": 150,
     "win_pct": {
-      "blue": 80.7,
-      "red": 19.3
+      "blue": 78.7,
+      "red": 21.3
     },
     "reason_pct": {
-      "timeout": 63.3,
-      "victory": 36.7
+      "timeout": 56.0,
+      "victory": 44.0
     },
-    "avg_turns": 14.54,
+    "avg_turns": 14.0,
     "avg_units_lost": {
-      "blue": 5.73,
-      "red": 5.41
+      "blue": 5.53,
+      "red": 5.75
     },
     "avg_dmg_taken": {
-      "blue": 55.39,
-      "red": 27.85
+      "blue": 55.91,
+      "red": 29.29
     }
   }
 }
