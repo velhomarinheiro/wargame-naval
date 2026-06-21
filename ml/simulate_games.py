@@ -712,15 +712,18 @@ def degrade_capabilities(unit: dict, damage: int):
                 f["max"]     = max(0, f.get("max", 0) - loss)
                 f["current"] = min(f.get("current", 0), f["max"])
 
-def resolve_attack(attacker: dict, defender: dict) -> int:
+def resolve_attack(attacker: dict, defender: dict, amount: int | None = None) -> int:
     """Returns total damage dealt; mutates defender.hp and attacker weapons."""
     dist = hex_dist(attacker["col"], attacker["row"], defender["col"], defender["row"])
     wpn  = select_best_weapon(attacker, defender["cat"], dist)
     if not wpn: return 0
     profile   = WEAPON_PROFILES[wpn]
-    salvo     = SALVO_SIZE.get(wpn, 1)
     qty       = get_qty(attacker, wpn)
-    launched  = min(salvo, qty)
+    if profile.get("expendable"):
+        requested = amount if amount is not None else SALVO_SIZE.get(wpn, 1)
+        launched  = min(qty, max(1, requested))
+    else:
+        launched  = min(1, qty)
     if launched <= 0: return 0
     spend_weapon(attacker, wpn, launched)
     intercepted = resolve_interception(defender, wpn, launched)
@@ -1353,7 +1356,7 @@ def simulate_game(game_idx: int, blue_strat: str, red_strat: str, noise: float,
                 att = uid_map.get(atk["attackerId"])
                 tgt = uid_map.get(atk["targetId"])
                 if att and tgt and att["hp"]>0 and tgt["hp"]>0:
-                    resolve_attack(att, tgt)
+                    resolve_attack(att, tgt, atk.get("amount"))
 
             # ── Fim de turno ─────────────────────────────────────────────────
             for u in units:

@@ -66,7 +66,7 @@ def simulate_heuristic_game(blue_strat: str, red_strat: str, noise: float,
                 if att and tgt and att["hp"] > 0 and tgt["hp"] > 0:
                     stats.record_shot(att["id"])
                     before = tgt["hp"]
-                    dmg = sim.resolve_attack(att, tgt)
+                    dmg = sim.resolve_attack(att, tgt, atk.get("amount"))
                     stats.record_damage(att["id"], tgt["id"], att["team"], dmg,
                                         killed=(before > 0 and tgt["hp"] <= 0))
 
