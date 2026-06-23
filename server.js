@@ -595,7 +595,7 @@ function finishCombatPhase(room) {
 function computeObjectives(state) {
   const u = state.units;
 
-  // ─── Blue objectives (need ≥ 2 of 5) ────────────────────────────────────────
+  // ─── Blue objectives (need ≥ 3 of 5) ────────────────────────────────────────
   const carrier  = u.find(x => x.id === 'RED-GBPA');
   const carrierMet = !carrier || carrier.hp <= 0;
 
@@ -653,7 +653,7 @@ function computeObjectives(state) {
   const redAchieved = redConds.filter(c => c.met).length;
 
   return {
-    blue: { conditions: blueConds, needed: 2, achieved: blueAchieved, won: blueAchieved >= 2 },
+    blue: { conditions: blueConds, needed: 3, achieved: blueAchieved, won: blueAchieved >= 3 },
     red:  { conditions: redConds,  needed: 2, achieved: redAchieved,  won: redAchieved  >= 2 },
   };
 }
