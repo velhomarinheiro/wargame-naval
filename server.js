@@ -13,7 +13,7 @@ const {
   canMove, canAttack, canDefend,
   navalMoveCost, spendNavalFuel, spendAirFuel,
   spendEngagementFuel, spendDamageFuel,
-  markRefuelEligibility, recoverNavalFuel,
+  recoverNavalFuel,
   checkNavalFuelZero, checkAirFuelLosses,
   recoverAircraft, resetFuelTurnCounters,
 } = require('./fuel_model');
@@ -270,7 +270,6 @@ function newGame() {
     battleRoundDecisions: { blue: null, red: null },
   };
   saveMovementSnapshot(state);
-  markRefuelEligibility(state);
   return state;
 }
 
@@ -710,7 +709,7 @@ function nextTurn(state) {
     }
   }
 
-  // ── Fuel: naval refuel for units stacked all turn with a provider ────────────
+  // ── Fuel: naval refuel for units stacked with a provider at end of turn ──────
   const fuelReports = recoverNavalFuel(state);
   for (const { unit: u } of fuelReports) {
     state.log.unshift(`⛽ ${u.name}(${u.team}) reabasteceu: ${u.fuel.current}/${u.fuel.max} FP.`);
@@ -733,7 +732,6 @@ function nextTurn(state) {
   state.log.unshift('Fase de Movimentação iniciada.');
   if (state.log.length > 50) state.log = state.log.slice(0, 50);
   saveMovementSnapshot(state);
-  markRefuelEligibility(state);   // mark who is stacked at the start of the new turn
 }
 
 // ─── Damage degradation ───────────────────────────────────────────────────────

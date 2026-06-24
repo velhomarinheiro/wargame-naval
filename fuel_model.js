@@ -87,7 +87,6 @@ function initializeFuel(unit) {
     current:  max,
     max,
     spentThisTurn: 0,
-    wasStackedWithRefuelProvider: false,
   };
 }
 
@@ -151,23 +150,13 @@ function hasRefuelProvider(unit, allUnits) {
   );
 }
 
-// Called at the START of each turn; records whether each naval unit is
-// currently stacked with a refuel provider.
-function markRefuelEligibility(state) {
-  for (const u of state.units) {
-    if (u.fuel?.fuelType !== 'naval') continue;
-    u.fuel.wasStackedWithRefuelProvider = hasRefuelProvider(u, state.units);
-  }
-}
-
 // Called at the END of each turn (before the next turn begins).
-// A naval unit is refuelled if it was stacked with a provider at the
-// START of the turn AND is still stacked with one NOW.
+// A naval unit is refuelled if it is stacked with a provider at that moment,
+// regardless of whether it arrived there during the turn just finished.
 function recoverNavalFuel(state) {
   const reports = [];
   for (const u of state.units) {
     if ((u.hp ?? 0) <= 0 || u.fuel?.fuelType !== 'naval') continue;
-    if (!u.fuel.wasStackedWithRefuelProvider) continue;
     if (!hasRefuelProvider(u, state.units)) continue;
     if ((u.fuel.current ?? 0) >= u.fuel.max) continue;
     const before = u.fuel.current;
@@ -232,7 +221,6 @@ module.exports = {
   spendEngagementFuel,
   spendDamageFuel,
   hasRefuelProvider,
-  markRefuelEligibility,
   recoverNavalFuel,
   checkNavalFuelZero,
   checkAirFuelLosses,
