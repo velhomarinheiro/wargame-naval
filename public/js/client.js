@@ -62,6 +62,20 @@ const WEAPON_LABELS = {
   navalGun:'CANHÃO', airDefense:'DEFA', bmd:'BMD', asw:'ASW',
   airAttack:'AT.AÉR', raid:'OP.ESP.',
 };
+// Nomes por extenso (tooltips e glossário da ajuda)
+const WEAPON_GLOSSARY = {
+  ascm:       'Míssil de Cruzeiro Antinavio — longo alcance contra navios de superfície',
+  mss:        'Míssil Superfície-Superfície — curto alcance contra navios de superfície',
+  torpedo:    'Torpedo — contra navios e submarinos; não pode ser interceptado',
+  lacm:       'Míssil de Cruzeiro de Ataque Terrestre — longo alcance contra alvos em terra',
+  asbm:       'Míssil Balístico Antinavio — só interceptável por defesa antimísseis (BMD)',
+  navalGun:   'Canhão Naval — curto alcance, não consome munição do paiol',
+  airDefense: 'Defesa Antiaérea — intercepta mísseis e ataca aeronaves',
+  bmd:        'Defesa Antimísseis Balísticos — única defesa contra ASBM',
+  asw:        'Guerra Antissubmarino — detecção e ataque a submarinos',
+  airAttack:  'Ataque Aéreo — aeronaves contra navios, aeronaves ou alvos terrestres',
+  raid:       'Incursão de Operações Especiais — ataques a instalações e navios',
+};
 // Default ranges for capability-based weapons (not present in unit.weapons)
 const WEAPON_DEFAULT_RANGE = {
   ascm:6, mss:3, torpedo:2, lacm:10, asbm:10,
@@ -915,7 +929,7 @@ function openWeaponPicker(attackerId, targetId, targetCategory, dist) {
     return `<div class="wp-row">
       <label class="wp-label">
         <input type="radio" name="wp-radio" value="${wpn}" ${i === 0 ? 'checked' : ''}>
-        <span class="wp-name">${label}</span>
+        <span class="wp-name" title="${WEAPON_GLOSSARY[wpn] || ''}">${label}</span>
         <span class="wp-qty">${isExp ? `(${qty} disp.)` : '(ilimitado)'}</span>
       </label>
       ${isExp ? `<div class="wp-qty-ctrl" data-max="${qty}">
@@ -1143,13 +1157,13 @@ function updateUI() {
     const initW = sel.initWeapons || {};
     const wpnLines = Object.entries(wpns)
       .filter(([k, w]) => w.quantity > 0 || (initW[k]?.quantity ?? 0) > 0)
-      .map(([k, w]) => `${k.toUpperCase()}: <b>${w.quantity}</b>/${initW[k]?.quantity ?? w.quantity}`);
+      .map(([k, w]) => `<span title="${WEAPON_GLOSSARY[k] || ''}">${(WEAPON_LABELS[k] || k).toUpperCase()}: <b>${w.quantity}</b>/${initW[k]?.quantity ?? w.quantity}</span>`);
 
     // Persistent capabilities
     const caps = sel.capabilities || {};
     const capLines = Object.entries(caps)
       .filter(([, v]) => v > 0)
-      .map(([k, v]) => `${k.toUpperCase()}: ${v}`);
+      .map(([k, v]) => `<span title="${WEAPON_GLOSSARY[k] || ''}">${(WEAPON_LABELS[k] || k).toUpperCase()}: ${v}</span>`);
 
     const cardFile = cardUrl(sel.id);
     const cardThumb = cardFile ? `
