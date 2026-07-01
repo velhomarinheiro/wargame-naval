@@ -470,7 +470,7 @@ const ORDER_OF_BATTLE = {
         "attackRange":{"surface":0,"air":0,"submarine":0,"land":0},
         "weapons":{},"capabilities":{},
         "position":{"col":15,"row":4},
-        "notes":"AKE Cl. Yarven. Único rearmamento em mar. Crítico — proteger."
+        "notes":"AKE Cl. Yarven. Navio de munições: reabastece unidades empilhadas ao fim do turno. Alvo do objetivo logístico Azul — proteger."
       },
       {
         "id":"RED-KSN","name":"SBN","category":"submarine",
