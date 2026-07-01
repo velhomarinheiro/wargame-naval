@@ -22,6 +22,8 @@ const gameLogger = require('./game_logger');
 const PORT   = process.env.PORT || 3000;
 const GRID_W = 16;
 const GRID_H = 10;
+// Limite operacional em dias de jogo (turnos dia+noite); configurável p/ testes
+const MAX_TURNS = parseInt(process.env.MAX_TURNS, 10) || 12;
 
 // ─── Terrain (mirror of public/js/terrain.js) ────────────────────────────────
 const T_LAND = 0, T_SHALLOW = 1, T_SHELF = 2, T_DEEP = 3, T_OIL = 4;
@@ -179,6 +181,7 @@ function stateFor(state, team) {
     blueAttacks: team === 'blue' ? state.blueAttacks : (state.blueAttacks !== null ? '✓' : null),
     redAttacks:  team === 'red'  ? state.redAttacks  : (state.redAttacks  !== null ? '✓' : null),
     objectives:  computeObjectives(state),
+    maxTurns:    MAX_TURNS,
   };
 }
 
@@ -588,6 +591,23 @@ function finishCombatPhase(room) {
   }
 
   nextTurn(state);
+
+  // ── Limite operacional: ao fim do dia MAX_TURNS, vence o maior progresso ────
+  if (state.turn > MAX_TURNS) {
+    const obj = computeObjectives(state);
+    const blueProg = obj.blue.achieved / obj.blue.needed;
+    const redProg  = obj.red.achieved  / obj.red.needed;
+    const winner = redProg > blueProg ? 'red' : 'blue';   // empate → Azul
+    state.winner = winner;
+    state.log.unshift(`⏱ Limite operacional de ${MAX_TURNS} dias atingido — adjudicação por progresso nos objetivos.`);
+    state.log.unshift(`🏆 ${winner === 'blue' ? 'Força Azul' : 'Força Vermelha'} VENCEU!`);
+    gameLogger.logGameOver(room.id, state.turn, winner, 'timeout', obj, state);
+    const payload = { winner, objectives: obj, reason: 'timeout' };
+    if (room.players.blue) io.to(room.players.blue).emit('game_over', { ...payload, state: stateFor(state, 'blue') });
+    if (room.players.red)  io.to(room.players.red ).emit('game_over', { ...payload, state: stateFor(state, 'red')  });
+    return;
+  }
+
   broadcast(room);
 }
 

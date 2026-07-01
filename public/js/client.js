@@ -375,6 +375,10 @@ socket.on('game_over', ({winner, state, objectives, reason}) => {
   if (reason === 'abandon') {
     winnerMsg.textContent = mine ? '🏆 VITÓRIA! Adversário abandonou.' : '🏳 Você abandonou o jogo.';
     $('winner-sub').textContent = mine ? 'Vitória por W.O.' : '';
+  } else if (reason === 'timeout') {
+    winnerMsg.textContent = mine ? '🏆 VITÓRIA!' : '💀 DERROTA';
+    $('winner-sub').textContent =
+      `Limite operacional atingido — ${winner === 'blue' ? 'Força Azul' : 'Força Vermelha'} venceu por maior progresso nos objetivos.`;
   } else {
     winnerMsg.textContent = mine ? '🏆 VITÓRIA!' : '💀 DERROTA';
     $('winner-sub').textContent = mine
@@ -1086,7 +1090,7 @@ function updateUI() {
 
   teamBadge.textContent  = myTeam === 'blue' ? 'FORÇA AZUL' : 'FORÇA VERMELHA';
   teamBadge.className    = `team-badge ${myTeam}`;
-  turnLabel.textContent  = `Turno ${turn}`;
+  turnLabel.textContent  = gameState.maxTurns ? `Turno ${turn}/${gameState.maxTurns}` : `Turno ${turn}`;
   periodLabel.textContent= period === 'day' ? '☀ Diurno' : '🌙 Noturno';
   phaseLabel.textContent = phase === 'movement' ? 'Movimentação' : 'Combate';
 
