@@ -386,6 +386,33 @@ let activePath   = [];          // [{col,row},...] path being traced; [0] = unit
 let plannedMoves = new Map();   // unitId → [{col,row},...] committed trajectories
 let wpPickerCtx  = null;        // {attackerId, targetId} when weapon picker is open
 let selGroupIds  = [];          // unit ids acting together as a group (empty = single)
+let reachableHexes = new Map(); // "col,row" → {col,row,dist,prev} — preview de alcance (BFS)
+
+// BFS de hexes alcançáveis a partir do fim do caminho ativo, respeitando o
+// terreno de todas as unidades (grupo) e sem revisitar hexes do caminho.
+// prev encadeia o caminho mais curto para auto-rota ao clicar no destino.
+function computeReachable(units, startHex, maxSteps, inPath) {
+  const out = new Map();
+  if (maxSteps <= 0) return out;
+  const key   = (c, r) => `${c},${r}`;
+  const start = { col: startHex.col, row: startHex.row, dist: 0, prev: null };
+  const seen  = new Set([key(start.col, start.row)]);
+  const queue = [start];
+  while (queue.length) {
+    const cur = queue.shift();
+    if (cur.dist >= maxSteps) continue;
+    for (const nb of hexNeighbors(cur.col, cur.row)) {
+      const k = key(nb.col, nb.row);
+      if (seen.has(k) || inPath.has(k)) continue;
+      if (!units.every(u => canEnterTerrain(u.category, TERRAIN_MAP[nb.row][nb.col]))) continue;
+      seen.add(k);
+      const node = { col: nb.col, row: nb.row, dist: cur.dist + 1, prev: cur };
+      out.set(k, node);
+      queue.push(node);
+    }
+  }
+  return out;
+}
 
 // ─── Socket ───────────────────────────────────────────────────────────────────
 const socket = io();
@@ -425,7 +452,7 @@ socket.on('game_start', ({team, state, solo, roomId}) => {
   myTeam = team; gameState = state; isSolo = !!solo;
   if (roomId) currentRoomId = roomId;
   if (isSolo) document.title = 'Operação Atlântico Sul · Solo vs BOT';
-  selUnitId = null; selGroupIds = []; moveHexes = []; atkHexes = []; pendingAtks = [];
+  selUnitId = null; selGroupIds = []; moveHexes = []; atkHexes = []; reachableHexes = new Map(); pendingAtks = [];
   activePath = []; plannedMoves.clear(); hideStackPicker(); hideTargetPicker(); closeWeaponPicker();
   closeBrPanel();
   prevUnitPos = new Map(state.units.map(u => [u.id, {col: u.col, row: u.row}]));
@@ -462,7 +489,7 @@ socket.on('game_update', state => {
       || (prevPhase === 'combat' && state.phase === 'movement')
       || (state.phase === 'movement' && prevMyDone && !myDoneNow)) {
     activePath = []; plannedMoves.clear(); selGroupIds = [];
-    selUnitId = null; moveHexes = []; atkHexes = [];
+    selUnitId = null; moveHexes = []; atkHexes = []; reachableHexes = new Map();
     hideStackPicker();
     // Only force-close the BR panel if the player isn't reading a final result.
     // If the OK button is visible, the player must click it — let the panel
@@ -599,7 +626,7 @@ endPhaseBtn.addEventListener('click', () => {
   // Optimistically mark done to prevent double-submission; reversed on action_error
   if (myTeam === 'blue') gameState.blueDone = true; else gameState.redDone = true;
   activePath = []; plannedMoves.clear(); selGroupIds = [];
-  selUnitId = null; moveHexes = []; atkHexes = [];
+  selUnitId = null; moveHexes = []; atkHexes = []; reachableHexes = new Map();
   hideStackPicker();
   updateUI(); render();
 });
@@ -797,11 +824,19 @@ function handleClick(col, row) {
 
   // ── Movement phase ──
   if (phase === 'movement' && isMyTurn()) {
-    // Extend current path with a valid next step
+    // Extend current path: adjacent step, or auto-route to any reachable hex
     if (selUnitId !== null) {
-      const move = moveHexes.find(h => h.col === col && h.row === row);
-      if (move) {
-        activePath.push({col, row});
+      const move  = moveHexes.find(h => h.col === col && h.row === row);
+      const reach = !move && reachableHexes.get(`${col},${row}`);
+      if (move || reach) {
+        if (move) {
+          activePath.push({col, row});
+        } else {
+          // Reconstrói o caminho mais curto (BFS) até o hex clicado
+          const steps = [];
+          for (let n = reach; n && n.dist > 0; n = n.prev) steps.unshift({ col: n.col, row: n.row });
+          activePath.push(...steps);
+        }
         SFX.play('step');
         if (selGroupIds.length > 0) {
           const gUnits = gameState.units.filter(u => selGroupIds.includes(u.id) && u.hp > 0);
@@ -851,7 +886,7 @@ function deselect(save = true) {
       for (const id of ids) plannedMoves.delete(id);
     }
   }
-  selUnitId = null; selGroupIds = []; activePath = []; moveHexes = []; atkHexes = [];
+  selUnitId = null; selGroupIds = []; activePath = []; moveHexes = []; atkHexes = []; reachableHexes = new Map();
   updateUI(); render();
 }
 
@@ -881,8 +916,9 @@ function recalcHighlightsGroup(units) {
         if (inPath.has(`${nb.col},${nb.row}`)) return false;
         return units.every(u => canEnterTerrain(u.category, TERRAIN_MAP[nb.row][nb.col]));
       });
-    } else { moveHexes = []; }
-  } else { moveHexes = []; }
+      reachableHexes = computeReachable(units, lastHex, minMov - stepsTaken, inPath);
+    } else { moveHexes = []; reachableHexes = new Map(); }
+  } else { moveHexes = []; reachableHexes = new Map(); }
 
   if (phase === 'combat' && isMyTurn()) {
     atkHexes = [];
@@ -1135,11 +1171,14 @@ function recalcHighlights(unit) {
         if (inPath.has(`${nb.col},${nb.row}`)) return false;
         return canEnterTerrain(unit.category, TERRAIN_MAP[nb.row][nb.col]);
       });
+      reachableHexes = computeReachable([unit], lastHex, unitMovementRange(unit) - stepsTaken, inPath);
     } else {
       moveHexes = [];
+      reachableHexes = new Map();
     }
   } else {
     moveHexes = [];
+    reachableHexes = new Map();
   }
 
   if (phase === 'combat' && isMyTurn()) {
@@ -1536,6 +1575,12 @@ function drawHighlights() {
     drawPathTrail(activePath,
       'rgba(255,220,0,0.20)', 'rgba(255,220,0,0.65)',
       'rgba(255,220,0,0.40)', 'rgba(255,220,0,0.95)');
+  }
+  // Full reachable range (dim green) — clicking auto-routes to the hex
+  for (const h of reachableHexes.values()) {
+    if (h.dist === 1) continue; // adjacent ring drawn brighter below
+    const {x, y} = hexToPixel(h.col, h.row);
+    drawHex(ctx, x, y, 'rgba(0,230,118,0.09)', 'rgba(0,230,118,0.30)', 1.0);
   }
   // Valid next steps (green)
   for (const h of moveHexes) {
