@@ -233,7 +233,115 @@ function hideCardModal() {
 $('card-modal-close').addEventListener('click', hideCardModal);
 cardModal.addEventListener('click', e => { if (e.target === cardModal) hideCardModal(); });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { hideCardModal(); closeWeaponPicker(); hideTargetPicker(); }
+  if (e.key === 'Escape') { hideCardModal(); closeWeaponPicker(); hideTargetPicker(); hideHelpModal(); }
+});
+
+// ─── Ajuda em jogo (manual rápido) ────────────────────────────────────────────
+const helpModal = $('help-modal');
+const HELP_SECTIONS = {
+  fases: `
+    <h4>ESTRUTURA DO TURNO</h4>
+    <p>Cada <b>turno</b> é um dia de operação com dois períodos: <b>☀ Diurno</b> e
+    <b>🌙 Noturno</b>. Cada período tem uma fase de <b>Movimentação</b> e uma de
+    <b>Combate</b>.</p>
+    <h4>MOVIMENTAÇÃO SIMULTÂNEA</h4>
+    <p>Os dois lados planejam ao mesmo tempo. O inimigo aparece na posição
+    anterior até ambos confirmarem — encerre com <b>Encerrar Movimentação</b>.
+    Hexágonos <b>verdes</b> são os passos possíveis da unidade selecionada.</p>
+    <h4>DETECÇÃO E NOITE</h4>
+    <p>Você só vê inimigos dentro do alcance de detecção das suas unidades
+    (névoa de guerra). À noite a detecção cai (−2), <b>exceto submarinos</b>,
+    que usam sonar. Submarinos em águas profundas são mais difíceis de detectar.</p>
+    <h4>PRAZO OPERACIONAL</h4>
+    <p>A operação dura no máximo <b>12 dias</b>. Ao fim do prazo, vence quem
+    tiver maior progresso nos seus objetivos.</p>`,
+  combate: `
+    <h4>DECLARAR ATAQUES</h4>
+    <p>Na fase de combate, selecione uma unidade e clique em alvos
+    <b>vermelhos</b> (detectados e no alcance). Escolha a arma e o tamanho da
+    salva, e confirme com <b>Confirmar Ataques</b>. A resolução é simultânea.</p>
+    <h4>RODADAS DE COMBATE</h4>
+    <p>Cada engajamento tem até <b>2 rodadas</b>. Após a primeira, ambos decidem
+    <b>CONTINUAR</b> ou <b>PARAR</b>. Quem continua sozinho ganha
+    <b>vantagem de iniciativa</b> (rola 2d6 e usa o maior). Na segunda rodada o
+    grupo defensor <b>contra-ataca</b> com armas de curto alcance.</p>
+    <h4>INTERCEPTAÇÃO E GRUPO</h4>
+    <p>Mísseis podem ser interceptados pela defesa antiaérea do alvo — navios
+    <b>empilhados no mesmo hexágono</b> somam suas defesas e se defendem como
+    grupo. Torpedos não são interceptáveis; ASBM só é parado por BMD.</p>
+    <h4>DANO E DEGRADAÇÃO</h4>
+    <p>O dano reduz o <b>SP</b> (poder de permanência). Golpes não fatais também
+    <b>degradam</b> um subsistema aleatório: detecção, movimento, capacidade de
+    combate ou combustível máximo.</p>`,
+  logistica: `
+    <h4>PONTOS DE COMBUSTÍVEL (FP)</h4>
+    <p>Navios e submarinos convencionais têm FP limitados. Custo por período:
+    parado = 1 FP, mover 1 hex = 1, 2 hexes = 2, 3+ = 3 (máx. 4 FP/turno).
+    Atacar e absorver dano custam +1 FP cada.</p>
+    <p><b>0 FP = unidade inoperante</b>: não move, não ataca e não se defende
+    até reabastecer.</p>
+    <h4>REABASTECIMENTO</h4>
+    <p>Termine o período <b>empilhado</b> com um navio-tanque, navio logístico
+    ou porto aliado: os FP voltam ao máximo. Unidades nucleares e FPSOs não
+    consomem FP.</p>
+    <h4>AERONAVES</h4>
+    <p>Aeronaves têm FP = 2× movimento e retornam à base após o combate.
+    Aeronave no ar com 0 FP e sem base ao alcance é <b>perdida</b>. Em base ou
+    porta-aviões, reabastece e fica pronta no turno seguinte.</p>
+    <h4>MUNIÇÃO</h4>
+    <p>Mísseis e torpedos são <b>finitos</b> (veja N/N no painel). Recompletamento:
+    unidades Azuis paradas em porto, aeronaves em base e unidades terrestres.
+    A força Vermelha <b>não recompleta armas navais em mar</b> — economize salvas.</p>`,
+  vitoria: `
+    <h4>FORÇA AZUL — 3 DE 5 OBJETIVOS</h4>
+    <ul>
+      <li>Destruir o porta-aviões inimigo</li>
+      <li>Neutralizar ≥50% da logística inimiga (2 de 3 navios)</li>
+      <li>Neutralizar o grupo-tarefa anfíbio</li>
+      <li>Destruir o submarino nuclear</li>
+      <li>Degradar ≥50% dos navios combatentes de superfície</li>
+    </ul>
+    <h4>FORÇA VERMELHA — 2 DE 2 OBJETIVOS</h4>
+    <ul>
+      <li>Neutralizar as 4 plataformas FPSO</li>
+      <li>Degradar ≥50% dos portos Azuis</li>
+    </ul>
+    <h4>PRAZO</h4>
+    <p>Ao fim de <b>12 dias</b> sem vencedor, ganha quem tiver maior progresso
+    proporcional nos seus objetivos. O painel <b>OBJETIVOS DE VITÓRIA</b>
+    acompanha os dois lados em tempo real.</p>`,
+};
+
+function buildGlossaryHtml() {
+  const general = [
+    ['SP',  'Poder de Permanência — os "pontos de vida" da unidade'],
+    ['FP',  'Pontos de Combustível — autonomia da unidade'],
+    ['MOV', 'Movimento — hexágonos por período'],
+    ['Det S/Aé/Sb/T', 'Alcance de detecção contra Superfície / Aéreo / Submarino / Terra'],
+  ];
+  const rows = [
+    ...general,
+    ...Object.entries(WEAPON_GLOSSARY).map(([k, v]) => [WEAPON_LABELS[k] || k.toUpperCase(), v]),
+  ];
+  return '<h4>TERMOS E SIGLAS</h4><ul>' +
+    rows.map(([t, d]) => `<li><span class="help-gloss-term">${t}</span> — ${d}</li>`).join('') +
+    '</ul>';
+}
+
+function showHelpTab(tab) {
+  document.querySelectorAll('.help-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === tab));
+  $('help-content').innerHTML = tab === 'glossario' ? buildGlossaryHtml() : (HELP_SECTIONS[tab] || '');
+}
+function showHelpModal() { showHelpTab('fases'); helpModal.classList.remove('hidden'); }
+function hideHelpModal() { helpModal.classList.add('hidden'); }
+
+$('help-toggle').addEventListener('click', () => { SFX.play('click'); showHelpModal(); });
+$('help-close').addEventListener('click', hideHelpModal);
+helpModal.addEventListener('click', e => { if (e.target === helpModal) hideHelpModal(); });
+$('help-tabs').addEventListener('click', e => {
+  const btn = e.target.closest('.help-tab');
+  if (btn) { SFX.play('click'); showHelpTab(btn.dataset.tab); }
 });
 
 // ─── Tooltip (tier 1) ─────────────────────────────────────────────────────────
@@ -459,8 +567,10 @@ function _updateSfxBtn() {
 sfxToggle.addEventListener('click', () => { SFX.toggleMute(); _updateSfxBtn(); });
 _updateSfxBtn();
 document.addEventListener('keydown', e => {
-  if (e.key === 's' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {
-    SFX.toggleMute(); _updateSfxBtn();
+  if (e.ctrlKey || e.metaKey || document.activeElement.tagName === 'INPUT') return;
+  if (e.key === 's') { SFX.toggleMute(); _updateSfxBtn(); }
+  if (e.key === 'h') {
+    helpModal.classList.contains('hidden') ? showHelpModal() : hideHelpModal();
   }
 });
 

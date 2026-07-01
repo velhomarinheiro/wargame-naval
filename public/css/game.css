@@ -983,6 +983,77 @@ input[type=text]:focus-visible {
 .sfx-toggle:hover { border-color: var(--gold); color: var(--gold-l); }
 .sfx-toggle.muted { color: #444; border-color: rgba(80,80,80,0.3); }
 
+/* ═══ AJUDA EM JOGO ══════════════════════════════════════════════════════════ */
+.help-box {
+  position: relative;
+  background: var(--panel);
+  border: 2px solid rgba(100,160,230,0.5);
+  padding: 1.4rem 1.8rem 1.6rem;
+  width: min(640px, 94vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 60px rgba(0,50,120,0.6);
+  animation: popIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.help-title {
+  font-size: 0.82rem;
+  letter-spacing: 2px;
+  color: var(--gold);
+  text-align: center;
+  margin-bottom: 0.9rem;
+}
+.help-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  margin-bottom: 0.8rem;
+}
+.help-tab {
+  background: none;
+  border: 1px solid rgba(80,140,200,0.3);
+  color: var(--dim);
+  font-family: inherit;
+  font-size: 0.68rem;
+  letter-spacing: 1px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.help-tab:hover { border-color: var(--gold); color: var(--gold-l); }
+.help-tab.active {
+  border-color: var(--gold);
+  color: var(--gold-l);
+  background: rgba(201,168,76,0.12);
+}
+.help-tab:focus-visible {
+  outline: 2px solid var(--gold-l);
+  outline-offset: 2px;
+}
+.help-content {
+  overflow-y: auto;
+  font-size: 0.78rem;
+  line-height: 1.65;
+  color: var(--text);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(80,140,200,0.45) transparent;
+}
+.help-content h4 {
+  color: var(--gold);
+  font-size: 0.72rem;
+  letter-spacing: 1.5px;
+  margin: 0.9rem 0 0.3rem;
+}
+.help-content h4:first-child { margin-top: 0; }
+.help-content p  { margin: 0 0 0.55rem; }
+.help-content ul { margin: 0 0 0.55rem; padding-left: 1.2rem; }
+.help-content li { margin-bottom: 0.25rem; }
+.help-content b  { color: var(--gold-l); }
+.help-gloss-term { color: var(--gold-l); font-weight: bold; }
+
 /* ═══ ANIMAÇÕES DE ENTRADA (overlays / caixas) ══════════════════════════════ */
 @keyframes overlayFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes popIn {

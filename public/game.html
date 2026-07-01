@@ -24,6 +24,7 @@
       <span id="period-label" class="meta-item">☀ Diurno</span>
       <span id="phase-label"  class="meta-item phase">Movimentação</span>
       <button id="sfx-toggle" class="sfx-toggle" title="Som (S)">🔊</button>
+      <button id="help-toggle" class="sfx-toggle" title="Ajuda (H)" aria-label="Abrir ajuda">?</button>
       <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Abrir painel lateral" aria-label="Abrir painel lateral"
         onclick="document.querySelector('.game-body').classList.toggle('sidebar-open')">☰</button>
     </div>
@@ -182,6 +183,22 @@
   <div class="wp-footer">
     <button id="wp-cancel"  class="act-btn gray">Cancelar</button>
     <button id="wp-confirm" class="act-btn green">Confirmar ▶</button>
+  </div>
+</div>
+
+<!-- ── HELP MODAL ─────────────────────────────────────────────────────────── -->
+<div id="help-modal" class="overlay hidden">
+  <div class="help-box">
+    <button id="help-close" class="card-modal-close" title="Fechar (ESC)">✕</button>
+    <div class="help-title">MANUAL RÁPIDO</div>
+    <div class="help-tabs" id="help-tabs" role="tablist">
+      <button class="help-tab active" data-tab="fases"     role="tab">Fases</button>
+      <button class="help-tab" data-tab="combate"   role="tab">Combate</button>
+      <button class="help-tab" data-tab="logistica" role="tab">Logística</button>
+      <button class="help-tab" data-tab="vitoria"   role="tab">Vitória</button>
+      <button class="help-tab" data-tab="glossario" role="tab">Glossário</button>
+    </div>
+    <div class="help-content" id="help-content"></div>
   </div>
 </div>
 
