@@ -1398,18 +1398,6 @@ function drawBackground() {
   }
 }
 
-// ── Layer 2: Terrain colored hexes (disabled — map image provides art) ────────
-function drawTerrainLayer() {
-  for (let r = 0; r < GRID_H; r++) {
-    for (let c = 0; c < GRID_W; c++) {
-      const t = TERRAIN_MAP[r][c];
-      const {x, y} = hexToPixel(c, r);
-      const fill = mapReady ? T_COLOR_OVERLAY[t] : T_COLOR_SOLID[t];
-      drawHex(ctx, x, y, null, 'rgba(255,255,255,0.55)', 1.4);
-    }
-  }
-}
-
 // ── Layer 3: Highlights ───────────────────────────────────────────────────────
 function drawHighlights() {
   // Other units' planned paths (blue tint)
@@ -1664,7 +1652,6 @@ function buildResultHtml(eng) {
     return `<div class="br-row br-miss">⚠ ${eng.reason || 'Sem armamento válido.'}</div>`;
   }
 
-  const aC = eng.attackerId ? '' : '';  // attacker colour resolved server-side per team
   const intStr = eng.interception?.intercepted > 0
     ? `<span class="br-int"> [${eng.interception.intercepted} intercept.]</span>` : '';
   const wpnTag = eng.weaponLabel ? `<span class="br-wpn">[${eng.weaponLabel}]</span> ` : '';
@@ -1702,7 +1689,7 @@ function buildResultHtml(eng) {
 function renderBrPanel({ engagement, result, mustDecide, decisions, initiativeBonusTeam, counterResult, counterResults }) {
   brDecisionMade = false;
 
-  const brLabel = `${engagement.id} · Battle Round ${engagement.battleRound}`;
+  const brLabel = `${engagement.id} · Rodada de Combate ${engagement.battleRound}`;
   const singleRound = engagement.maxBattleRounds === 1;
 
   $('br-panel-header').textContent = `── ${brLabel} ──`;
