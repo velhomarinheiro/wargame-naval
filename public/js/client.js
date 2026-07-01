@@ -1138,7 +1138,7 @@ function updateUI() {
     const wpns = sel.weapons || {};
     const initW = sel.initWeapons || {};
     const wpnLines = Object.entries(wpns)
-      .filter(([, w]) => w.quantity > 0 || (initW[w]?.quantity ?? 0) > 0)
+      .filter(([k, w]) => w.quantity > 0 || (initW[k]?.quantity ?? 0) > 0)
       .map(([k, w]) => `${k.toUpperCase()}: <b>${w.quantity}</b>/${initW[k]?.quantity ?? w.quantity}`);
 
     // Persistent capabilities
