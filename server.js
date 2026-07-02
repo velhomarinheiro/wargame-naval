@@ -1,5 +1,6 @@
 'use strict';
 const express  = require('express');
+const crypto   = require('crypto');
 const http     = require('http');
 const { Server } = require('socket.io');
 const path     = require('path');
@@ -995,7 +996,26 @@ app.get('/api/export-logs/:roomId', (req, res) => {
 });
 
 const rooms = new Map();
-function genId() { return Math.random().toString(36).slice(2,8).toUpperCase(); }
+function genId()    { return Math.random().toString(36).slice(2,8).toUpperCase(); }
+function genToken() { return crypto.randomBytes(16).toString('hex'); }
+
+// Período de graça para reconexão (ms) — configurável para testes
+const REJOIN_GRACE_MS = parseInt(process.env.REJOIN_GRACE_MS, 10) || 75000;
+
+// Encerra a sala quando o período de graça expira sem rejoin.
+function endRoomByDisconnect(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+  room.graceTimer = null;
+  if (room.state && !room.state.winner) {
+    const obj = computeObjectives(room.state);
+    gameLogger.logGameOver(roomId, room.state.turn, null, 'disconnect', obj, room.state);
+  }
+  const other = room.players.blue || room.players.red;
+  if (other) io.to(other).emit('opponent_disconnected', { grace: false });
+  rooms.delete(roomId);
+}
+
 function broadcast(room) {
   if (!room.state) return;
   if (room.players.blue) io.to(room.players.blue).emit('game_update', stateFor(room.state,'blue'));
@@ -1007,7 +1027,8 @@ io.on('connection', socket => {
 
   socket.on('create_room', () => {
     const id = genId();
-    rooms.set(id, { id, players:{blue:socket.id,red:null}, state:null });
+    rooms.set(id, { id, players:{blue:socket.id,red:null}, state:null,
+                    rejoinTokens:{blue:genToken(),red:genToken()} });
     socket.data.roomId=id; socket.data.team='blue';
     socket.join(id);
     socket.emit('room_created',{roomId:id,team:'blue'});
@@ -1017,14 +1038,16 @@ io.on('connection', socket => {
     if (!['blue','red'].includes(team)) { socket.emit('join_error','Equipe inválida.'); return; }
     const id      = genId();
     const botTeam = team === 'blue' ? 'red' : 'blue';
-    const room    = { id, players: { blue: null, red: null }, state: null, solo: true, botTeam };
+    const room    = { id, players: { blue: null, red: null }, state: null, solo: true, botTeam,
+                      rejoinTokens: { blue: genToken(), red: genToken() } };
     room.players[team] = socket.id;
     rooms.set(id, room);
     socket.data.roomId = id; socket.data.team = team;
     socket.join(id);
     room.state = newGame();
     gameLogger.logStart(room.id, room.state);
-    socket.emit('game_start', { team, state: stateFor(room.state, team), solo: true, roomId: room.id });
+    socket.emit('game_start', { team, state: stateFor(room.state, team), solo: true, roomId: room.id,
+                                rejoinToken: room.rejoinTokens[team] });
   });
 
   socket.on('join_room', ({roomId}) => {
@@ -1035,8 +1058,30 @@ io.on('connection', socket => {
     socket.join(room.id);
     room.state=newGame();
     gameLogger.logStart(room.id, room.state);
-    io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue'),roomId:room.id});
-    socket.emit('game_start',{team:'red',state:stateFor(room.state,'red'),roomId:room.id});
+    io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue'),roomId:room.id,
+                                                rejoinToken:room.rejoinTokens.blue});
+    socket.emit('game_start',{team:'red',state:stateFor(room.state,'red'),roomId:room.id,
+                              rejoinToken:room.rejoinTokens.red});
+  });
+
+  // ── Rejoin após queda de conexão (período de graça) ────────────────────────
+  socket.on('rejoin_room', ({ roomId, team, token } = {}) => {
+    const room = rooms.get(roomId);
+    if (!room || !room.state || room.state.winner)            { socket.emit('rejoin_failed'); return; }
+    if (!['blue','red'].includes(team) || !token
+        || room.rejoinTokens?.[team] !== token)               { socket.emit('rejoin_failed'); return; }
+    if (room.players[team])                                   { socket.emit('rejoin_failed'); return; }
+    room.players[team] = socket.id;
+    socket.data.roomId = room.id; socket.data.team = team;
+    socket.join(room.id);
+    if (room.graceTimer) { clearTimeout(room.graceTimer); room.graceTimer = null; }
+    // Em sala 2P, se o outro assento ainda está vago, o relógio continua p/ ele
+    const stillVacant = !room.solo && (!room.players.blue || !room.players.red);
+    if (stillVacant) room.graceTimer = setTimeout(() => endRoomByDisconnect(room.id), REJOIN_GRACE_MS);
+    socket.emit('game_start', { team, state: stateFor(room.state, team), solo: !!room.solo,
+                                roomId: room.id, rejoinToken: room.rejoinTokens[team], rejoined: true });
+    const other = team === 'blue' ? room.players.red : room.players.blue;
+    if (other) io.to(other).emit('opponent_reconnected');
   });
 
   // ── Movement ──────────────────────────────────────────────────────────────
@@ -1208,8 +1253,8 @@ io.on('connection', socket => {
     }
     room.state=newGame();
     gameLogger.logStart(room.id, room.state);
-    if (room.players.blue) io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue'),solo:!!room.solo,roomId:room.id});
-    if (room.players.red)  io.to(room.players.red ).emit('game_start',{team:'red', state:stateFor(room.state,'red'), solo:!!room.solo,roomId:room.id});
+    if (room.players.blue) io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue'),solo:!!room.solo,roomId:room.id,rejoinToken:room.rejoinTokens?.blue});
+    if (room.players.red)  io.to(room.players.red ).emit('game_start',{team:'red', state:stateFor(room.state,'red'), solo:!!room.solo,roomId:room.id,rejoinToken:room.rejoinTokens?.red});
   });
 
   socket.on('abandon_game', () => {
@@ -1225,18 +1270,30 @@ io.on('connection', socket => {
     const payload = { winner: otherTeam, objectives: obj, reason: 'abandon' };
     if (room.players.blue) io.to(room.players.blue).emit('game_over', { ...payload, state: stateFor(room.state, 'blue') });
     if (room.players.red)  io.to(room.players.red ).emit('game_over', { ...payload, state: stateFor(room.state, 'red')  });
+    if (room.graceTimer) { clearTimeout(room.graceTimer); room.graceTimer = null; }
   });
 
   socket.on('disconnect', () => {
     const {roomId,team}=socket.data; if (!roomId) return;
     const room=rooms.get(roomId); if (!room) return;
-    if (room.state && !room.state.winner) {
-      const obj = computeObjectives(room.state);
-      gameLogger.logGameOver(roomId, room.state.turn, null, 'disconnect', obj, room.state);
+    if (room.players[team] !== socket.id) return; // assento já reocupado por rejoin
+
+    // Sem partida em andamento (lobby) ou já encerrada: encerra na hora
+    if (!room.state || room.state.winner) {
+      const other=team==='blue'?room.players.red:room.players.blue;
+      if (other) io.to(other).emit('opponent_disconnected', { grace: false });
+      if (room.graceTimer) clearTimeout(room.graceTimer);
+      rooms.delete(roomId);
+      return;
     }
+
+    // Partida em andamento: abre período de graça para reconexão
+    room.players[team] = null;
     const other=team==='blue'?room.players.red:room.players.blue;
-    if (other) io.to(other).emit('opponent_disconnected');
-    rooms.delete(roomId);
+    if (other) io.to(other).emit('opponent_disconnected',
+      { grace: true, seconds: Math.round(REJOIN_GRACE_MS / 1000) });
+    if (room.graceTimer) clearTimeout(room.graceTimer);
+    room.graceTimer = setTimeout(() => endRoomByDisconnect(roomId), REJOIN_GRACE_MS);
   });
 });
 

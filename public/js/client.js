@@ -437,7 +437,53 @@ socket.on('connect', () => {
     sessionStorage.removeItem('pendingAction');
     sessionStorage.removeItem('soloTeam');
     socket.emit('create_solo_room', { team });
+  } else {
+    // Sem ação pendente: se há sessão salva (F5 ou queda de rede), tenta
+    // reassumir o assento dentro do período de graça do servidor.
+    const saved = localStorage.getItem('oas_session');
+    if (saved) {
+      try { socket.emit('rejoin_room', JSON.parse(saved)); }
+      catch { localStorage.removeItem('oas_session'); }
+    }
   }
+});
+
+// ─── Reconexão: banner persistente + sessão de rejoin ─────────────────────────
+let _reconTimer = null;
+function showReconnectBanner(text, seconds) {
+  const el = $('reconnect-banner');
+  clearInterval(_reconTimer); _reconTimer = null;
+  if (seconds > 0) {
+    let left = seconds;
+    el.textContent = `${text} (${left}s)`;
+    _reconTimer = setInterval(() => {
+      left -= 1;
+      if (left <= 0) { clearInterval(_reconTimer); _reconTimer = null; return; }
+      el.textContent = `${text} (${left}s)`;
+    }, 1000);
+  } else {
+    el.textContent = text;
+  }
+  el.classList.remove('hidden');
+}
+function hideReconnectBanner() {
+  clearInterval(_reconTimer); _reconTimer = null;
+  $('reconnect-banner').classList.add('hidden');
+}
+
+socket.on('rejoin_failed', () => {
+  localStorage.removeItem('oas_session');
+  hideReconnectBanner();
+  // Só é terminal se o jogador estava no meio de uma partida
+  if (!gameScreen.classList.contains('hidden') && gameOver.classList.contains('hidden')) {
+    $('disconnect-msg').textContent = 'Não foi possível reconectar — a partida foi encerrada.';
+    disconnected.classList.remove('hidden');
+  }
+});
+
+socket.on('opponent_reconnected', () => {
+  hideReconnectBanner();
+  if (gameState) { gameState.log?.unshift('🔌 Adversário reconectou.'); updateUI(); }
 });
 
 socket.on('room_created', ({roomId, team}) => {
@@ -448,9 +494,15 @@ socket.on('room_created', ({roomId, team}) => {
 });
 socket.on('join_error', msg => showLobbyErr(msg));
 
-socket.on('game_start', ({team, state, solo, roomId}) => {
+socket.on('game_start', ({team, state, solo, roomId, rejoinToken, rejoined}) => {
   myTeam = team; gameState = state; isSolo = !!solo;
   if (roomId) currentRoomId = roomId;
+  if (roomId && rejoinToken) {
+    localStorage.setItem('oas_session', JSON.stringify({ roomId, team, token: rejoinToken }));
+  }
+  hideReconnectBanner();
+  disconnected.classList.add('hidden');
+  if (rejoined) { gameState.log?.unshift('🔌 Você reconectou à partida.'); }
   if (isSolo) document.title = 'Operação Atlântico Sul · Solo vs BOT';
   selUnitId = null; selGroupIds = []; moveHexes = []; atkHexes = []; reachableHexes = new Map(); pendingAtks = [];
   activePath = []; plannedMoves.clear(); hideStackPicker(); hideTargetPicker(); closeWeaponPicker();
@@ -519,6 +571,8 @@ socket.on('game_update', state => {
 });
 
 socket.on('game_over', ({winner, state, objectives, reason}) => {
+  localStorage.removeItem('oas_session');
+  hideReconnectBanner();
   gameState = state; updateUI(); render();
   const mine = winner === myTeam;
   if (reason === 'abandon') {
@@ -538,19 +592,26 @@ socket.on('game_over', ({winner, state, objectives, reason}) => {
   renderOverObjectives(objectives, winner, reason);
   gameOver.classList.remove('hidden');
 });
-socket.on('opponent_disconnected', () => {
+socket.on('opponent_disconnected', (info = {}) => {
+  if (info.grace) {
+    // Queda com período de graça: aviso não-terminal enquanto o servidor espera
+    showReconnectBanner('⌛ Adversário desconectou — aguardando reconexão', info.seconds || 75);
+    return;
+  }
+  hideReconnectBanner();
+  localStorage.removeItem('oas_session');
+  if (!gameOver.classList.contains('hidden')) return; // partida já encerrada normalmente
   $('disconnect-msg').textContent = 'Oponente desconectou.';
   disconnected.classList.remove('hidden');
 });
-// Própria conexão caiu (rede/aba/sleep): o servidor já encerra a partida ao
-// detectar a queda, então não há reconexão útil — avisar em vez de "travar".
+// Própria conexão caiu (rede/aba/sleep): o socket.io tenta reconectar sozinho;
+// ao reconectar, o handler de 'connect' reassume o assento via rejoin_room.
 socket.on('disconnect', reason => {
   if (reason === 'io client disconnect') return; // navegação intencional (ex.: Voltar ao Lobby)
   if (gameScreen.classList.contains('hidden')) return; // ainda no lobby
   if (!gameOver.classList.contains('hidden')) return;   // partida já tinha terminado normalmente
-  if (!disconnected.classList.contains('hidden')) return; // já exibindo aviso
-  $('disconnect-msg').textContent = 'Conexão perdida com o servidor.';
-  disconnected.classList.remove('hidden');
+  if (!disconnected.classList.contains('hidden')) return; // já exibindo aviso terminal
+  showReconnectBanner('⌛ Conexão perdida — tentando reconectar...', 0);
 });
 socket.on('action_error', msg => {
   SFX.play('error');

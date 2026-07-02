@@ -138,6 +138,22 @@ body {
   content: '⚠ ';
   margin-right: 4px;
 }
+/* Banner persistente de reconexão (queda própria ou do adversário) */
+.reconnect-banner {
+  position: absolute;
+  top: 14px; left: 50%; transform: translateX(-50%);
+  background: rgba(120,85,0,0.92);
+  color: #ffe9b0;
+  padding: 7px 18px;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  box-shadow: 0 4px 18px rgba(80,60,0,0.5);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 40;
+}
 @keyframes errFlashIn {
   0%   { opacity: 0; transform: translateX(-50%) translateY(12px); }
   60%  { transform: translateX(-50%) translateY(-2px); }
