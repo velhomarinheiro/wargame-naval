@@ -844,6 +844,95 @@ window.addEventListener('mousemove', e => {
 });
 window.addEventListener('mouseup', () => { isPanning = false; });
 
+// ─── Controles touch: pan com 1 dedo, pinch zoom, tap seleciona, ──────────────
+// long-press (~500ms) abre o card da unidade (substitui o clique-direito).
+let _touchState = null;
+let _longPressTimer = null;
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault(); // evita scroll da página e mouse events sintetizados
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    _touchState = {
+      mode: 'pan', moved: false, longPressed: false,
+      startX: t.clientX, startY: t.clientY,
+      lastX: t.clientX,  lastY: t.clientY,
+      panX0: panX, panY0: panY,
+    };
+    clearTimeout(_longPressTimer);
+    _longPressTimer = setTimeout(() => {
+      if (!_touchState || _touchState.moved || !gameState) return;
+      _touchState.longPressed = true;
+      const { x, y } = toGamePx(_touchState.startX, _touchState.startY);
+      const h = pixelToHex(x, y);
+      const units = gameState.units.filter(u => u.col === h.col && u.row === h.row && u.hp > 0);
+      const target = units.find(u => UNIT_CARD[u.id]) || units[0];
+      if (target && UNIT_CARD[target.id]) showCardModal(target.id);
+    }, 500);
+  } else if (e.touches.length === 2) {
+    clearTimeout(_longPressTimer);
+    const [a, b] = e.touches;
+    _touchState = { mode: 'pinch', dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) };
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!_touchState) return;
+  if (_touchState.mode === 'pan' && e.touches.length === 1) {
+    const t  = e.touches[0];
+    const dx = t.clientX - _touchState.startX;
+    const dy = t.clientY - _touchState.startY;
+    _touchState.lastX = t.clientX; _touchState.lastY = t.clientY;
+    if (!_touchState.moved && Math.hypot(dx, dy) > 8) {
+      _touchState.moved = true;
+      clearTimeout(_longPressTimer);
+    }
+    if (_touchState.moved) {
+      const r  = canvas.getBoundingClientRect();
+      panX = _touchState.panX0 + dx * (CVS_W / r.width);
+      panY = _touchState.panY0 + dy * (CVS_H / r.height);
+      clampPan(); render();
+    }
+  } else if (_touchState.mode === 'pinch' && e.touches.length === 2) {
+    const [a, b] = e.touches;
+    const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    if (_touchState.dist > 0 && d > 0) {
+      const r    = canvas.getBoundingClientRect();
+      const midX = ((a.clientX + b.clientX) / 2 - r.left) * (CVS_W / r.width);
+      const midY = ((a.clientY + b.clientY) / 2 - r.top)  * (CVS_H / r.height);
+      applyZoomAround(midX, midY, d / _touchState.dist);
+    }
+    _touchState.dist = d;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  clearTimeout(_longPressTimer);
+  const st = _touchState;
+  if (!st) return;
+  if (e.touches.length === 0) {
+    _touchState = null;
+    if (st.mode === 'pan' && !st.moved && !st.longPressed && gameState) {
+      const { x, y } = toGamePx(st.lastX, st.lastY);
+      const h = pixelToHex(x, y);
+      handleClick(h.col, h.row);
+    }
+  } else if (e.touches.length === 1 && st.mode === 'pinch') {
+    // Um dedo saiu do pinch: o dedo restante passa a arrastar (pan)
+    const t = e.touches[0];
+    _touchState = { mode: 'pan', moved: true, longPressed: false,
+                    startX: t.clientX, startY: t.clientY,
+                    lastX: t.clientX,  lastY: t.clientY,
+                    panX0: panX, panY0: panY };
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchcancel', () => {
+  clearTimeout(_longPressTimer);
+  _touchState = null;
+}, { passive: true });
+
 // Zoom control buttons
 $('zoom-in' ).addEventListener('click', () => applyZoomAround(CVS_W/2, CVS_H/2, 1.25));
 $('zoom-out').addEventListener('click', () => applyZoomAround(CVS_W/2, CVS_H/2, 1/1.25));

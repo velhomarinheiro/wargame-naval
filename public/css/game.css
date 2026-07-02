@@ -117,6 +117,7 @@ body {
   cursor: crosshair;
   max-width: 100%;
   height: auto;
+  touch-action: none; /* gestos (pan/pinch/tap) tratados pelo próprio jogo */
 }
 
 .error-flash {
