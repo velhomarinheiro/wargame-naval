@@ -70,7 +70,7 @@ const PNG_TYPE_MAP = {
   bateria_costeira: 'Military Tank.png',
   bateria_ada:      'Military Tank.png',
   fpso:             'plataforma-de-petroleo.png',
-  porto:            'porta.png',
+  porto:            'porto.png',
   aeroporto:        'aeroporto.png',
   // helicoptero: no PNG available → falls back to SVG
 };

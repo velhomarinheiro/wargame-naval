@@ -25,24 +25,6 @@ const TERRAIN_MAP = [
   [1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],  // row 9  ~30°S Sul
 ];
 
-// ─── Colors — solid (sem imagem de fundo) ────────────────────────────────────
-const T_COLOR_SOLID = {
-  [T_LAND]:    '#c9a45e',
-  [T_SHALLOW]: '#3db8d4',
-  [T_SHELF]:   '#1b6e9e',
-  [T_DEEP]:    '#0c3d6c',
-  [T_OIL]:     '#c07418',
-};
-
-// ─── Colors — overlay sobre imagem do mapa (semi-transparentes) ───────────────
-const T_COLOR_OVERLAY = {
-  [T_LAND]:    'rgba(190,155,70, 0.50)',
-  [T_SHALLOW]: 'rgba(50,180,210, 0.35)',
-  [T_SHELF]:   'rgba(20,100,160, 0.28)',
-  [T_DEEP]:    'rgba(8,  50,100, 0.14)',
-  [T_OIL]:     'rgba(190,110,20, 0.52)',
-};
-
 // ─── Grid border per terrain ─────────────────────────────────────────────────
 const T_BORDER = {
   [T_LAND]:    'rgba(140,100,40, 0.50)',

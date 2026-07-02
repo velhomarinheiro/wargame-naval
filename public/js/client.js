@@ -2030,7 +2030,7 @@ function buildResultHtml(eng) {
     </div>`;
 }
 
-function renderBrPanel({ engagement, result, mustDecide, decisions, initiativeBonusTeam, counterResult, counterResults }) {
+function renderBrPanel({ engagement, result, mustDecide, decisions, initiativeBonusTeam, counterResults }) {
   brDecisionMade = false;
 
   const brLabel = `${engagement.id} · Rodada de Combate ${engagement.battleRound}`;
@@ -2077,10 +2077,9 @@ function renderBrPanel({ engagement, result, mustDecide, decisions, initiativeBo
     html += buildResultHtml(result);
   }
 
-  // Counter-attack block (BR#2 only)
-  // Counter-attack: the defending stack fires back as a group, so several
-  // contributors may appear. Accept the legacy single `counterResult` too.
-  const counters = counterResults || (counterResult ? [counterResult] : []);
+  // Counter-attack block (BR#2 only) — the defending stack fires back as a
+  // group, so several contributors may appear.
+  const counters = counterResults || [];
   if (counters.length) {
     const grpLabel = counters.length > 1 ? ' em grupo' : '';
     html += `<div class="br-counter-header">── Contrataque${grpLabel} ──</div>`;
