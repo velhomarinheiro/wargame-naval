@@ -1080,6 +1080,20 @@ io.on('connection', socket => {
     if (stillVacant) room.graceTimer = setTimeout(() => endRoomByDisconnect(room.id), REJOIN_GRACE_MS);
     socket.emit('game_start', { team, state: stateFor(room.state, team), solo: !!room.solo,
                                 roomId: room.id, rejoinToken: room.rejoinTokens[team], rejoined: true });
+
+    // Se caiu no meio de um engajamento aguardando CONTINUAR/PARAR, reapresenta
+    // a última rodada ao rejoinante — sem isso a partida trava para sempre
+    // (o servidor fica esperando uma decisão que o cliente não tem como enviar).
+    const st  = room.state;
+    const eng = st.phase === 'combat' ? st.combatQueue?.[st.currentEngagementIndex] : null;
+    if (eng && eng.results?.length > 0) {
+      socket.emit('battle_round_result', {
+        engagement: eng,
+        result: eng.results[eng.results.length - 1].result,
+        mustDecide: st.battleRoundDecisions?.[team] === null,
+      });
+    }
+
     const other = team === 'blue' ? room.players.red : room.players.blue;
     if (other) io.to(other).emit('opponent_reconnected');
   });
