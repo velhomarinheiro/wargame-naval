@@ -1587,14 +1587,39 @@ function drawHighlights() {
     const {x, y} = hexToPixel(h.col, h.row);
     drawHex(ctx, x, y, 'rgba(0,230,118,0.22)', 'rgba(0,230,118,0.70)', 1.8);
   }
-  // Attack hexes (red)
+  // Attack hexes (red + diagonal hatch — shape cue for colorblind players)
   for (const h of atkHexes) {
     const {x, y} = hexToPixel(h.col, h.row);
     const declared = pendingAtks.some(a => a.targetId === h.unitId);
     drawHex(ctx, x, y,
       declared ? 'rgba(255,60,60,0.50)'  : 'rgba(255,60,60,0.22)',
       declared ? 'rgba(255,120,120,1.0)' : 'rgba(255,80,80,0.75)', 2.0);
+    drawHexHatch(x, y, declared ? 'rgba(255,150,150,0.55)' : 'rgba(255,90,90,0.35)');
   }
+}
+
+// Hachura diagonal recortada ao hex — alvos de ataque distinguem-se dos hexes
+// de movimento (lisos) pela textura, não só pela cor.
+function drawHexHatch(cx, cy, color, lw = 1.2) {
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a  = (Math.PI / 3) * i;
+    const vx = cx + HEX_R * Math.cos(a);
+    const vy = cy + HEX_R * Math.sin(a);
+    if (i === 0) ctx.moveTo(vx, vy); else ctx.lineTo(vx, vy);
+  }
+  ctx.closePath();
+  ctx.clip();
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = lw;
+  ctx.beginPath();
+  for (let d = -2 * HEX_R; d <= 2 * HEX_R; d += 14) {
+    ctx.moveTo(cx + d - HEX_R, cy - HEX_R);
+    ctx.lineTo(cx + d + HEX_R, cy + HEX_R);
+  }
+  ctx.stroke();
+  ctx.restore();
 }
 
 // Draw a step-numbered path trail (skips index 0 = starting hex)

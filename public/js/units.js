@@ -159,6 +159,21 @@ function getTinted(type, color, size) {
 }
 
 // ─── Unit counter ─────────────────────────────────────────────────────────────
+// Cantos chanfrados (octógono) — distingue a Força Vermelha da Azul por forma,
+// não só por cor (redundância para daltonismo).
+function cutCornerRect(ctx, x, y, w, h, cut) {
+  ctx.beginPath();
+  ctx.moveTo(x + cut, y);
+  ctx.lineTo(x + w - cut, y);
+  ctx.lineTo(x + w, y + cut);
+  ctx.lineTo(x + w, y + h - cut);
+  ctx.lineTo(x + w - cut, y + h);
+  ctx.lineTo(x + cut, y + h);
+  ctx.lineTo(x, y + h - cut);
+  ctx.lineTo(x, y + cut);
+  ctx.closePath();
+}
+
 function drawUnitCounter(ctx, unit, cx, cy, selected) {
   const isBlue = unit.team === 'blue';
   const bg     = isBlue ? '#0c2d5a' : '#5a0c0c';
@@ -171,7 +186,8 @@ function drawUnitCounter(ctx, unit, cx, cy, selected) {
   ctx.fillStyle   = bg;
   ctx.strokeStyle = selected ? '#ffd700' : border;
   ctx.lineWidth   = selected ? 2.5 : 1.5;
-  roundRect(ctx, cx - R, top, R * 2, R * 1.44, 4);
+  if (isBlue) roundRect(ctx, cx - R, top, R * 2, R * 1.44, 4);
+  else        cutCornerRect(ctx, cx - R, top, R * 2, R * 1.44, 7);
   ctx.fill(); ctx.stroke();
   ctx.shadowBlur = 0;
 

@@ -288,7 +288,12 @@ body {
 .leg-row { display: flex; align-items: center; gap: 7px; font-size: 0.7rem; color: var(--dim); padding: 2px 0; }
 .leg-swatch { width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0; }
 .leg-swatch.green { background: rgba(0,230,118,0.4); border: 1.5px solid rgba(0,230,118,0.8); }
-.leg-swatch.red   { background: rgba(255,80,80,0.3); border: 1.5px solid rgba(255,80,80,0.8); }
+.leg-swatch.red   {
+  background: repeating-linear-gradient(45deg,
+    rgba(255,80,80,0.3), rgba(255,80,80,0.3) 3px,
+    rgba(255,150,150,0.55) 3px, rgba(255,150,150,0.55) 4px);
+  border: 1.5px solid rgba(255,80,80,0.8);
+}
 
 /* Log panel */
 .log-panel { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
