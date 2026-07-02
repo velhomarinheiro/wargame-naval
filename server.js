@@ -14,9 +14,10 @@ const {
   canMove, canAttack, canDefend,
   navalMoveCost, spendNavalFuel, spendAirFuel,
   spendEngagementFuel, spendDamageFuel,
-  recoverNavalFuel,
+  recoverNavalFuel, isNavalRefuelProvider,
   checkNavalFuelZero, checkAirFuelLosses,
   recoverAircraft, resetFuelTurnCounters,
+  FUEL_TURN_LIMIT,
 } = require('./fuel_model');
 const gameLogger = require('./game_logger');
 
@@ -188,10 +189,10 @@ function stateFor(state, team) {
 
 // ─── Weapon priority per target category ─────────────────────────────────────
 const WEAPON_PRIORITY = {
-  surface:   ['ascm', 'asbm', 'mss', 'torpedo', 'airAttack', 'navalGun'],
+  surface:   ['ascm', 'asbm', 'mss', 'torpedo', 'airAttack', 'navalGun', 'raid'],
   submarine: ['asw', 'torpedo'],
   air:       ['airDefense', 'airAttack'],
-  land:      ['lacm', 'airAttack', 'navalGun'],
+  land:      ['lacm', 'airAttack', 'navalGun', 'raid'],
 };
 
 function selectBestWeapon(attacker, target, dist) {
@@ -612,26 +613,41 @@ function finishCombatPhase(room) {
   broadcast(room);
 }
 
+// IDs das condições de vitória — fonte única, compartilhada com o bot
+// (botObjectiveWeights) para que a IA persiga exatamente o que pontua.
+const OBJECTIVE_IDS = {
+  blueTargets: {
+    carrier:   'RED-GBPA',
+    logistics: ['RED-AOR-G', 'RED-GLOG', 'RED-AKE'],
+    amphib:    'RED-GANF',
+    nucsub:    'RED-KSN',
+    surface:   ['RED-GBPA', 'RED-GE-1', 'RED-GE-2', 'RED-GE-3', 'RED-GANF'],
+  },
+  redTargets: {
+    fpsos: ['BLUE-FPSO1', 'BLUE-FPSO2', 'BLUE-FPSO3', 'BLUE-FPSO4'],
+    ports: ['BLUE-PORTO-S', 'BLUE-PORTO-RJ', 'BLUE-PORTO-V', 'BLUE-PORTO-ACU'],
+  },
+};
+
 function computeObjectives(state) {
   const u = state.units;
+  const BT = OBJECTIVE_IDS.blueTargets, RT = OBJECTIVE_IDS.redTargets;
 
   // ─── Blue objectives (need ≥ 3 of 5) ────────────────────────────────────────
-  const carrier  = u.find(x => x.id === 'RED-GBPA');
+  const carrier  = u.find(x => x.id === BT.carrier);
   const carrierMet = !carrier || carrier.hp <= 0;
 
-  const logIds    = ['RED-AOR-G', 'RED-GLOG', 'RED-AKE'];
-  const logUnits  = logIds.map(id => u.find(x => x.id === id)).filter(Boolean);
+  const logUnits  = BT.logistics.map(id => u.find(x => x.id === id)).filter(Boolean);
   const logDead   = logUnits.filter(x => x.hp <= 0).length;
   const logMet    = logDead >= 2;
 
-  const amphib    = u.find(x => x.id === 'RED-GANF');
+  const amphib    = u.find(x => x.id === BT.amphib);
   const amphibMet = !amphib || amphib.hp <= 0;
 
-  const nucsub    = u.find(x => x.id === 'RED-KSN');
+  const nucsub    = u.find(x => x.id === BT.nucsub);
   const nucsubMet = !nucsub || nucsub.hp <= 0;
 
-  const surfIds   = ['RED-GBPA', 'RED-GE-1', 'RED-GE-2', 'RED-GE-3', 'RED-GANF'];
-  const surfUnits = surfIds.map(id => u.find(x => x.id === id)).filter(Boolean);
+  const surfUnits = BT.surface.map(id => u.find(x => x.id === id)).filter(Boolean);
   const surfMax   = surfUnits.reduce((s, x) => s + x.maxHp, 0);
   const surfCur   = surfUnits.reduce((s, x) => s + Math.max(0, x.hp), 0);
   const surfDegPct = surfMax > 0 ? Math.round((1 - surfCur / surfMax) * 100) : 0;
@@ -652,13 +668,11 @@ function computeObjectives(state) {
   const blueAchieved = blueConds.filter(c => c.met).length;
 
   // ─── Red objectives (need both) ──────────────────────────────────────────────
-  const fpsoIds   = ['BLUE-FPSO1', 'BLUE-FPSO2', 'BLUE-FPSO3', 'BLUE-FPSO4'];
-  const fpsoUnits = fpsoIds.map(id => u.find(x => x.id === id)).filter(Boolean);
+  const fpsoUnits = RT.fpsos.map(id => u.find(x => x.id === id)).filter(Boolean);
   const fpsoNeut  = fpsoUnits.filter(x => x.hp <= 0).length;
   const fpsoMet   = fpsoNeut >= 4;
 
-  const portIds   = ['BLUE-PORTO-S', 'BLUE-PORTO-RJ', 'BLUE-PORTO-V', 'BLUE-PORTO-ACU'];
-  const portUnits = portIds.map(id => u.find(x => x.id === id)).filter(Boolean);
+  const portUnits = RT.ports.map(id => u.find(x => x.id === id)).filter(Boolean);
   const portMax   = portUnits.reduce((s, x) => s + x.maxHp, 0);
   const portCur   = portUnits.reduce((s, x) => s + Math.max(0, x.hp), 0);
   const portDegPct = portMax > 0 ? Math.round((1 - portCur / portMax) * 100) : 0;
@@ -813,22 +827,93 @@ function applyDegradation(unit, damageDealt) {
 }
 
 // ─── Bot player (solo mode) ───────────────────────────────────────────────────
+// O bot é deliberadamente onisciente (lê state.units sem filtro de detecção):
+// compensa a ausência de planejamento humano com informação perfeita.
 
-function botPickTarget(unit, enemies) {
+const BOT_TUNING = {
+  aggressiveness:      1.0,             // 0..1 — menor = mais distraível p/ defesa
+  opportunityRadius:   2,               // combatente inimigo a este raio vira alvo imediato
+  refuelFloor:         FUEL_TURN_LIMIT, // FP mínimo antes de buscar reabastecimento
+  logisticsFleeRadius: 4,               // logística foge de combatentes a este raio
+  stopHpFrac:          0.4,             // rodada: recua abaixo desta fração de SP
+  finishHpThreshold:   2,               // ...exceto se o alvo está a isto de cair
+};
+
+const BOT_COMBATANT_TYPES =
+  ['carrier','amphib','fragata','destroier','corveta','cruzador','sub_nuclear','submarino','caca','ataque'];
+function botIsCombatant(u) { return BOT_COMBATANT_TYPES.includes(u.type); }
+
+function botGenericPrio(u) {
+  if (u.type === 'carrier')  return 0;
+  if (u.type === 'amphib')   return 1;
+  if (['fragata','destroier','corveta','cruzador'].includes(u.type)) return 2;
+  if (['sub_nuclear','submarino'].includes(u.type)) return 3;
+  if (['caca','ataque','patrulha','patrulha_oc','patrulha_c'].includes(u.type)) return 4;
+  return 5;
+}
+
+// Pesos de alvo derivados das condições de vitória (menor = mais prioritário).
+// Condições já cumpridas são puladas — o bot se re-tarefa ao completar objetivos.
+function botObjectiveWeights(state, botTeam) {
+  const w   = new Map();
+  const obj = computeObjectives(state);
+  if (botTeam === 'blue') {
+    const met = Object.fromEntries(obj.blue.conditions.map(c => [c.id, c.met]));
+    const T   = OBJECTIVE_IDS.blueTargets;
+    if (!met.carrier)   w.set(T.carrier, 0);
+    if (!met.logistics) T.logistics.forEach(id => w.set(id, 0));
+    if (!met.amphib)    w.set(T.amphib, 0);
+    if (!met.nucsub)    w.set(T.nucsub, 0);
+    if (!met.surface)   T.surface.forEach(id => { if (!w.has(id)) w.set(id, 1); });
+  } else {
+    const met = Object.fromEntries(obj.red.conditions.map(c => [c.id, c.met]));
+    const T   = OBJECTIVE_IDS.redTargets;
+    if (!met.fpsos) T.fpsos.forEach(id => w.set(id, 0));
+    if (!met.ports) T.ports.forEach(id => w.set(id, 0));
+  }
+  return w;
+}
+
+function botPickTarget(unit, enemies, objWeights = new Map()) {
   const attackable = enemies.filter(e => rangeAgainst(unit.attackRange, e.category) > 0);
   if (!attackable.length) return null;
-  const prio = u => {
-    if (u.type === 'carrier')  return 0;
-    if (u.type === 'amphib')   return 1;
-    if (['fragata','destroier','corveta','cruzador'].includes(u.type)) return 2;
-    if (['sub_nuclear','submarino'].includes(u.type)) return 3;
-    if (['caca','ataque','patrulha','patrulha_oc','patrulha_c'].includes(u.type)) return 4;
-    return 5;
-  };
+  const d = e => hexDist(unit.col, unit.row, e.col, e.row);
+
+  // Defesa oportunista: combatente inimigo já colado vence qualquer objetivo
+  const oppRadius = Math.round(BOT_TUNING.opportunityRadius * (2 - BOT_TUNING.aggressiveness));
+  const near = attackable.filter(e => botIsCombatant(e) && d(e) <= oppRadius);
+  if (near.length) {
+    return near.sort((a, b) => botGenericPrio(a) - botGenericPrio(b) || d(a) - d(b))[0];
+  }
   return attackable.sort((a, b) =>
-    prio(a) - prio(b) ||
-    hexDist(unit.col, unit.row, a.col, a.row) - hexDist(unit.col, unit.row, b.col, b.row)
+    (objWeights.get(a.id) ?? 9) - (objWeights.get(b.id) ?? 9) ||
+    botGenericPrio(a) - botGenericPrio(b) ||
+    d(a) - d(b)
   )[0];
+}
+
+// Provedor de reabastecimento aliado mais próximo cujo hex a unidade pode ocupar
+// (PORTO-S fica em terra — inacessível a navios; portos rasos, a submarinos).
+function botRefuelProvider(unit, state) {
+  let best = null, bestD = Infinity;
+  for (const o of state.units) {
+    if (o.id === unit.id || o.team !== unit.team || (o.hp ?? 0) <= 0) continue;
+    if (!isNavalRefuelProvider(o)) continue;
+    if (!canEnterTerrain(unit.category, getTerrain(o.col, o.row))) continue;
+    const d = hexDist(unit.col, unit.row, o.col, o.row);
+    if (d < bestD) { bestD = d; best = o; }
+  }
+  return best;
+}
+
+// FP baixo o suficiente para priorizar reabastecimento sobre a missão.
+// Custo estimado da viagem: ~3 FP por turno de deslocamento + 1 de folga.
+function botNeedsRefuel(unit, provider) {
+  if (unit.fuel?.fuelType !== 'naval' || !provider) return false;
+  if (isNavalRefuelProvider(unit)) return false;
+  const dist = hexDist(unit.col, unit.row, provider.col, provider.row);
+  const tripCost = Math.ceil(dist / Math.max(1, unit.movement)) * 3 + 1;
+  return unit.fuel.current <= Math.max(BOT_TUNING.refuelFloor, tripCost);
 }
 
 function botMoveToward(unit, target, state) {
@@ -854,14 +939,100 @@ function botMoveToward(unit, target, state) {
   return bestPath;
 }
 
+// Como botMoveToward, mas maximiza a distância mínima às ameaças (fuga).
+// BFS raso-primeiro garante o desempate natural por menos passos (menos FP).
+function botMoveAway(unit, threats, state) {
+  if (!threats.length) return null;
+  const minD = (c, r) => Math.min(...threats.map(t => hexDist(c, r, t.col, t.row)));
+  let bestPath  = null;
+  let bestScore = minD(unit.col, unit.row);
+  const queue   = [{ pos: { col: unit.col, row: unit.row }, path: [{ col: unit.col, row: unit.row }], steps: 0 }];
+  const visited = new Set([`${unit.col},${unit.row}`]);
+  while (queue.length) {
+    const { pos, path, steps } = queue.shift();
+    if (steps > 0) {
+      const s = minD(pos.col, pos.row);
+      if (s > bestScore) { bestScore = s; bestPath = path; }
+    }
+    if (steps >= airMovementRange(unit)) continue;
+    for (const nb of hexNeighbors(pos.col, pos.row)) {
+      const key = `${nb.col},${nb.row}`;
+      if (visited.has(key)) continue;
+      if (!canEnterTerrain(unit.category, getTerrain(nb.col, nb.row))) continue;
+      visited.add(key);
+      queue.push({ pos: nb, path: [...path, nb], steps: steps + 1 });
+    }
+  }
+  return bestPath;
+}
+
 function computeBotMoves(state, botTeam) {
-  const moves   = [];
-  const enemies = state.units.filter(u => u.team !== botTeam && u.hp > 0);
-  for (const unit of state.units.filter(u => u.team === botTeam && u.hp > 0 && !u.moved)) {
-    if (!unit.movement || unit.category === 'land' || isFuelDisabled(unit)) continue;
-    const target = botPickTarget(unit, enemies);
+  const moves    = [];
+  const handled  = new Set();
+  const enemies  = state.units.filter(u => u.team !== botTeam && u.hp > 0);
+  const own      = state.units.filter(u => u.team === botTeam && u.hp > 0 && !u.moved);
+  const objW     = botObjectiveWeights(state, botTeam);
+  const enemyCombatants = enemies.filter(botIsCombatant);
+  const mobile   = u => u.movement > 0 && u.category !== 'land' && !isFuelDisabled(u);
+  const nearest  = (u, list) => list.reduce((best, e) =>
+    !best || hexDist(u.col, u.row, e.col, e.row) < hexDist(u.col, u.row, best.col, best.row) ? e : best, null);
+
+  // 1. Logística própria foge de combatentes inimigos próximos
+  const plannedDest = new Map();
+  const providers = own.filter(u => isNavalRefuelProvider(u) && u.category === 'surface');
+  for (const logi of providers) {
+    if (!mobile(logi)) continue;
+    const threat = nearest(logi, enemyCombatants);
+    if (!threat || hexDist(logi.col, logi.row, threat.col, threat.row) > BOT_TUNING.logisticsFleeRadius) continue;
+    const path = botMoveAway(logi, enemyCombatants, state);
+    if (path && path.length >= 2) {
+      moves.push({ unitId: logi.id, path });
+      plannedDest.set(logi.id, path[path.length - 1]);
+    }
+    handled.add(logi.id);
+  }
+
+  // 2. Escolta: 1 combatente de superfície cola no logístico mais valioso
+  const prime = providers
+    .filter(mobile)
+    .sort((a, b) => (a.type === 'tanque' ? 0 : 1) - (b.type === 'tanque' ? 0 : 1))[0];
+  if (prime) {
+    const goal = plannedDest.get(prime.id) ?? { col: prime.col, row: prime.row };
+    const escort = own
+      .filter(u => botIsCombatant(u) && u.category === 'surface' && mobile(u) &&
+                   !handled.has(u.id) && !botNeedsRefuel(u, botRefuelProvider(u, state)))
+      .sort((a, b) => hexDist(a.col, a.row, goal.col, goal.row) - hexDist(b.col, b.row, goal.col, goal.row))[0];
+    if (escort) {
+      if (hexDist(escort.col, escort.row, goal.col, goal.row) > 1) {
+        const path = botMoveToward(escort, goal, state);
+        if (path && path.length >= 2) moves.push({ unitId: escort.id, path });
+      }
+      handled.add(escort.id);
+    }
+  }
+
+  // 3. Demais unidades: reabastecer, decolar com critério, ou avançar ao alvo
+  for (const unit of own) {
+    if (handled.has(unit.id) || !mobile(unit)) continue;
+
+    const provider = botRefuelProvider(unit, state);
+    if (botNeedsRefuel(unit, provider)) {
+      if (unit.col === provider.col && unit.row === provider.row) continue; // já empilhado
+      const path = botMoveToward(unit, provider, state);
+      if (path && path.length >= 2) moves.push({ unitId: unit.id, path });
+      continue;
+    }
+
+    const target = botPickTarget(unit, enemies, objW);
     if (!target) continue;
-    if (hexDist(unit.col, unit.row, target.col, target.row) <= rangeAgainst(unit.attackRange, target.category)) continue;
+    const dist = hexDist(unit.col, unit.row, target.col, target.row);
+    const atkR = rangeAgainst(unit.attackRange, target.category);
+    if (dist <= atkR) continue;
+
+    // Aeronave pronta só decola se alcançar posição de ataque neste turno
+    if (unit.category === 'air' && unit.airStatus === 'ready' &&
+        dist - atkR > airMovementRange(unit)) continue;
+
     const path = botMoveToward(unit, target, state);
     if (path && path.length >= 2) moves.push({ unitId: unit.id, path });
   }
@@ -870,22 +1041,87 @@ function computeBotMoves(state, botTeam) {
 
 function computeBotAttacks(state, botTeam) {
   const attacks = [];
-  const prio = u => {
-    if (u.type === 'carrier') return 0; if (u.type === 'amphib') return 1;
-    if (['fragata','destroier','corveta','cruzador'].includes(u.type)) return 2;
-    if (['sub_nuclear','submarino'].includes(u.type)) return 3; return 4;
-  };
-  const sorted = state.units.filter(u => u.team !== botTeam && u.hp > 0)
-                            .sort((a, b) => prio(a) - prio(b));
+  const objW    = botObjectiveWeights(state, botTeam);
+  const enemies = state.units.filter(u => u.team !== botTeam && u.hp > 0);
   for (const unit of state.units.filter(u => u.team === botTeam && u.hp > 0)) {
     if (!canAttack(unit)) continue;
-    const inRange = sorted.filter(e => {
-      const r = rangeAgainst(unit.attackRange, e.category);
-      return r > 0 && hexDist(unit.col, unit.row, e.col, e.row) <= r;
-    });
+    const d = e => hexDist(unit.col, unit.row, e.col, e.row);
+    const inRange = enemies
+      .filter(e => {
+        const r = rangeAgainst(unit.attackRange, e.category);
+        return r > 0 && d(e) <= r;
+      })
+      .sort((a, b) =>
+        (objW.get(a.id) ?? 9) - (objW.get(b.id) ?? 9) ||
+        botGenericPrio(a) - botGenericPrio(b) ||
+        d(a) - d(b));
     if (inRange.length) attacks.push({ attackerId: unit.id, targetId: inRange[0].id });
   }
   return attacks;
+}
+
+// Decisão CONTINUAR/PARAR do bot após a 1ª rodada de um engajamento.
+function botBattleRoundDecision(state, engagement, botTeam) {
+  const att = state.units.find(u => u.id === engagement.attackerId);
+  const def = state.units.find(u => u.id === engagement.targetId);
+  const attAlive = att && att.hp > 0;
+  const defAlive = def && def.hp > 0;
+
+  if (att && att.team === botTeam) {
+    // Atacante: recua sem munição, ou ferido demais com o alvo longe de cair
+    if (!attAlive || !defAlive) return 'stop';
+    if (getWeaponQuantity(att, engagement.weaponType) <= 0) return 'stop';
+    const wounded  = att.hp / att.maxHp < BOT_TUNING.stopHpFrac;
+    const nearKill = def.hp <= BOT_TUNING.finishHpThreshold;
+    return (wounded && !nearKill) ? 'stop' : 'continue';
+  }
+
+  // Defensor: continuar se o grupo tem contra-arma utilizável (ganha iniciativa
+  // se o atacante parar); parar só quando nenhum contra-ataque é possível.
+  if (!attAlive) return 'stop';
+  let group;
+  if (engagement.targetCategory === 'surface') {
+    group = state.units.filter(u => (u.hp ?? 0) > 0 && u.team === engagement.targetTeam &&
+      u.col === engagement.targetCol && u.row === engagement.targetRow);
+  } else {
+    group = defAlive ? [def] : [];
+  }
+  const canCounter = group.some(u => {
+    if (!canAttack(u) || u.id === att.id) return false;
+    const w = selectBestWeapon(u, att, hexDist(u.col, u.row, att.col, att.row));
+    return w && !isSingleRoundWeapon(w);
+  });
+  return canCounter ? 'continue' : 'stop';
+}
+
+// Aplica movimentos do bot ao estado (sem I/O de sala) — exportado p/ testes.
+function applyBotMovesToState(state, botTeam, moves) {
+  for (const { unitId, path } of moves) {
+    if (!Array.isArray(path) || path.length < 2) continue;
+    const unit = state.units.find(u => u.id === unitId && u.hp > 0);
+    if (!unit) continue;
+    const dest = path[path.length - 1];
+    unit.col = dest.col; unit.row = dest.row; unit.moved = true;
+    state.log.unshift(`${unit.name}(${botTeam}) → ${String.fromCharCode(65 + dest.col)}${dest.row + 1}`);
+    const dist = path.length - 1;
+    if (unit.category !== 'air') {
+      spendNavalFuel(unit, navalMoveCost(dist));
+    } else {
+      unit.airStatus = 'airborne';
+      spendAirFuel(unit, dist);
+      if (isAirRefuelLocation(unit, state)) unit.fuel.wasAtRefuelLocation = true;
+    }
+  }
+  for (const u of state.units) {
+    if (u.hp <= 0 || u.team !== botTeam || u.moved) continue;
+    if (u.category === 'air') {
+      if (u.airStatus === 'airborne') {
+        if (isAirRefuelLocation(u, state)) u.fuel.wasAtRefuelLocation = true;
+        else spendAirFuel(u, 1);
+      }
+    } else { spendNavalFuel(u, navalMoveCost(0)); }
+  }
+  state[botTeam === 'blue' ? 'blueDone' : 'redDone'] = true;
 }
 
 function applyBotMoves(room) {
@@ -897,33 +1133,7 @@ function applyBotMoves(room) {
 
   const moves = computeBotMoves(state, bt);
   gameLogger.logMoves(room.id, state.turn, state.period, bt, moves, state);
-
-  for (const { unitId, path } of moves) {
-    if (!Array.isArray(path) || path.length < 2) continue;
-    const unit = state.units.find(u => u.id === unitId && u.hp > 0);
-    if (!unit) continue;
-    const dest = path[path.length - 1];
-    unit.col = dest.col; unit.row = dest.row; unit.moved = true;
-    state.log.unshift(`${unit.name}(${bt}) → ${String.fromCharCode(65 + dest.col)}${dest.row + 1}`);
-    const dist = path.length - 1;
-    if (unit.category !== 'air') {
-      spendNavalFuel(unit, navalMoveCost(dist));
-    } else {
-      unit.airStatus = 'airborne';
-      spendAirFuel(unit, dist);
-      if (isAirRefuelLocation(unit, state)) unit.fuel.wasAtRefuelLocation = true;
-    }
-  }
-  for (const u of state.units) {
-    if (u.hp <= 0 || u.team !== bt || u.moved) continue;
-    if (u.category === 'air') {
-      if (u.airStatus === 'airborne') {
-        if (isAirRefuelLocation(u, state)) u.fuel.wasAtRefuelLocation = true;
-        else spendAirFuel(u, 1);
-      }
-    } else { spendNavalFuel(u, navalMoveCost(0)); }
-  }
-  state[key] = true;
+  applyBotMovesToState(state, bt, moves);
 
   if (state.blueDone && state.redDone) {
     const navalEmpty = checkNavalFuelZero(state);
@@ -1253,7 +1463,11 @@ io.on('connection', socket => {
     const {state}=room, {team}=socket.data;
     if (state.phase !== 'combat') return;
     state.battleRoundDecisions[team] = decision;
-    if (room.solo) state.battleRoundDecisions[room.botTeam] = 'continue';
+    if (room.solo) {
+      const eng = state.combatQueue[state.currentEngagementIndex];
+      state.battleRoundDecisions[room.botTeam] =
+        eng ? botBattleRoundDecision(state, eng, room.botTeam) : 'stop';
+    }
     const { blue, red } = state.battleRoundDecisions;
     if (blue && red) processBattleRoundDecision(room);
   });
@@ -1320,4 +1534,9 @@ if (require.main === module) {
 module.exports = {
   newGame, buildCombatQueue, defendingGroup,
   resolveBattleRound, resolveCounterAttacks,
+  computeObjectives, OBJECTIVE_IDS, WEAPON_PRIORITY, BOT_TUNING,
+  computeBotMoves, computeBotAttacks, applyBotMovesToState,
+  botObjectiveWeights, botPickTarget, botNeedsRefuel, botRefuelProvider,
+  botMoveToward, botMoveAway, botBattleRoundDecision,
+  nextTurn, checkWinner, MAX_TURNS,
 };
