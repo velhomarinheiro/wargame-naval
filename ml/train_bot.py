@@ -30,7 +30,13 @@ BATCH_SIZE = 64
 EPOCHS     = 40
 LR         = 1e-3
 VAL_SPLIT  = 0.15
-MIN_TURNS  = 2          # descarta partidas muito curtas
+MIN_TURNS  = 2          # descarta partidas SINTÉTICAS muito curtas (não afeta jogos humanos)
+
+# Oversampling das partidas reais humano×máquina (game_*.jsonl). Como há poucos
+# jogos humanos (~4% das amostras), replicamos cada amostra humana este nº de
+# vezes para que as demonstrações do jogador tenham peso relevante no treino.
+# 1 = sem oversampling (peso igual ao sintético); 5 ≈ 19% reais; 10 ≈ 32% reais.
+REAL_GAME_OVERSAMPLE = 5
 
 # ── 1. Carregar logs ──────────────────────────────────────────────────────────
 
@@ -41,21 +47,33 @@ def load_logs():
         print("       Jogue algumas partidas primeiro para gerar dados de treino.")
         sys.exit(1)
 
+    n_real = sum(1 for f in files if f.name.startswith("game_"))
     records = []
     for f in files:
+        # Marca a origem de cada evento: 'real' = partida humano×máquina
+        # (game_*.jsonl), 'sim' = partida sintética bot×bot (sim_*.jsonl).
+        source = "real" if f.name.startswith("game_") else "sim"
         for line in f.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if line:
-                records.append(json.loads(line))
+                rec = json.loads(line)
+                rec["_source"] = source
+                records.append(rec)
 
     df = pd.DataFrame(records)
-    print(f"[OK] {len(files)} arquivo(s) — {len(df)} eventos totais")
+    print(f"[OK] {len(files)} arquivo(s) ({n_real} reais / {len(files)-n_real} sintéticos) "
+          f"— {len(df)} eventos totais")
 
-    # Filtra salas com partida completa e pelo menos MIN_TURNS turnos
+    # Filtro de completude: partidas sintéticas precisam de ≥ MIN_TURNS turnos;
+    # partidas humanas completas são sempre mantidas (são escassas e valiosas,
+    # mesmo as decididas em 1 turno).
     over = df[df.event == "game_over"]
-    valid_rooms = over[over.turn >= MIN_TURNS]["room"].unique()
+    real_rooms = set(over[over["_source"] == "real"]["room"])
+    sim_rooms  = set(over[(over["_source"] == "sim") & (over.turn >= MIN_TURNS)]["room"])
+    valid_rooms = real_rooms | sim_rooms
     df = df[df["room"].isin(valid_rooms)]
-    print(f"[OK] {len(valid_rooms)} partida(s) válida(s) após filtro")
+    print(f"[OK] {len(valid_rooms)} partida(s) válida(s) após filtro "
+          f"({len(real_rooms)} reais + {len(sim_rooms)} sintéticas)")
     return df
 
 # ── 2. Converter estado em tensor (9 × 10 × 16) ──────────────────────────────
@@ -95,11 +113,13 @@ def state_to_array(state):
 def build_move_samples(df):
     """Retorna lista de (X, label) onde label é o índice flat do hex de destino."""
     samples = []
+    n_real = 0
     for _, row in df[df.event == "movement_committed"].iterrows():
         state = row["state"]
         moves = row.get("moves") or []
         if not isinstance(moves, list):
             continue
+        reps = REAL_GAME_OVERSAMPLE if row.get("_source") == "real" else 1
         X = state_to_array(state)
         for mv in moves:
             path = mv.get("path") or []
@@ -109,29 +129,37 @@ def build_move_samples(df):
             dc, dr = dst["col"], dst["row"]
             if not (0 <= dc < GRID_W and 0 <= dr < GRID_H):
                 continue
-            samples.append((X, dr * GRID_W + dc))
-    print(f"[OK] {len(samples)} exemplos de movimentação")
+            label = dr * GRID_W + dc
+            samples.extend((X, label) for _ in range(reps))
+            if reps > 1:
+                n_real += reps
+    print(f"[OK] {len(samples)} exemplos de movimentação "
+          f"({n_real} de partidas reais, oversampling {REAL_GAME_OVERSAMPLE}×)")
     return samples
 
 def build_attack_samples(df):
     """Retorna lista de (X, label) onde label é o índice flat do hex do alvo."""
-    unit_pos = {}  # roomId → turn → {unitId: (col, row)}
-
     # Indexa posições pelo estado de attacks_declared
     samples = []
+    n_real = 0
     for _, row in df[df.event == "attacks_declared"].iterrows():
         state   = row["state"]
         attacks = row.get("attacks") or []
         if not isinstance(attacks, list) or not attacks:
             continue
+        reps = REAL_GAME_OVERSAMPLE if row.get("_source") == "real" else 1
         X = state_to_array(state)
         pos = {u["id"]: (u["col"], u["row"]) for u in state["units"] if u["hp"] > 0}
         for atk in attacks:
             tid = atk.get("targetId")
             if tid and tid in pos:
                 tc, tr = pos[tid]
-                samples.append((X, tr * GRID_W + tc))
-    print(f"[OK] {len(samples)} exemplos de combate")
+                label = tr * GRID_W + tc
+                samples.extend((X, label) for _ in range(reps))
+                if reps > 1:
+                    n_real += reps
+    print(f"[OK] {len(samples)} exemplos de combate "
+          f"({n_real} de partidas reais, oversampling {REAL_GAME_OVERSAMPLE}×)")
     return samples
 
 # ── 4. Dataset PyTorch ────────────────────────────────────────────────────────
