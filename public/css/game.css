@@ -101,21 +101,28 @@ body {
 }
 
 /* ─── Canvas ─────────────────────────────────────────────────────────────── */
+/* O mapa cabe SEMPRE inteiro na área visível (limitado por largura E altura,
+   centralizado); navegação é feita por zoom/pan internos do canvas. Sem isso,
+   em tablets na horizontal a base do mapa ficava cortada e inalcançável no
+   touch (rolagem nativa bloqueada por touch-action e pan travado no zoom 1). */
 .canvas-wrap {
   position: relative;
   flex: 1;
-  overflow: auto;
+  min-width: 0;
+  overflow: hidden;
   background:
     radial-gradient(ellipse at 20% 50%, rgba(5,30,70,0.8) 0%, transparent 60%),
     linear-gradient(135deg, #071929 0%, #0a2e55 50%, #071929 100%);
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: center;
 }
 #game-canvas {
   display: block;
   cursor: crosshair;
   max-width: 100%;
+  max-height: 100%;
+  width: auto;
   height: auto;
   touch-action: none; /* gestos (pan/pinch/tap) tratados pelo próprio jogo */
 }
@@ -1137,6 +1144,7 @@ input[type=text]:focus-visible {
 
 /* ═══ RESPONSIVIDADE — mobile / tablet ═══════════════════════════════════════ */
 .sidebar-toggle-btn { display: none; }
+.sidebar-close-btn  { display: none; }
 .sidebar-backdrop   { display: none; }
 
 @media (max-width: 860px) {
@@ -1147,16 +1155,31 @@ input[type=text]:focus-visible {
 
   .sidebar-toggle-btn {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 30px; height: 30px;
+    width: 40px; height: 40px;          /* alvo de toque confortável */
     background: rgba(5,18,38,0.88);
     border: 1px solid var(--border);
     color: var(--dim);
     border-radius: 3px;
-    font-size: 0.95rem;
+    font-size: 1.1rem;
     cursor: pointer;
     transition: border-color 0.15s, color 0.15s;
   }
   .sidebar-toggle-btn:hover { border-color: var(--gold); color: var(--gold-l); }
+
+  .sidebar-close-btn {
+    display: flex; align-items: center; justify-content: center;
+    position: sticky; top: 0; z-index: 5;
+    margin-left: auto; margin-bottom: 4px;
+    width: 40px; height: 40px; flex-shrink: 0;
+    background: rgba(5,18,38,0.92);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--dim);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .sidebar-close-btn:hover { border-color: var(--gold); color: var(--gold-l); }
 
   .game-body { position: relative; }
   .sidebar {
@@ -1166,7 +1189,9 @@ input[type=text]:focus-visible {
     width: min(86vw, 320px);
     transform: translateX(100%);
     transition: transform 0.25s ease;
-    z-index: 60;
+    /* Acima do header (65): o drawer aberto cobre o topo e o ✕ interno
+       fica tocável; fechar é pelo ✕, backdrop ou swipe para a direita. */
+    z-index: 70;
     box-shadow: -10px 0 30px rgba(0,0,0,0.6);
   }
   .game-body.sidebar-open .sidebar { transform: translateX(0); }

@@ -104,7 +104,9 @@ function clampPan() {
 }
 
 function applyZoomAround(screenX, screenY, factor) {
-  const newZoom = Math.max(0.5, Math.min(3.0, zoom * factor));
+  // Piso 1.0: no zoom 1 o mapa inteiro já está visível (o canvas cabe no
+  // contêiner); abaixo disso só sobrariam margens mortas.
+  const newZoom = Math.max(1.0, Math.min(3.0, zoom * factor));
   panX = screenX - (screenX - panX) * (newZoom / zoom);
   panY = screenY - (screenY - panY) * (newZoom / zoom);
   zoom = newZoom;
@@ -853,6 +855,11 @@ canvas.addEventListener('touchstart', e => {
   e.preventDefault(); // evita scroll da página e mouse events sintetizados
   if (e.touches.length === 1) {
     const t = e.touches[0];
+    // Borda direita em telas pequenas é reservada ao gesto de abrir o drawer
+    if (window.innerWidth <= 860 && t.clientX >= window.innerWidth - 24) {
+      _touchState = null;
+      return;
+    }
     _touchState = {
       mode: 'pan', moved: false, longPressed: false,
       startX: t.clientX, startY: t.clientY,
@@ -907,6 +914,7 @@ canvas.addEventListener('touchmove', e => {
   }
 }, { passive: false });
 
+let _lastTap = { t: 0, x: 0, y: 0 };
 canvas.addEventListener('touchend', e => {
   clearTimeout(_longPressTimer);
   const st = _touchState;
@@ -914,6 +922,21 @@ canvas.addEventListener('touchend', e => {
   if (e.touches.length === 0) {
     _touchState = null;
     if (st.mode === 'pan' && !st.moved && !st.longPressed && gameState) {
+      // Double-tap: alterna entre visão geral (zoom 1) e aproximação no ponto
+      const now = Date.now();
+      const isDouble = now - _lastTap.t < 350 &&
+        Math.hypot(st.lastX - _lastTap.x, st.lastY - _lastTap.y) < 30;
+      _lastTap = { t: now, x: st.lastX, y: st.lastY };
+      if (isDouble) {
+        _lastTap.t = 0; // evita triple-tap encadear
+        if (zoom > 1.05) { zoom = 1; panX = 0; panY = 0; render(); }
+        else {
+          const r = canvas.getBoundingClientRect();
+          applyZoomAround((st.lastX - r.left) * (CVS_W / r.width),
+                          (st.lastY - r.top)  * (CVS_H / r.height), 2.2 / zoom);
+        }
+        return;
+      }
       const { x, y } = toGamePx(st.lastX, st.lastY);
       const h = pixelToHex(x, y);
       handleClick(h.col, h.row);
@@ -932,6 +955,30 @@ canvas.addEventListener('touchcancel', () => {
   clearTimeout(_longPressTimer);
   _touchState = null;
 }, { passive: true });
+
+// ─── Gestos do drawer lateral (mobile <=860px) ────────────────────────────────
+// Deslizar da borda direita para dentro abre o painel; deslizar o painel para
+// a direita fecha. Complementa o botão ☰ e o backdrop.
+(function initSidebarSwipe() {
+  const body = document.querySelector('.game-body');
+  if (!body) return;
+  let track = null;
+  document.addEventListener('touchstart', e => {
+    if (window.innerWidth > 860 || e.touches.length !== 1) { track = null; return; }
+    const t = e.touches[0];
+    const open = body.classList.contains('sidebar-open');
+    if (!open && t.clientX >= window.innerWidth - 24)  track = { mode: 'open',  x: t.clientX };
+    else if (open && e.target.closest('.sidebar'))      track = { mode: 'close', x: t.clientX };
+    else track = null;
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!track) return;
+    const dx = e.touches[0].clientX - track.x;
+    if      (track.mode === 'open'  && dx < -40) { body.classList.add('sidebar-open');    track = null; }
+    else if (track.mode === 'close' && dx >  50) { body.classList.remove('sidebar-open'); track = null; }
+  }, { passive: true });
+  document.addEventListener('touchend', () => { track = null; }, { passive: true });
+})();
 
 // Zoom control buttons
 $('zoom-in' ).addEventListener('click', () => applyZoomAround(CVS_W/2, CVS_H/2, 1.25));
