@@ -148,9 +148,10 @@ function logEngagement(roomId, turn, period, engagement) {
 
 /**
  * Registra o encerramento da partida e fecha o arquivo.
- * Deve ser chamado em finishCombatPhase (victory), abandon_game e disconnect.
+ * Deve ser chamado em finishCombatPhase (victory / timeout), abandon_game,
+ * restart e disconnect.
  * @param {string|null} winner  'blue' | 'red' | null (partida incompleta)
- * @param {string}      reason  'victory' | 'abandon' | 'restart' | 'disconnect'
+ * @param {string}      reason  'victory' | 'timeout' | 'abandon' | 'restart' | 'disconnect'
  */
 function logGameOver(roomId, turn, winner, reason, objectives, state) {
   _append(roomId, {

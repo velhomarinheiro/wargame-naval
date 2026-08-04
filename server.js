@@ -597,11 +597,11 @@ function finishCombatPhase(room) {
   // ── Limite operacional: ao fim do dia MAX_TURNS, vence o maior progresso ────
   if (state.turn > MAX_TURNS) {
     const obj = computeObjectives(state);
-    const blueProg = obj.blue.achieved / obj.blue.needed;
-    const redProg  = obj.red.achieved  / obj.red.needed;
+    const blueProg = objectiveProgress(obj.blue);
+    const redProg  = objectiveProgress(obj.red);
     const winner = redProg > blueProg ? 'red' : 'blue';   // empate → Azul
     state.winner = winner;
-    state.log.unshift(`⏱ Limite operacional de ${MAX_TURNS} dias atingido — adjudicação por progresso nos objetivos.`);
+    state.log.unshift(`⏱ Limite operacional de ${MAX_TURNS} dias atingido — adjudicação por progresso nos objetivos (Azul ${(blueProg * 100).toFixed(0)}% · Vermelho ${(redProg * 100).toFixed(0)}%).`);
     state.log.unshift(`🏆 ${winner === 'blue' ? 'Força Azul' : 'Força Vermelha'} VENCEU!`);
     gameLogger.logGameOver(room.id, state.turn, winner, 'timeout', obj, state);
     const payload = { winner, objectives: obj, reason: 'timeout' };
@@ -629,9 +629,26 @@ const OBJECTIVE_IDS = {
   },
 };
 
+// Limiares das condições de vitória — fonte única; os rótulos exibidos são
+// derivados destes números para que UI e regra nunca divirjam.
+const OBJECTIVE_THRESHOLDS = {
+  blueLogisticsKills: 2,   // de 3 navios logísticos vermelhos
+  blueSurfaceDegPct:  50,  // % do SP agregado dos combatentes de superfície
+  redFpsoKills:       3,   // de 4 plataformas FPSO
+  redPortDegPct:      40,  // % do SP agregado dos 4 portos
+};
+
+// `progress` é a fração real de conclusão (0..1) de cada condição, inclusive
+// crédito parcial nas condições binárias (dano relativo no alvo). É o que a
+// adjudicação por limite de turnos usa, para recompensar dano entregue em vez
+// de contagem de condições baratas.
+const frac = (cur, need) => (need > 0 ? Math.min(1, Math.max(0, cur / need)) : 0);
+const killProgress = unit => (!unit ? 1 : frac(unit.maxHp - Math.max(0, unit.hp), unit.maxHp));
+
 function computeObjectives(state) {
   const u = state.units;
   const BT = OBJECTIVE_IDS.blueTargets, RT = OBJECTIVE_IDS.redTargets;
+  const TH = OBJECTIVE_THRESHOLDS;
 
   // ─── Blue objectives (need ≥ 3 of 5) ────────────────────────────────────────
   const carrier  = u.find(x => x.id === BT.carrier);
@@ -639,7 +656,7 @@ function computeObjectives(state) {
 
   const logUnits  = BT.logistics.map(id => u.find(x => x.id === id)).filter(Boolean);
   const logDead   = logUnits.filter(x => x.hp <= 0).length;
-  const logMet    = logDead >= 2;
+  const logMet    = logDead >= TH.blueLogisticsKills;
 
   const amphib    = u.find(x => x.id === BT.amphib);
   const amphibMet = !amphib || amphib.hp <= 0;
@@ -651,18 +668,23 @@ function computeObjectives(state) {
   const surfMax   = surfUnits.reduce((s, x) => s + x.maxHp, 0);
   const surfCur   = surfUnits.reduce((s, x) => s + Math.max(0, x.hp), 0);
   const surfDegPct = surfMax > 0 ? Math.round((1 - surfCur / surfMax) * 100) : 0;
-  const surfMet   = surfDegPct >= 50;
+  const surfMet   = surfDegPct >= TH.blueSurfaceDegPct;
 
   const blueConds = [
     { id: 'carrier',   label: 'Destruir Porta-Aviões',          met: carrierMet,
+      progress: killProgress(carrier),
       current: carrier   ? `SP: ${carrier.hp}/${carrier.maxHp}` : 'Destruído ✓' },
-    { id: 'logistics', label: 'Neutralizar ≥50% Logística',     met: logMet,
-      current: `${logDead}/${logUnits.length} unid. neutralizadas` },
+    { id: 'logistics', label: `Neutralizar ${TH.blueLogisticsKills} de ${logUnits.length} Logísticos`, met: logMet,
+      progress: frac(logDead, TH.blueLogisticsKills),
+      current: `${logDead}/${logUnits.length} neutralizados (precisa ${TH.blueLogisticsKills})` },
     { id: 'amphib',    label: 'Neutralizar GT Anfíbio',          met: amphibMet,
+      progress: killProgress(amphib),
       current: amphib    ? `SP: ${amphib.hp}/${amphib.maxHp}` : 'Neutralizado ✓' },
     { id: 'nucsub',    label: 'Destruir Submarino Nuclear',      met: nucsubMet,
+      progress: killProgress(nucsub),
       current: nucsub    ? `SP: ${nucsub.hp}/${nucsub.maxHp}` : 'Destruído ✓' },
-    { id: 'surface',   label: 'Degradar ≥50% Nav. Combatentes', met: surfMet,
+    { id: 'surface',   label: `Degradar ≥${TH.blueSurfaceDegPct}% Nav. Combatentes`, met: surfMet,
+      progress: frac(surfDegPct, TH.blueSurfaceDegPct),
       current: `${surfDegPct}% degradado` },
   ];
   const blueAchieved = blueConds.filter(c => c.met).length;
@@ -670,18 +692,20 @@ function computeObjectives(state) {
   // ─── Red objectives (need both) ──────────────────────────────────────────────
   const fpsoUnits = RT.fpsos.map(id => u.find(x => x.id === id)).filter(Boolean);
   const fpsoNeut  = fpsoUnits.filter(x => x.hp <= 0).length;
-  const fpsoMet   = fpsoNeut >= 4;
+  const fpsoMet   = fpsoNeut >= TH.redFpsoKills;
 
   const portUnits = RT.ports.map(id => u.find(x => x.id === id)).filter(Boolean);
   const portMax   = portUnits.reduce((s, x) => s + x.maxHp, 0);
   const portCur   = portUnits.reduce((s, x) => s + Math.max(0, x.hp), 0);
   const portDegPct = portMax > 0 ? Math.round((1 - portCur / portMax) * 100) : 0;
-  const portsMet  = portDegPct >= 50;
+  const portsMet  = portDegPct >= TH.redPortDegPct;
 
   const redConds = [
-    { id: 'fpsos', label: 'Neutralizar 4 FPSOs',    met: fpsoMet,
-      current: `${fpsoNeut}/4 neutralizadas` },
-    { id: 'ports', label: 'Degradar ≥50% Portos',   met: portsMet,
+    { id: 'fpsos', label: `Neutralizar ${TH.redFpsoKills} de ${fpsoUnits.length} FPSOs`, met: fpsoMet,
+      progress: frac(fpsoNeut, TH.redFpsoKills),
+      current: `${fpsoNeut}/${fpsoUnits.length} neutralizadas (precisa ${TH.redFpsoKills})` },
+    { id: 'ports', label: `Degradar ≥${TH.redPortDegPct}% Portos`,   met: portsMet,
+      progress: frac(portDegPct, TH.redPortDegPct),
       current: `${portDegPct}% degradado  (SP: ${portCur}/${portMax})` },
   ];
   const redAchieved = redConds.filter(c => c.met).length;
@@ -690,6 +714,16 @@ function computeObjectives(state) {
     blue: { conditions: blueConds, needed: 3, achieved: blueAchieved, won: blueAchieved >= 3 },
     red:  { conditions: redConds,  needed: 2, achieved: redAchieved,  won: redAchieved  >= 2 },
   };
+}
+
+// Progresso de um lado para a adjudicação por tempo: média das `needed` maiores
+// frações de conclusão. Assim os dois lados recebem crédito parcial e condições
+// extras irrelevantes não inflam o placar de quem tem mais condições.
+function objectiveProgress(side) {
+  const fr = side.conditions.map(c => c.progress ?? (c.met ? 1 : 0))
+                            .sort((a, b) => b - a)
+                            .slice(0, side.needed);
+  return fr.length ? fr.reduce((a, b) => a + b, 0) / fr.length : 0;
 }
 
 function checkWinner(state) {
@@ -1534,7 +1568,8 @@ if (require.main === module) {
 module.exports = {
   newGame, buildCombatQueue, defendingGroup,
   resolveBattleRound, resolveCounterAttacks,
-  computeObjectives, OBJECTIVE_IDS, WEAPON_PRIORITY, BOT_TUNING,
+  computeObjectives, OBJECTIVE_IDS, OBJECTIVE_THRESHOLDS, objectiveProgress,
+  WEAPON_PRIORITY, BOT_TUNING,
   computeBotMoves, computeBotAttacks, applyBotMovesToState,
   botObjectiveWeights, botPickTarget, botNeedsRefuel, botRefuelProvider,
   botMoveToward, botMoveAway, botBattleRoundDecision,
