@@ -294,25 +294,27 @@ const HELP_SECTIONS = {
     <p>Mísseis e torpedos são <b>finitos</b> (veja N/N no painel). Recompletamento:
     unidades Azuis paradas em porto, aeronaves em base e unidades terrestres.
     A força Vermelha <b>não recompleta armas navais em mar</b> — economize salvas.</p>`,
-  vitoria: `
-    <h4>FORÇA AZUL — 3 DE 5 OBJETIVOS</h4>
-    <ul>
-      <li>Destruir o porta-aviões inimigo</li>
-      <li>Neutralizar ≥50% da logística inimiga (2 de 3 navios)</li>
-      <li>Neutralizar o grupo-tarefa anfíbio</li>
-      <li>Destruir o submarino nuclear</li>
-      <li>Degradar ≥50% dos navios combatentes de superfície</li>
-    </ul>
-    <h4>FORÇA VERMELHA — 2 DE 2 OBJETIVOS</h4>
-    <ul>
-      <li>Neutralizar as 4 plataformas FPSO</li>
-      <li>Degradar ≥50% dos portos Azuis</li>
-    </ul>
-    <h4>PRAZO</h4>
-    <p>Ao fim de <b>12 dias</b> sem vencedor, ganha quem tiver maior progresso
-    proporcional nos seus objetivos. O painel <b>OBJETIVOS DE VITÓRIA</b>
-    acompanha os dois lados em tempo real.</p>`,
 };
+
+// A aba "Vitória" é gerada a partir dos objetivos que o servidor envia (cujos
+// rótulos derivam das constantes de limiar), para que o manual não possa
+// divergir da regra em vigor. Texto fixo só como fallback pré-partida.
+function buildVictoryHtml() {
+  const obj = gameState?.objectives;
+  const side = (o, titulo) => `
+    <h4>${titulo} — ${o.needed} DE ${o.conditions.length} OBJETIVOS</h4>
+    <ul>${o.conditions.map(c => `<li>${c.label}</li>`).join('')}</ul>`;
+  const listas = obj
+    ? side(obj.blue, 'FORÇA AZUL') + side(obj.red, 'FORÇA VERMELHA')
+    : '<p>As condições aparecem aqui quando a partida começa.</p>';
+  const prazo = gameState?.maxTurns ?? 12;
+  return `${listas}
+    <h4>PRAZO</h4>
+    <p>Ao fim de <b>${prazo} dias</b> sem vencedor, ganha quem tiver maior
+    progresso nos seus objetivos — o progresso conta <b>dano parcial</b>, não só
+    condições concluídas. O painel <b>OBJETIVOS DE VITÓRIA</b> acompanha os dois
+    lados em tempo real.</p>`;
+}
 
 function buildGlossaryHtml() {
   const general = [
@@ -333,7 +335,9 @@ function buildGlossaryHtml() {
 function showHelpTab(tab) {
   document.querySelectorAll('.help-tab').forEach(b =>
     b.classList.toggle('active', b.dataset.tab === tab));
-  $('help-content').innerHTML = tab === 'glossario' ? buildGlossaryHtml() : (HELP_SECTIONS[tab] || '');
+  $('help-content').innerHTML =
+    tab === 'glossario' ? buildGlossaryHtml() :
+    tab === 'vitoria'   ? buildVictoryHtml()  : (HELP_SECTIONS[tab] || '');
 }
 function showHelpModal() { showHelpTab('fases'); helpModal.classList.remove('hidden'); }
 function hideHelpModal() { helpModal.classList.add('hidden'); }

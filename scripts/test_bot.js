@@ -3,7 +3,8 @@
 // Sai com código != 0 se qualquer assert falhar.
 const srv = require('../server');
 const {
-  newGame, computeObjectives, OBJECTIVE_IDS, BOT_TUNING,
+  newGame, computeObjectives, OBJECTIVE_IDS, OBJECTIVE_THRESHOLDS, objectiveProgress,
+  BOT_TUNING,
   computeBotMoves, computeBotAttacks, applyBotMovesToState,
   botObjectiveWeights, botPickTarget, botNeedsRefuel, botRefuelProvider,
   botMoveAway, botBattleRoundDecision, buildCombatQueue,
@@ -254,6 +255,96 @@ function pathLegal(state, unitId, path) {
   const o = computeObjectives(s);
   check('objetivos iniciais: azul 0/3, vermelho 0/2',
     o.blue.achieved === 0 && o.blue.needed === 3 && o.red.achieved === 0 && o.red.needed === 2);
+}
+
+// ── 12b. Limiares de vitória e progresso contínuo ─────────────────────────────
+{
+  const TH = OBJECTIVE_THRESHOLDS;
+  const fpsoIds = OBJECTIVE_IDS.redTargets.fpsos;
+  const portIds = OBJECTIVE_IDS.redTargets.ports;
+  const redCond = (s, id) => computeObjectives(s).red.conditions.find(c => c.id === id);
+  const dealPortDamage = (s, sp) => {
+    let n = sp;
+    for (const id of portIds) {
+      const p = byId(s, id);
+      const d = Math.min(n, p.maxHp);
+      p.hp = p.maxHp - d; n -= d;
+      if (n <= 0) break;
+    }
+  };
+
+  check('limiar FPSO é 3 de 4', TH.redFpsoKills === 3);
+  check('limiar de portos é 40%', TH.redPortDegPct === 40);
+
+  // FPSO: 2 não cumpre, 3 cumpre (regra anterior exigia 4)
+  let s = newGame();
+  fpsoIds.slice(0, 2).forEach(id => { byId(s, id).hp = 0; });
+  check('2 FPSOs neutralizadas → não cumprida', redCond(s, 'fpsos').met === false);
+  byId(s, fpsoIds[2]).hp = 0;
+  check('3 FPSOs neutralizadas → cumprida', redCond(s, 'fpsos').met === true);
+
+  // Portos: fronteira exata em 27 SP de 68 (40%)
+  s = newGame(); dealPortDamage(s, 26);
+  check('portos a 26 SP (38%) → não cumprida', redCond(s, 'ports').met === false,
+    redCond(s, 'ports').current);
+  s = newGame(); dealPortDamage(s, 27);
+  check('portos a 27 SP (40%) → cumprida', redCond(s, 'ports').met === true,
+    redCond(s, 'ports').current);
+
+  // Rótulos derivados das constantes (não podem divergir da regra)
+  s = newGame();
+  const o = computeObjectives(s);
+  check('rótulo do objetivo FPSO cita o limiar',
+    o.red.conditions[0].label.includes(String(TH.redFpsoKills)),
+    o.red.conditions[0].label);
+  check('rótulo do objetivo portos cita o limiar',
+    o.red.conditions[1].label.includes(`${TH.redPortDegPct}%`),
+    o.red.conditions[1].label);
+
+  // progress: 0..1, limitado a 1
+  check('progress inicial é 0 nos dois lados',
+    o.blue.conditions.every(c => c.progress === 0) &&
+    o.red.conditions.every(c => c.progress === 0));
+  s = newGame(); dealPortDamage(s, 40);   // muito acima do limiar
+  check('progress satura em 1', redCond(s, 'ports').progress === 1);
+  s = newGame();
+  const carrier = byId(s, OBJECTIVE_IDS.blueTargets.carrier);
+  carrier.hp = Math.ceil(carrier.maxHp / 2);
+  const halfProg = computeObjectives(s).blue.conditions[0].progress;
+  check('condição binária dá crédito parcial por dano',
+    halfProg > 0.3 && halfProg < 0.7, `progress=${halfProg.toFixed(3)}`);
+
+  // Adjudicação: dano acumulado abaixo do limiar deixa de valer zero.
+  // Vermelho com 2 FPSOs + portos a ~29% contra Azul que só matou o sub nuclear.
+  s = newGame();
+  fpsoIds.slice(0, 2).forEach(id => { byId(s, id).hp = 0; });
+  dealPortDamage(s, 20);
+  byId(s, OBJECTIVE_IDS.blueTargets.nucsub).hp = 0;
+  const o2 = computeObjectives(s);
+  const bp = objectiveProgress(o2.blue), rp = objectiveProgress(o2.red);
+  const oldWinner = (o2.red.achieved / 2) > (o2.blue.achieved / 3) ? 'red' : 'blue';
+  const newWinner = rp > bp ? 'red' : 'blue';
+  check('adjudicação: dano acumulado vermelho passa a vencer contagem azul barata',
+    oldWinner === 'blue' && newWinner === 'red',
+    `antiga=${oldWinner} nova=${newWinner} (azul ${bp.toFixed(2)} vs verm ${rp.toFixed(2)})`);
+  check('objectiveProgress fica em 0..1', bp >= 0 && bp <= 1 && rp >= 0 && rp <= 1);
+}
+
+// ── 12c. Munição LACM vermelha (canal terrestre) ───────────────────────────────
+{
+  const s = newGame();
+  const total = ['RED-GE-1', 'RED-GE-2', 'RED-KSN']
+    .reduce((a, id) => a + (byId(s, id)?.weapons?.lacm?.quantity ?? 0), 0);
+  const portMax = OBJECTIVE_IDS.redTargets.ports
+    .reduce((a, id) => a + byId(s, id).maxHp, 0);
+  const needed = portMax * OBJECTIVE_THRESHOLDS.redPortDegPct / 100;
+  const expected = total * 1.5;   // E[dano] do LACM = 1,5 SP
+  check(`LACM totaliza 22 (dano esperado ${expected} SP)`, total === 22, `total=${total}`);
+  check(`canal terrestre cobre o objetivo (${expected} SP >= ${needed.toFixed(1)} SP)`,
+    expected >= needed, `razão=${(expected / needed).toFixed(2)}`);
+  // O KSN concentra a maior parte por ser isento de combustível
+  check('KSN é a maior plataforma LACM',
+    (byId(s, 'RED-KSN').weapons.lacm.quantity) >= (byId(s, 'RED-GE-1').weapons.lacm.quantity) - 2);
 }
 
 // ── 13. Selfplay bot-vs-bot até MAX_TURNS: termina sem exceção ────────────────
