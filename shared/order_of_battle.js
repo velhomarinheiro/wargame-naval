@@ -404,7 +404,7 @@ const ORDER_OF_BATTLE = {
         "stayingPower":12,"movement":4,
         "detectionRange":{"surface":3,"air":2,"submarine":2,"land":1},
         "attackRange":{"surface":6,"air":1,"submarine":2,"land":8},
-        "weapons":{"ascm":{"quantity":14,"range":6},"mss":{"quantity":18,"range":3},"lacm":{"quantity":8,"range":10}},
+        "weapons":{"ascm":{"quantity":14,"range":6},"mss":{"quantity":18,"range":3},"lacm":{"quantity":10,"range":10}},
         "capabilities":{"navalGun":6,"airDefense":13,"bmd":4,"asw":11},
         "position":{"col":14,"row":1},
         "notes":"1x CG Drakhmar + 2x DDG Volnaria. SAM/BMD/ASCM."
@@ -415,7 +415,7 @@ const ORDER_OF_BATTLE = {
         "stayingPower":10,"movement":4,
         "detectionRange":{"surface":3,"air":2,"submarine":2,"land":1},
         "attackRange":{"surface":6,"air":1,"submarine":2,"land":8},
-        "weapons":{"ascm":{"quantity":8,"range":6},"mss":{"quantity":12,"range":3},"lacm":{"quantity":2,"range":10}},
+        "weapons":{"ascm":{"quantity":8,"range":6},"mss":{"quantity":12,"range":3},"lacm":{"quantity":4,"range":10}},
         "capabilities":{"navalGun":4,"airDefense":8,"bmd":1,"asw":8},
         "position":{"col":14,"row":2},
         "notes":"1x CG Drakhmar + 2x DDG Volnaria. Espelhado com GE-1."
@@ -478,7 +478,7 @@ const ORDER_OF_BATTLE = {
         "stayingPower":3,"movement":4,
         "detectionRange":{"surface":3,"air":0,"submarine":2,"land":0},
         "attackRange":{"surface":3,"air":0,"submarine":2,"land":8},
-        "weapons":{"ascm":{"quantity":8,"range":6},"torpedo":{"quantity":12,"range":2},"lacm":{"quantity":4,"range":10}},
+        "weapons":{"ascm":{"quantity":8,"range":6},"torpedo":{"quantity":12,"range":2},"lacm":{"quantity":8,"range":10}},
         "capabilities":{"asw":1},
         "position":{"col":13,"row":2},
         "notes":"KAR Veylan (SSN). Nuclear, submerso permanente. Posição secreta."
