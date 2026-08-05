@@ -1,24 +1,24 @@
 {
   "real_summary": {
-    "n": 12,
-    "n_decided": 11,
+    "n": 13,
+    "n_decided": 12,
     "win_rate_decided": {
-      "blue": 100.0,
-      "red": 0.0
+      "blue": 91.7,
+      "red": 8.3
     },
     "reason": {
-      "victory": 11,
+      "victory": 12,
       "disconnect": 1
     },
-    "avg_turns_all": 3.17,
-    "avg_turns_decided": 3.18,
+    "avg_turns_all": 3.31,
+    "avg_turns_decided": 3.33,
     "dmg": {
-      "blue": 28.9,
-      "red": 73.7
+      "blue": 28.8,
+      "red": 76.1
     },
     "lost": {
-      "blue": 12.5,
-      "red": 9.42
+      "blue": 12.85,
+      "red": 9.54
     }
   }
 }
