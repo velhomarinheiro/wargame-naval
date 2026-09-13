@@ -2,46 +2,760 @@
   "nn_all": {
     "games": 400,
     "win_rate": {
-      "blue": 96.2,
-      "red": 3.8
+      "blue": 81.8,
+      "red": 18.2
     },
     "win_reason": {
-      "timeout": 96.2,
-      "victory": 3.8
+      "timeout": 80.0,
+      "victory": 20.0
     },
-    "avg_turns": 17.78,
+    "avg_turns": 16.76,
     "team_avg_damage_dealt": {
-      "blue": 9.2,
-      "red": 41.31
+      "blue": 18.0,
+      "red": 74.22
     },
     "team_avg_units_lost": {
-      "blue": 3.83,
-      "red": 2.62
+      "blue": 9.75,
+      "red": 4.12
     },
     "units": [
       {
         "id": "BLUE-ADA-1",
         "team": "blue",
         "category": "land",
-        "survival_pct": 88.5,
+        "survival_pct": 29.2,
         "damage_dealt_avg": 0.01,
-        "damage_taken_avg": 0.48,
+        "damage_taken_avg": 2.56,
         "kills_avg": 0.0,
-        "shots_avg": 1.1,
-        "hit_pct": 0.9,
-        "moves_avg": 17.49
+        "shots_avg": 0.09,
+        "hit_pct": 8.8,
+        "moves_avg": 10.52
       },
       {
         "id": "BLUE-ADA-2",
+        "team": "blue",
+        "category": "land",
+        "survival_pct": 99.8,
+        "damage_dealt_avg": 0.03,
+        "damage_taken_avg": 0.01,
+        "kills_avg": 0.0,
+        "shots_avg": 0.12,
+        "hit_pct": 20.4,
+        "moves_avg": 25.91
+      },
+      {
+        "id": "BLUE-AERO-CF",
         "team": "blue",
         "category": "land",
         "survival_pct": 100.0,
         "damage_dealt_avg": 0.0,
         "damage_taken_avg": 0.0,
         "kills_avg": 0.0,
-        "shots_avg": 0.03,
+        "shots_avg": 0.01,
         "hit_pct": 0.0,
-        "moves_avg": 31.01
+        "moves_avg": 0.0
+      },
+      {
+        "id": "BLUE-AERO-RJ",
+        "team": "blue",
+        "category": "land",
+        "survival_pct": 100.0,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 0.0,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 0.0
+      },
+      {
+        "id": "BLUE-AERO-SP",
+        "team": "blue",
+        "category": "land",
+        "survival_pct": 100.0,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 0.0,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": 0.0,
+        "moves_avg": 0.0
+      },
+      {
+        "id": "BLUE-ANFIB",
+        "team": "blue",
+        "category": "surface",
+        "survival_pct": 86.2,
+        "damage_dealt_avg": 1.13,
+        "damage_taken_avg": 1.84,
+        "kills_avg": 0.34,
+        "shots_avg": 3.54,
+        "hit_pct": 23.1,
+        "moves_avg": 29.73,
+        "fuel_pct_remaining_avg": 83.6,
+        "fuel_zero_pct_games": 13.0
+      },
+      {
+        "id": "BLUE-CACA-1",
+        "team": "blue",
+        "category": "air",
+        "survival_pct": 100.0,
+        "damage_dealt_avg": 0.32,
+        "damage_taken_avg": 0.0,
+        "kills_avg": 0.07,
+        "shots_avg": 0.48,
+        "hit_pct": 44.6,
+        "moves_avg": 33.43
+      },
+      {
+        "id": "BLUE-CACA-2",
+        "team": "blue",
+        "category": "air",
+        "survival_pct": 100.0,
+        "damage_dealt_avg": 0.25,
+        "damage_taken_avg": 0.01,
+        "kills_avg": 0.1,
+        "shots_avg": 0.41,
+        "hit_pct": 43.8,
+        "moves_avg": 33.43
+      },
+      {
+        "id": "BLUE-CJAT-1",
+        "team": "blue",
+        "category": "air",
+        "survival_pct": 99.5,
+        "damage_dealt_avg": 0.23,
+        "damage_taken_avg": 0.03,
+        "kills_avg": 0.07,
+        "shots_avg": 0.25,
+        "hit_pct": 44.0,
+        "moves_avg": 33.41,
+        "ammo_pct_remaining_avg": 100.0
+      },
+      {
+        "id": "BLUE-CJAT-2",
+        "team": "blue",
+        "category": "air",
+        "survival_pct": 96.2,
+        "damage_dealt_avg": 0.15,
+        "damage_taken_avg": 0.16,
+        "kills_avg": 0.04,
+        "shots_avg": 0.17,
+        "hit_pct": 39.1,
+        "moves_avg": 33.03,
+        "ammo_pct_remaining_avg": 100.0
+      },
+      {
+        "id": "BLUE-DCOST1",
+        "team": "blue",
+        "category": "land",
+        "survival_pct": 52.5,
+        "damage_dealt_avg": 0.16,
+        "damage_taken_avg": 1.81,
+        "kills_avg": 0.02,
+        "shots_avg": 0.2,
+        "hit_pct": 60.8,
+        "moves_avg": 14.03,
+        "ammo_pct_remaining_avg": 100.0
+      },
+      {
+        "id": "BLUE-DCOST2",
+        "team": "blue",
+        "category": "land",
+        "survival_pct": 99.8,
+        "damage_dealt_avg": 0.85,
+        "damage_taken_avg": 0.01,
+        "kills_avg": 0.34,
+        "shots_avg": 0.67,
+        "hit_pct": 69.3,
+        "moves_avg": 25.91,
+        "ammo_pct_remaining_avg": 100.0
+      },
+      {
+        "id": "BLUE-FPSO1",
+        "team": "blue",
+        "category": "surface",
+        "survival_pct": 7.8,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 7.17,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 0.0
+      },
+      {
+        "id": "BLUE-FPSO2",
+        "team": "blue",
+        "category": "surface",
+        "survival_pct": 63.0,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 3.1,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 0.0
+      },
+      {
+        "id": "BLUE-FPSO3",
+        "team": "blue",
+        "category": "surface",
+        "survival_pct": 61.5,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 3.71,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 0.0
+      },
+      {
+        "id": "BLUE-FPSO4",
+        "team": "blue",
+        "category": "surface",
+        "survival_pct": 38.0,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 5.43,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 0.0
+      },
+      {
+        "id": "BLUE-LOG-A",
+        "team": "blue",
+        "category": "surface",
+        "survival_pct": 71.0,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 1.42,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 28.34,
+        "fuel_pct_remaining_avg": 99.2,
+        "fuel_zero_pct_games": 0.0
+      },
+      {
+        "id": "BLUE-LOG-T",
+        "team": "blue",
+        "category": "surface",
+        "survival_pct": 40.5,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 2.83,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 19.29,
+        "fuel_pct_remaining_avg": 99.8,
+        "fuel_zero_pct_games": 0.0
+      },
+      {
+        "id": "BLUE-MPRA-1",
+        "team": "blue",
+        "category": "air",
+        "survival_pct": 83.2,
+        "damage_dealt_avg": 0.8,
+        "damage_taken_avg": 0.51,
+        "kills_avg": 0.14,
+        "shots_avg": 0.64,
+        "hit_pct": 56.9,
+        "moves_avg": 30.76,
+        "ammo_pct_remaining_avg": 99.5
+      },
+      {
+        "id": "BLUE-MPRA-2",
+        "team": "blue",
+        "category": "air",
+        "survival_pct": 63.0,
+        "damage_dealt_avg": 0.28,
+        "damage_taken_avg": 1.27,
+        "kills_avg": 0.06,
+        "shots_avg": 0.32,
+        "hit_pct": 46.5,
+        "moves_avg": 24.57,
+        "ammo_pct_remaining_avg": 99.2
+      },
+      {
+        "id": "BLUE-PAT-C1",
+        "team": "blue",
+        "category": "surface",
+        "survival_pct": 62.0,
+        "damage_dealt_avg": 0.15,
+        "damage_taken_avg": 1.5,
+        "kills_avg": 0.02,
+        "shots_avg": 0.15,
+        "hit_pct": 62.9,
+        "moves_avg": 26.35,
+        "fuel_pct_remaining_avg": 74.6,
+        "fuel_zero_pct_games": 21.0,
+        "ammo_pct_remaining_avg": 93.0
+      },
+      {
+        "id": "BLUE-PAT-C2",
+        "team": "blue",
+        "category": "surface",
+        "survival_pct": 47.5,
+        "damage_dealt_avg": 0.08,
+        "damage_taken_avg": 2.15,
+        "kills_avg": 0.01,
+        "shots_avg": 0.11,
+        "hit_pct": 60.0,
+        "moves_avg": 23.77,
+        "fuel_pct_remaining_avg": 78.1,
+        "fuel_zero_pct_games": 16.8,
+        "ammo_pct_remaining_avg": 94.8
+      },
+      {
+        "id": "BLUE-PAT-O1",
+        "team": "blue",
+        "category": "surface",
+        "survival_pct": 74.2,
+        "damage_dealt_avg": 0.84,
+        "damage_taken_avg": 1.58,
+        "kills_avg": 0.21,
+        "shots_avg": 1.18,
+        "hit_pct": 47.8,
+        "moves_avg": 27.42,
+        "fuel_pct_remaining_avg": 86.0,
+        "fuel_zero_pct_games": 7.5,
+        "ammo_pct_remaining_avg": 88.1
+      },
+      {
+        "id": "BLUE-PAT-O2",
+        "team": "blue",
+        "category": "surface",
+        "survival_pct": 68.8,
+        "damage_dealt_avg": 0.59,
+        "damage_taken_avg": 1.8,
+        "kills_avg": 0.15,
+        "shots_avg": 0.98,
+        "hit_pct": 41.8,
+        "moves_avg": 27.79,
+        "fuel_pct_remaining_avg": 84.0,
+        "fuel_zero_pct_games": 8.2,
+        "ammo_pct_remaining_avg": 89.9
+      },
+      {
+        "id": "BLUE-PORTO-ACU",
+        "team": "blue",
+        "category": "land",
+        "survival_pct": 81.5,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 5.05,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 0.0
+      },
+      {
+        "id": "BLUE-PORTO-RJ",
+        "team": "blue",
+        "category": "land",
+        "survival_pct": 99.5,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 1.87,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 0.0
+      },
+      {
+        "id": "BLUE-PORTO-S",
+        "team": "blue",
+        "category": "land",
+        "survival_pct": 100.0,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 0.05,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 0.0
+      },
+      {
+        "id": "BLUE-PORTO-V",
+        "team": "blue",
+        "category": "land",
+        "survival_pct": 2.5,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 17.13,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 0.0
+      },
+      {
+        "id": "BLUE-SAG-P",
+        "team": "blue",
+        "category": "surface",
+        "survival_pct": 89.0,
+        "damage_dealt_avg": 3.77,
+        "damage_taken_avg": 0.61,
+        "kills_avg": 0.56,
+        "shots_avg": 4.51,
+        "hit_pct": 53.4,
+        "moves_avg": 30.12,
+        "fuel_pct_remaining_avg": 83.4,
+        "fuel_zero_pct_games": 7.5,
+        "ammo_pct_remaining_avg": 89.5
+      },
+      {
+        "id": "BLUE-SAG-S1",
+        "team": "blue",
+        "category": "surface",
+        "survival_pct": 90.5,
+        "damage_dealt_avg": 2.04,
+        "damage_taken_avg": 1.29,
+        "kills_avg": 0.5,
+        "shots_avg": 2.59,
+        "hit_pct": 52.6,
+        "moves_avg": 31.11,
+        "fuel_pct_remaining_avg": 80.8,
+        "fuel_zero_pct_games": 9.5,
+        "ammo_pct_remaining_avg": 94.9
+      },
+      {
+        "id": "BLUE-SAG-S2",
+        "team": "blue",
+        "category": "surface",
+        "survival_pct": 76.2,
+        "damage_dealt_avg": 1.4,
+        "damage_taken_avg": 3.63,
+        "kills_avg": 0.39,
+        "shots_avg": 1.98,
+        "hit_pct": 45.9,
+        "moves_avg": 28.45,
+        "fuel_pct_remaining_avg": 80.7,
+        "fuel_zero_pct_games": 11.5,
+        "ammo_pct_remaining_avg": 97.1
+      },
+      {
+        "id": "BLUE-SUB-1",
+        "team": "blue",
+        "category": "submarine",
+        "survival_pct": 32.5,
+        "damage_dealt_avg": 0.96,
+        "damage_taken_avg": 2.21,
+        "kills_avg": 0.16,
+        "shots_avg": 0.85,
+        "hit_pct": 65.9,
+        "moves_avg": 16.59,
+        "fuel_pct_remaining_avg": 98.8,
+        "fuel_zero_pct_games": 0.0,
+        "ammo_pct_remaining_avg": 89.9
+      },
+      {
+        "id": "BLUE-SUB-2",
+        "team": "blue",
+        "category": "submarine",
+        "survival_pct": 75.0,
+        "damage_dealt_avg": 0.52,
+        "damage_taken_avg": 0.92,
+        "kills_avg": 0.12,
+        "shots_avg": 0.51,
+        "hit_pct": 59.8,
+        "moves_avg": 29.1,
+        "fuel_pct_remaining_avg": 91.0,
+        "fuel_zero_pct_games": 4.0,
+        "ammo_pct_remaining_avg": 94.8
+      },
+      {
+        "id": "BLUE-SUB-3",
+        "team": "blue",
+        "category": "submarine",
+        "survival_pct": 67.5,
+        "damage_dealt_avg": 0.38,
+        "damage_taken_avg": 1.03,
+        "kills_avg": 0.07,
+        "shots_avg": 0.32,
+        "hit_pct": 59.1,
+        "moves_avg": 28.1,
+        "fuel_pct_remaining_avg": 91.3,
+        "fuel_zero_pct_games": 3.5,
+        "ammo_pct_remaining_avg": 96.8
+      },
+      {
+        "id": "BLUE-SUB-N",
+        "team": "blue",
+        "category": "submarine",
+        "survival_pct": 66.8,
+        "damage_dealt_avg": 3.06,
+        "damage_taken_avg": 1.53,
+        "kills_avg": 0.72,
+        "shots_avg": 2.28,
+        "hit_pct": 45.8,
+        "moves_avg": 26.91,
+        "ammo_pct_remaining_avg": 91.4
+      },
+      {
+        "id": "RED-AKE",
+        "team": "red",
+        "category": "surface",
+        "survival_pct": 64.0,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 2.73,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 28.29,
+        "fuel_pct_remaining_avg": 99.8,
+        "fuel_zero_pct_games": 0.0
+      },
+      {
+        "id": "RED-AOR-G",
+        "team": "red",
+        "category": "surface",
+        "survival_pct": 88.5,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 0.51,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 32.06,
+        "fuel_pct_remaining_avg": 99.7,
+        "fuel_zero_pct_games": 0.0
+      },
+      {
+        "id": "RED-AWACS-K",
+        "team": "red",
+        "category": "air",
+        "survival_pct": 53.0,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 1.19,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 25.26
+      },
+      {
+        "id": "RED-GANF",
+        "team": "red",
+        "category": "surface",
+        "survival_pct": 95.0,
+        "damage_dealt_avg": 0.27,
+        "damage_taken_avg": 1.29,
+        "kills_avg": 0.08,
+        "shots_avg": 1.19,
+        "hit_pct": 22.9,
+        "moves_avg": 32.05,
+        "fuel_pct_remaining_avg": 85.8,
+        "fuel_zero_pct_games": 9.2
+      },
+      {
+        "id": "RED-GBPA",
+        "team": "red",
+        "category": "surface",
+        "survival_pct": 99.8,
+        "damage_dealt_avg": 6.08,
+        "damage_taken_avg": 0.03,
+        "kills_avg": 0.89,
+        "shots_avg": 6.75,
+        "hit_pct": 48.5,
+        "moves_avg": 33.43,
+        "ammo_pct_remaining_avg": 73.1
+      },
+      {
+        "id": "RED-GE-1",
+        "team": "red",
+        "category": "surface",
+        "survival_pct": 99.8,
+        "damage_dealt_avg": 22.87,
+        "damage_taken_avg": 0.06,
+        "kills_avg": 2.94,
+        "shots_avg": 17.24,
+        "hit_pct": 49.1,
+        "moves_avg": 32.5,
+        "fuel_pct_remaining_avg": 85.0,
+        "fuel_zero_pct_games": 9.2,
+        "ammo_pct_remaining_avg": 68.4
+      },
+      {
+        "id": "RED-GE-2",
+        "team": "red",
+        "category": "surface",
+        "survival_pct": 99.5,
+        "damage_dealt_avg": 17.28,
+        "damage_taken_avg": 0.12,
+        "kills_avg": 2.29,
+        "shots_avg": 14.29,
+        "hit_pct": 46.4,
+        "moves_avg": 32.49,
+        "fuel_pct_remaining_avg": 85.2,
+        "fuel_zero_pct_games": 9.0,
+        "ammo_pct_remaining_avg": 59.0
+      },
+      {
+        "id": "RED-GE-3",
+        "team": "red",
+        "category": "surface",
+        "survival_pct": 97.5,
+        "damage_dealt_avg": 1.22,
+        "damage_taken_avg": 0.47,
+        "kills_avg": 0.29,
+        "shots_avg": 1.69,
+        "hit_pct": 47.4,
+        "moves_avg": 32.06,
+        "fuel_pct_remaining_avg": 83.5,
+        "fuel_zero_pct_games": 10.5,
+        "ammo_pct_remaining_avg": 91.7
+      },
+      {
+        "id": "RED-GLOG",
+        "team": "red",
+        "category": "surface",
+        "survival_pct": 82.0,
+        "damage_dealt_avg": 0.0,
+        "damage_taken_avg": 1.44,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": null,
+        "moves_avg": 31.38,
+        "fuel_pct_remaining_avg": 100.0,
+        "fuel_zero_pct_games": 0.0
+      },
+      {
+        "id": "RED-KMF-1",
+        "team": "red",
+        "category": "air",
+        "survival_pct": 99.8,
+        "damage_dealt_avg": 1.77,
+        "damage_taken_avg": 0.02,
+        "kills_avg": 0.3,
+        "shots_avg": 2.28,
+        "hit_pct": 41.8,
+        "moves_avg": 33.43
+      },
+      {
+        "id": "RED-KMF-2",
+        "team": "red",
+        "category": "air",
+        "survival_pct": 99.2,
+        "damage_dealt_avg": 1.65,
+        "damage_taken_avg": 0.42,
+        "kills_avg": 0.43,
+        "shots_avg": 1.93,
+        "hit_pct": 43.5,
+        "moves_avg": 33.38
+      },
+      {
+        "id": "RED-KS-1",
+        "team": "red",
+        "category": "submarine",
+        "survival_pct": 34.8,
+        "damage_dealt_avg": 7.34,
+        "damage_taken_avg": 2.09,
+        "kills_avg": 0.77,
+        "shots_avg": 4.22,
+        "hit_pct": 54.9,
+        "moves_avg": 12.54,
+        "fuel_pct_remaining_avg": 41.8,
+        "fuel_zero_pct_games": 43.0,
+        "ammo_pct_remaining_avg": 57.9
+      },
+      {
+        "id": "RED-KSN",
+        "team": "red",
+        "category": "submarine",
+        "survival_pct": 92.2,
+        "damage_dealt_avg": 12.28,
+        "damage_taken_avg": 0.41,
+        "kills_avg": 1.21,
+        "shots_avg": 11.41,
+        "hit_pct": 45.7,
+        "moves_avg": 32.55,
+        "ammo_pct_remaining_avg": 70.0
+      },
+      {
+        "id": "RED-MPRA-K1",
+        "team": "red",
+        "category": "air",
+        "survival_pct": 90.0,
+        "damage_dealt_avg": 1.99,
+        "damage_taken_avg": 0.23,
+        "kills_avg": 0.32,
+        "shots_avg": 1.39,
+        "hit_pct": 45.4,
+        "moves_avg": 32.68,
+        "ammo_pct_remaining_avg": 100.0
+      },
+      {
+        "id": "RED-MPRA-K2",
+        "team": "red",
+        "category": "air",
+        "survival_pct": 76.0,
+        "damage_dealt_avg": 1.25,
+        "damage_taken_avg": 0.65,
+        "kills_avg": 0.21,
+        "shots_avg": 0.89,
+        "hit_pct": 44.6,
+        "moves_avg": 30.55,
+        "ammo_pct_remaining_avg": 100.0
+      },
+      {
+        "id": "RED-OPSESP-1",
+        "team": "red",
+        "category": "surface",
+        "survival_pct": 14.0,
+        "damage_dealt_avg": 0.01,
+        "damage_taken_avg": 2.65,
+        "kills_avg": 0.0,
+        "shots_avg": 0.0,
+        "hit_pct": 100.0,
+        "moves_avg": 0.0,
+        "ammo_pct_remaining_avg": 99.9
+      },
+      {
+        "id": "RED-OPSESP-2",
+        "team": "red",
+        "category": "surface",
+        "survival_pct": 2.8,
+        "damage_dealt_avg": 0.22,
+        "damage_taken_avg": 3.69,
+        "kills_avg": 0.03,
+        "shots_avg": 0.2,
+        "hit_pct": 59.0,
+        "moves_avg": 0.0,
+        "ammo_pct_remaining_avg": 93.5
+      }
+    ]
+  },
+  "nn_victory": {
+    "games": 80,
+    "win_rate": {
+      "red": 91.2,
+      "blue": 8.8
+    },
+    "win_reason": {
+      "victory": 100.0
+    },
+    "avg_turns": 11.81,
+    "team_avg_damage_dealt": {
+      "blue": 24.21,
+      "red": 81.11
+    },
+    "team_avg_units_lost": {
+      "blue": 10.14,
+      "red": 4.95
+    },
+    "units": [
+      {
+        "id": "BLUE-ADA-1",
+        "team": "blue",
+        "category": "land",
+        "survival_pct": 23.8,
+        "damage_dealt_avg": 0.01,
+        "damage_taken_avg": 2.83,
+        "kills_avg": 0.0,
+        "shots_avg": 0.05,
+        "hit_pct": 25.0,
+        "moves_avg": 7.11
+      },
+      {
+        "id": "BLUE-ADA-2",
+        "team": "blue",
+        "category": "land",
+        "survival_pct": 98.8,
+        "damage_dealt_avg": 0.1,
+        "damage_taken_avg": 0.04,
+        "kills_avg": 0.01,
+        "shots_avg": 0.24,
+        "hit_pct": 42.1,
+        "moves_avg": 19.46
       },
       {
         "id": "BLUE-AERO-CF",
@@ -83,803 +797,90 @@
         "id": "BLUE-ANFIB",
         "team": "blue",
         "category": "surface",
-        "survival_pct": 99.5,
-        "damage_dealt_avg": 0.9,
-        "damage_taken_avg": 0.1,
-        "kills_avg": 0.28,
-        "shots_avg": 2.31,
-        "hit_pct": 23.4,
-        "moves_avg": 35.34,
-        "fuel_pct_remaining_avg": 97.5,
-        "fuel_zero_pct_games": 1.2
+        "survival_pct": 97.5,
+        "damage_dealt_avg": 1.24,
+        "damage_taken_avg": 0.64,
+        "kills_avg": 0.3,
+        "shots_avg": 4.34,
+        "hit_pct": 18.7,
+        "moves_avg": 21.56,
+        "fuel_pct_remaining_avg": 91.2,
+        "fuel_zero_pct_games": 3.8
       },
       {
         "id": "BLUE-CACA-1",
         "team": "blue",
         "category": "air",
         "survival_pct": 100.0,
-        "damage_dealt_avg": 0.07,
+        "damage_dealt_avg": 0.54,
         "damage_taken_avg": 0.0,
-        "kills_avg": 0.02,
-        "shots_avg": 0.18,
-        "hit_pct": 31.5,
-        "moves_avg": 35.53
+        "kills_avg": 0.1,
+        "shots_avg": 0.88,
+        "hit_pct": 41.4,
+        "moves_avg": 23.16
       },
       {
         "id": "BLUE-CACA-2",
         "team": "blue",
         "category": "air",
         "survival_pct": 100.0,
-        "damage_dealt_avg": 0.05,
-        "damage_taken_avg": 0.0,
-        "kills_avg": 0.03,
-        "shots_avg": 0.16,
-        "hit_pct": 31.2,
-        "moves_avg": 35.53
+        "damage_dealt_avg": 0.53,
+        "damage_taken_avg": 0.03,
+        "kills_avg": 0.25,
+        "shots_avg": 0.76,
+        "hit_pct": 47.5,
+        "moves_avg": 23.16
       },
       {
         "id": "BLUE-CJAT-1",
-        "team": "blue",
-        "category": "air",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 0.12,
-        "damage_taken_avg": 0.01,
-        "kills_avg": 0.05,
-        "shots_avg": 0.13,
-        "hit_pct": 56.9,
-        "moves_avg": 35.53,
-        "ammo_pct_remaining_avg": 100.0
-      },
-      {
-        "id": "BLUE-CJAT-2",
         "team": "blue",
         "category": "air",
         "survival_pct": 98.8,
-        "damage_dealt_avg": 0.05,
-        "damage_taken_avg": 0.05,
-        "kills_avg": 0.03,
-        "shots_avg": 0.07,
-        "hit_pct": 39.3,
-        "moves_avg": 35.32,
-        "ammo_pct_remaining_avg": 100.0
-      },
-      {
-        "id": "BLUE-DCOST1",
-        "team": "blue",
-        "category": "land",
-        "survival_pct": 98.2,
-        "damage_dealt_avg": 0.03,
-        "damage_taken_avg": 0.09,
-        "kills_avg": 0.01,
-        "shots_avg": 0.06,
-        "hit_pct": 39.1,
-        "moves_avg": 18.63,
-        "ammo_pct_remaining_avg": 100.0
-      },
-      {
-        "id": "BLUE-DCOST2",
-        "team": "blue",
-        "category": "land",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 1.08,
-        "damage_taken_avg": 0.0,
-        "kills_avg": 0.51,
-        "shots_avg": 1.01,
-        "hit_pct": 65.8,
-        "moves_avg": 31.01,
-        "ammo_pct_remaining_avg": 100.0
-      },
-      {
-        "id": "BLUE-FPSO1",
-        "team": "blue",
-        "category": "surface",
-        "survival_pct": 53.8,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 4.53,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 0.0
-      },
-      {
-        "id": "BLUE-FPSO2",
-        "team": "blue",
-        "category": "surface",
-        "survival_pct": 90.8,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.87,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 0.0
-      },
-      {
-        "id": "BLUE-FPSO3",
-        "team": "blue",
-        "category": "surface",
-        "survival_pct": 72.5,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 3.12,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 0.0
-      },
-      {
-        "id": "BLUE-FPSO4",
-        "team": "blue",
-        "category": "surface",
-        "survival_pct": 52.5,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 4.4,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 0.0
-      },
-      {
-        "id": "BLUE-LOG-A",
-        "team": "blue",
-        "category": "surface",
-        "survival_pct": 95.8,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.18,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 34.56,
-        "fuel_pct_remaining_avg": 99.8,
-        "fuel_zero_pct_games": 0.0
-      },
-      {
-        "id": "BLUE-LOG-T",
-        "team": "blue",
-        "category": "surface",
-        "survival_pct": 86.8,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.6,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 32.32,
-        "fuel_pct_remaining_avg": 99.8,
-        "fuel_zero_pct_games": 0.0
-      },
-      {
-        "id": "BLUE-MPRA-1",
-        "team": "blue",
-        "category": "air",
-        "survival_pct": 99.5,
-        "damage_dealt_avg": 0.33,
-        "damage_taken_avg": 0.03,
-        "kills_avg": 0.06,
-        "shots_avg": 0.3,
-        "hit_pct": 62.5,
-        "moves_avg": 35.4,
-        "ammo_pct_remaining_avg": 100.0
-      },
-      {
-        "id": "BLUE-MPRA-2",
-        "team": "blue",
-        "category": "air",
-        "survival_pct": 98.0,
-        "damage_dealt_avg": 0.24,
-        "damage_taken_avg": 0.09,
-        "kills_avg": 0.1,
-        "shots_avg": 0.23,
-        "hit_pct": 62.6,
-        "moves_avg": 35.07,
-        "ammo_pct_remaining_avg": 100.0
-      },
-      {
-        "id": "BLUE-PAT-C1",
-        "team": "blue",
-        "category": "surface",
-        "survival_pct": 86.2,
-        "damage_dealt_avg": 0.06,
-        "damage_taken_avg": 0.55,
-        "kills_avg": 0.02,
-        "shots_avg": 0.07,
-        "hit_pct": 53.8,
-        "moves_avg": 33.23,
-        "fuel_pct_remaining_avg": 94.4,
-        "fuel_zero_pct_games": 2.5,
-        "ammo_pct_remaining_avg": 97.1
-      },
-      {
-        "id": "BLUE-PAT-C2",
-        "team": "blue",
-        "category": "surface",
-        "survival_pct": 75.5,
-        "damage_dealt_avg": 0.06,
-        "damage_taken_avg": 0.99,
-        "kills_avg": 0.01,
-        "shots_avg": 0.04,
-        "hit_pct": 66.7,
-        "moves_avg": 28.94,
-        "fuel_pct_remaining_avg": 95.1,
-        "fuel_zero_pct_games": 1.2,
-        "ammo_pct_remaining_avg": 98.2
-      },
-      {
-        "id": "BLUE-PAT-O1",
-        "team": "blue",
-        "category": "surface",
-        "survival_pct": 82.8,
         "damage_dealt_avg": 0.45,
-        "damage_taken_avg": 1.06,
-        "kills_avg": 0.06,
-        "shots_avg": 1.34,
-        "hit_pct": 31.1,
-        "moves_avg": 30.13,
-        "fuel_pct_remaining_avg": 93.1,
-        "fuel_zero_pct_games": 0.5,
-        "ammo_pct_remaining_avg": 98.4
-      },
-      {
-        "id": "BLUE-PAT-O2",
-        "team": "blue",
-        "category": "surface",
-        "survival_pct": 97.2,
-        "damage_dealt_avg": 0.17,
-        "damage_taken_avg": 0.15,
-        "kills_avg": 0.05,
-        "shots_avg": 0.35,
-        "hit_pct": 37.6,
-        "moves_avg": 35.05,
-        "fuel_pct_remaining_avg": 95.5,
-        "fuel_zero_pct_games": 0.5,
-        "ammo_pct_remaining_avg": 97.8
-      },
-      {
-        "id": "BLUE-PORTO-ACU",
-        "team": "blue",
-        "category": "land",
-        "survival_pct": 99.2,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 1.0,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 0.0
-      },
-      {
-        "id": "BLUE-PORTO-RJ",
-        "team": "blue",
-        "category": "land",
-        "survival_pct": 99.5,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 1.99,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 0.0
-      },
-      {
-        "id": "BLUE-PORTO-S",
-        "team": "blue",
-        "category": "land",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.02,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 0.0
-      },
-      {
-        "id": "BLUE-PORTO-V",
-        "team": "blue",
-        "category": "land",
-        "survival_pct": 9.2,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 16.55,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 0.0
-      },
-      {
-        "id": "BLUE-SAG-P",
-        "team": "blue",
-        "category": "surface",
-        "survival_pct": 87.8,
-        "damage_dealt_avg": 3.35,
-        "damage_taken_avg": 0.69,
-        "kills_avg": 0.77,
-        "shots_avg": 3.23,
-        "hit_pct": 59.7,
-        "moves_avg": 32.85,
-        "fuel_pct_remaining_avg": 94.4,
-        "fuel_zero_pct_games": 1.0,
-        "ammo_pct_remaining_avg": 90.1
-      },
-      {
-        "id": "BLUE-SAG-S1",
-        "team": "blue",
-        "category": "surface",
-        "survival_pct": 92.0,
-        "damage_dealt_avg": 0.43,
-        "damage_taken_avg": 0.92,
-        "kills_avg": 0.12,
-        "shots_avg": 0.73,
-        "hit_pct": 39.5,
-        "moves_avg": 34.16,
-        "fuel_pct_remaining_avg": 93.3,
-        "fuel_zero_pct_games": 1.5,
-        "ammo_pct_remaining_avg": 99.0
-      },
-      {
-        "id": "BLUE-SAG-S2",
-        "team": "blue",
-        "category": "surface",
-        "survival_pct": 89.2,
-        "damage_dealt_avg": 0.24,
-        "damage_taken_avg": 1.61,
-        "kills_avg": 0.09,
-        "shots_avg": 0.53,
-        "hit_pct": 38.5,
-        "moves_avg": 33.43,
-        "fuel_pct_remaining_avg": 93.7,
-        "fuel_zero_pct_games": 2.0,
-        "ammo_pct_remaining_avg": 99.5
-      },
-      {
-        "id": "BLUE-SUB-1",
-        "team": "blue",
-        "category": "submarine",
-        "survival_pct": 83.0,
-        "damage_dealt_avg": 0.22,
-        "damage_taken_avg": 0.56,
-        "kills_avg": 0.03,
-        "shots_avg": 0.2,
-        "hit_pct": 65.9,
-        "moves_avg": 31.89,
-        "fuel_pct_remaining_avg": 99.5,
-        "fuel_zero_pct_games": 0.0,
-        "ammo_pct_remaining_avg": 97.9
-      },
-      {
-        "id": "BLUE-SUB-2",
-        "team": "blue",
-        "category": "submarine",
-        "survival_pct": 95.2,
-        "damage_dealt_avg": 0.52,
-        "damage_taken_avg": 0.17,
-        "kills_avg": 0.17,
-        "shots_avg": 0.45,
-        "hit_pct": 65.4,
-        "moves_avg": 34.96,
-        "fuel_pct_remaining_avg": 98.6,
-        "fuel_zero_pct_games": 0.0,
-        "ammo_pct_remaining_avg": 97.9
-      },
-      {
-        "id": "BLUE-SUB-3",
-        "team": "blue",
-        "category": "submarine",
-        "survival_pct": 89.8,
-        "damage_dealt_avg": 0.26,
-        "damage_taken_avg": 0.33,
-        "kills_avg": 0.07,
-        "shots_avg": 0.26,
-        "hit_pct": 53.3,
-        "moves_avg": 33.88,
-        "fuel_pct_remaining_avg": 98.6,
-        "fuel_zero_pct_games": 0.0,
-        "ammo_pct_remaining_avg": 98.8
-      },
-      {
-        "id": "BLUE-SUB-N",
-        "team": "blue",
-        "category": "submarine",
-        "survival_pct": 96.0,
-        "damage_dealt_avg": 0.56,
-        "damage_taken_avg": 0.17,
-        "kills_avg": 0.15,
-        "shots_avg": 0.56,
-        "hit_pct": 43.7,
-        "moves_avg": 34.83,
-        "ammo_pct_remaining_avg": 99.1
-      },
-      {
-        "id": "RED-AKE",
-        "team": "red",
-        "category": "surface",
-        "survival_pct": 97.5,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.28,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 34.16,
-        "fuel_pct_remaining_avg": 100.0,
-        "fuel_zero_pct_games": 0.0
-      },
-      {
-        "id": "RED-AOR-G",
-        "team": "red",
-        "category": "surface",
-        "survival_pct": 99.5,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.01,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 35.49,
-        "fuel_pct_remaining_avg": 100.0,
-        "fuel_zero_pct_games": 0.0
-      },
-      {
-        "id": "RED-AWACS-K",
-        "team": "red",
-        "category": "air",
-        "survival_pct": 81.2,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.75,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 31.62
-      },
-      {
-        "id": "RED-GANF",
-        "team": "red",
-        "category": "surface",
-        "survival_pct": 99.8,
-        "damage_dealt_avg": 0.06,
-        "damage_taken_avg": 0.2,
-        "kills_avg": 0.01,
-        "shots_avg": 0.23,
-        "hit_pct": 25.6,
-        "moves_avg": 35.5,
-        "fuel_pct_remaining_avg": 99.0,
-        "fuel_zero_pct_games": 0.5
-      },
-      {
-        "id": "RED-GBPA",
-        "team": "red",
-        "category": "surface",
-        "survival_pct": 99.8,
-        "damage_dealt_avg": 1.58,
-        "damage_taken_avg": 0.02,
-        "kills_avg": 0.23,
-        "shots_avg": 1.72,
-        "hit_pct": 48.2,
-        "moves_avg": 34.49,
-        "ammo_pct_remaining_avg": 94.0
-      },
-      {
-        "id": "RED-GE-1",
-        "team": "red",
-        "category": "surface",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 9.79,
-        "damage_taken_avg": 0.0,
-        "kills_avg": 0.89,
-        "shots_avg": 7.21,
-        "hit_pct": 56.2,
-        "moves_avg": 35.52,
-        "fuel_pct_remaining_avg": 98.5,
-        "fuel_zero_pct_games": 0.8,
-        "ammo_pct_remaining_avg": 85.6
-      },
-      {
-        "id": "RED-GE-2",
-        "team": "red",
-        "category": "surface",
-        "survival_pct": 99.8,
-        "damage_dealt_avg": 8.91,
         "damage_taken_avg": 0.05,
-        "kills_avg": 0.82,
-        "shots_avg": 6.31,
-        "hit_pct": 56.3,
-        "moves_avg": 35.52,
-        "fuel_pct_remaining_avg": 98.5,
-        "fuel_zero_pct_games": 0.8,
-        "ammo_pct_remaining_avg": 78.5
-      },
-      {
-        "id": "RED-GE-3",
-        "team": "red",
-        "category": "surface",
-        "survival_pct": 99.2,
-        "damage_dealt_avg": 0.35,
-        "damage_taken_avg": 0.17,
-        "kills_avg": 0.07,
-        "shots_avg": 0.46,
-        "hit_pct": 41.3,
-        "moves_avg": 35.46,
-        "fuel_pct_remaining_avg": 98.2,
-        "fuel_zero_pct_games": 0.8,
-        "ammo_pct_remaining_avg": 97.8
-      },
-      {
-        "id": "RED-GLOG",
-        "team": "red",
-        "category": "surface",
-        "survival_pct": 99.5,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.04,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 34.48,
-        "fuel_pct_remaining_avg": 100.0,
-        "fuel_zero_pct_games": 0.0
-      },
-      {
-        "id": "RED-KMF-1",
-        "team": "red",
-        "category": "air",
-        "survival_pct": 99.8,
-        "damage_dealt_avg": 0.39,
-        "damage_taken_avg": 0.01,
-        "kills_avg": 0.06,
-        "shots_avg": 0.48,
-        "hit_pct": 39.7,
-        "moves_avg": 35.49
-      },
-      {
-        "id": "RED-KMF-2",
-        "team": "red",
-        "category": "air",
-        "survival_pct": 99.8,
-        "damage_dealt_avg": 0.35,
-        "damage_taken_avg": 0.07,
-        "kills_avg": 0.06,
-        "shots_avg": 0.41,
-        "hit_pct": 40.2,
-        "moves_avg": 35.49
-      },
-      {
-        "id": "RED-KS-1",
-        "team": "red",
-        "category": "submarine",
-        "survival_pct": 18.5,
-        "damage_dealt_avg": 6.86,
-        "damage_taken_avg": 2.72,
-        "kills_avg": 0.68,
-        "shots_avg": 4.29,
-        "hit_pct": 51.7,
-        "moves_avg": 7.26,
-        "fuel_pct_remaining_avg": 60.7,
-        "fuel_zero_pct_games": 19.5,
-        "ammo_pct_remaining_avg": 58.9
-      },
-      {
-        "id": "RED-KSN",
-        "team": "red",
-        "category": "submarine",
-        "survival_pct": 98.0,
-        "damage_dealt_avg": 8.04,
-        "damage_taken_avg": 0.13,
-        "kills_avg": 0.48,
-        "shots_avg": 5.95,
-        "hit_pct": 60.6,
-        "moves_avg": 35.24,
-        "ammo_pct_remaining_avg": 79.8
-      },
-      {
-        "id": "RED-MPRA-K1",
-        "team": "red",
-        "category": "air",
-        "survival_pct": 96.5,
-        "damage_dealt_avg": 2.33,
-        "damage_taken_avg": 0.08,
-        "kills_avg": 0.18,
-        "shots_avg": 1.57,
-        "hit_pct": 47.1,
-        "moves_avg": 35.2,
-        "ammo_pct_remaining_avg": 100.0
-      },
-      {
-        "id": "RED-MPRA-K2",
-        "team": "red",
-        "category": "air",
-        "survival_pct": 89.2,
-        "damage_dealt_avg": 2.16,
-        "damage_taken_avg": 0.3,
-        "kills_avg": 0.29,
-        "shots_avg": 1.31,
-        "hit_pct": 48.6,
-        "moves_avg": 33.67,
-        "ammo_pct_remaining_avg": 100.0
-      },
-      {
-        "id": "RED-OPSESP-1",
-        "team": "red",
-        "category": "surface",
-        "survival_pct": 59.0,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 1.38,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": 100.0,
-        "moves_avg": 0.0,
-        "ammo_pct_remaining_avg": 99.9
-      },
-      {
-        "id": "RED-OPSESP-2",
-        "team": "red",
-        "category": "surface",
-        "survival_pct": 0.2,
-        "damage_dealt_avg": 0.5,
-        "damage_taken_avg": 2.99,
-        "kills_avg": 0.04,
-        "shots_avg": 0.42,
-        "hit_pct": 62.1,
-        "moves_avg": 0.0,
-        "ammo_pct_remaining_avg": 86.3
-      }
-    ]
-  },
-  "nn_victory": {
-    "games": 15,
-    "win_rate": {
-      "red": 100.0
-    },
-    "win_reason": {
-      "victory": 100.0
-    },
-    "avg_turns": 12.13,
-    "team_avg_damage_dealt": {
-      "blue": 17.4,
-      "red": 78.2
-    },
-    "team_avg_units_lost": {
-      "blue": 8.0,
-      "red": 4.07
-    },
-    "units": [
-      {
-        "id": "BLUE-ADA-1",
-        "team": "blue",
-        "category": "land",
-        "survival_pct": 80.0,
-        "damage_dealt_avg": 0.07,
-        "damage_taken_avg": 0.6,
-        "kills_avg": 0.0,
-        "shots_avg": 1.53,
-        "hit_pct": 4.3,
-        "moves_avg": 12.27
-      },
-      {
-        "id": "BLUE-ADA-2",
-        "team": "blue",
-        "category": "land",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.0,
-        "kills_avg": 0.0,
-        "shots_avg": 0.4,
-        "hit_pct": 0.0,
-        "moves_avg": 20.53
-      },
-      {
-        "id": "BLUE-AERO-CF",
-        "team": "blue",
-        "category": "land",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.07,
-        "kills_avg": 0.0,
-        "shots_avg": 0.07,
-        "hit_pct": 0.0,
-        "moves_avg": 0.0
-      },
-      {
-        "id": "BLUE-AERO-RJ",
-        "team": "blue",
-        "category": "land",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.0,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 0.0
-      },
-      {
-        "id": "BLUE-AERO-SP",
-        "team": "blue",
-        "category": "land",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.0,
-        "kills_avg": 0.0,
-        "shots_avg": 0.0,
-        "hit_pct": null,
-        "moves_avg": 0.0
-      },
-      {
-        "id": "BLUE-ANFIB",
-        "team": "blue",
-        "category": "surface",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 1.13,
-        "damage_taken_avg": 0.0,
-        "kills_avg": 0.33,
-        "shots_avg": 3.33,
-        "hit_pct": 24.0,
-        "moves_avg": 23.47,
-        "fuel_pct_remaining_avg": 97.5,
-        "fuel_zero_pct_games": 0.0
-      },
-      {
-        "id": "BLUE-CACA-1",
-        "team": "blue",
-        "category": "air",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 0.07,
-        "damage_taken_avg": 0.0,
-        "kills_avg": 0.0,
-        "shots_avg": 0.33,
-        "hit_pct": 20.0,
-        "moves_avg": 23.47
-      },
-      {
-        "id": "BLUE-CACA-2",
-        "team": "blue",
-        "category": "air",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 0.2,
-        "damage_taken_avg": 0.0,
-        "kills_avg": 0.13,
-        "shots_avg": 0.33,
-        "hit_pct": 60.0,
-        "moves_avg": 23.47
-      },
-      {
-        "id": "BLUE-CJAT-1",
-        "team": "blue",
-        "category": "air",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 0.33,
-        "damage_taken_avg": 0.07,
-        "kills_avg": 0.13,
-        "shots_avg": 0.33,
-        "hit_pct": 60.0,
-        "moves_avg": 23.47,
-        "ammo_pct_remaining_avg": 100.0
+        "kills_avg": 0.15,
+        "shots_avg": 0.45,
+        "hit_pct": 50.0,
+        "moves_avg": 23.14,
+        "ammo_pct_remaining_avg": 99.8
       },
       {
         "id": "BLUE-CJAT-2",
         "team": "blue",
         "category": "air",
-        "survival_pct": 93.3,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.47,
-        "kills_avg": 0.0,
-        "shots_avg": 0.13,
-        "hit_pct": 0.0,
-        "moves_avg": 23.07,
+        "survival_pct": 90.0,
+        "damage_dealt_avg": 0.21,
+        "damage_taken_avg": 0.41,
+        "kills_avg": 0.07,
+        "shots_avg": 0.28,
+        "hit_pct": 40.9,
+        "moves_avg": 22.62,
         "ammo_pct_remaining_avg": 100.0
       },
       {
         "id": "BLUE-DCOST1",
         "team": "blue",
         "category": "land",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 0.53,
-        "damage_taken_avg": 0.07,
-        "kills_avg": 0.07,
-        "shots_avg": 0.93,
-        "hit_pct": 28.6,
-        "moves_avg": 13.13,
-        "ammo_pct_remaining_avg": 100.0
+        "survival_pct": 42.5,
+        "damage_dealt_avg": 0.23,
+        "damage_taken_avg": 2.16,
+        "kills_avg": 0.01,
+        "shots_avg": 0.3,
+        "hit_pct": 54.2,
+        "moves_avg": 9.6,
+        "ammo_pct_remaining_avg": 99.9
       },
       {
         "id": "BLUE-DCOST2",
         "team": "blue",
         "category": "land",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 0.8,
-        "damage_taken_avg": 0.0,
-        "kills_avg": 0.53,
-        "shots_avg": 1.13,
-        "hit_pct": 70.6,
-        "moves_avg": 20.53,
+        "survival_pct": 98.8,
+        "damage_dealt_avg": 1.11,
+        "damage_taken_avg": 0.03,
+        "kills_avg": 0.41,
+        "shots_avg": 0.85,
+        "hit_pct": 67.6,
+        "moves_avg": 19.46,
         "ammo_pct_remaining_avg": 100.0
       },
       {
@@ -888,7 +889,7 @@
         "category": "surface",
         "survival_pct": 0.0,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 7.13,
+        "damage_taken_avg": 7.49,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
@@ -898,9 +899,9 @@
         "id": "BLUE-FPSO2",
         "team": "blue",
         "category": "surface",
-        "survival_pct": 6.7,
+        "survival_pct": 11.2,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 7.4,
+        "damage_taken_avg": 6.47,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
@@ -910,9 +911,9 @@
         "id": "BLUE-FPSO3",
         "team": "blue",
         "category": "surface",
-        "survival_pct": 13.3,
+        "survival_pct": 38.8,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 6.67,
+        "damage_taken_avg": 4.78,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
@@ -922,9 +923,9 @@
         "id": "BLUE-FPSO4",
         "team": "blue",
         "category": "surface",
-        "survival_pct": 26.7,
+        "survival_pct": 36.2,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 5.93,
+        "damage_taken_avg": 5.71,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
@@ -934,13 +935,13 @@
         "id": "BLUE-LOG-A",
         "team": "blue",
         "category": "surface",
-        "survival_pct": 93.3,
+        "survival_pct": 82.5,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.27,
+        "damage_taken_avg": 0.95,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
-        "moves_avg": 23.33,
+        "moves_avg": 20.75,
         "fuel_pct_remaining_avg": 99.8,
         "fuel_zero_pct_games": 0.0
       },
@@ -948,109 +949,109 @@
         "id": "BLUE-LOG-T",
         "team": "blue",
         "category": "surface",
-        "survival_pct": 73.3,
+        "survival_pct": 43.8,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 1.4,
+        "damage_taken_avg": 2.51,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
-        "moves_avg": 20.13,
-        "fuel_pct_remaining_avg": 99.8,
+        "moves_avg": 13.14,
+        "fuel_pct_remaining_avg": 99.9,
         "fuel_zero_pct_games": 0.0
       },
       {
         "id": "BLUE-MPRA-1",
         "team": "blue",
         "category": "air",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 0.47,
-        "damage_taken_avg": 0.0,
-        "kills_avg": 0.07,
-        "shots_avg": 0.47,
-        "hit_pct": 57.1,
-        "moves_avg": 23.47,
-        "ammo_pct_remaining_avg": 100.0
+        "survival_pct": 77.5,
+        "damage_dealt_avg": 0.93,
+        "damage_taken_avg": 0.68,
+        "kills_avg": 0.17,
+        "shots_avg": 0.86,
+        "hit_pct": 49.3,
+        "moves_avg": 21.18,
+        "ammo_pct_remaining_avg": 98.7
       },
       {
         "id": "BLUE-MPRA-2",
         "team": "blue",
         "category": "air",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 0.53,
-        "damage_taken_avg": 0.13,
-        "kills_avg": 0.07,
-        "shots_avg": 0.33,
-        "hit_pct": 80.0,
-        "moves_avg": 23.47,
-        "ammo_pct_remaining_avg": 100.0
+        "survival_pct": 55.0,
+        "damage_dealt_avg": 0.21,
+        "damage_taken_avg": 1.31,
+        "kills_avg": 0.04,
+        "shots_avg": 0.42,
+        "hit_pct": 32.4,
+        "moves_avg": 15.8,
+        "ammo_pct_remaining_avg": 98.7
       },
       {
         "id": "BLUE-PAT-C1",
         "team": "blue",
         "category": "surface",
-        "survival_pct": 80.0,
-        "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.6,
+        "survival_pct": 72.5,
+        "damage_dealt_avg": 0.31,
+        "damage_taken_avg": 1.21,
         "kills_avg": 0.0,
-        "shots_avg": 0.2,
-        "hit_pct": 0.0,
-        "moves_avg": 22.67,
-        "fuel_pct_remaining_avg": 92.2,
-        "fuel_zero_pct_games": 0.0,
-        "ammo_pct_remaining_avg": 90.0
+        "shots_avg": 0.33,
+        "hit_pct": 65.4,
+        "moves_avg": 20.24,
+        "fuel_pct_remaining_avg": 80.6,
+        "fuel_zero_pct_games": 12.5,
+        "ammo_pct_remaining_avg": 84.4
       },
       {
         "id": "BLUE-PAT-C2",
         "team": "blue",
         "category": "surface",
-        "survival_pct": 46.7,
-        "damage_dealt_avg": 0.13,
-        "damage_taken_avg": 2.13,
-        "kills_avg": 0.0,
-        "shots_avg": 0.2,
-        "hit_pct": 66.7,
-        "moves_avg": 14.8,
-        "fuel_pct_remaining_avg": 90.0,
-        "fuel_zero_pct_games": 0.0,
-        "ammo_pct_remaining_avg": 90.0
+        "survival_pct": 58.8,
+        "damage_dealt_avg": 0.2,
+        "damage_taken_avg": 1.7,
+        "kills_avg": 0.03,
+        "shots_avg": 0.24,
+        "hit_pct": 57.9,
+        "moves_avg": 18.49,
+        "fuel_pct_remaining_avg": 84.8,
+        "fuel_zero_pct_games": 8.8,
+        "ammo_pct_remaining_avg": 88.1
       },
       {
         "id": "BLUE-PAT-O1",
         "team": "blue",
         "category": "surface",
-        "survival_pct": 86.7,
-        "damage_dealt_avg": 0.73,
-        "damage_taken_avg": 0.8,
-        "kills_avg": 0.07,
-        "shots_avg": 2.47,
-        "hit_pct": 27.0,
-        "moves_avg": 22.0,
-        "fuel_pct_remaining_avg": 90.7,
-        "fuel_zero_pct_games": 0.0,
-        "ammo_pct_remaining_avg": 86.7
+        "survival_pct": 88.8,
+        "damage_dealt_avg": 1.15,
+        "damage_taken_avg": 0.74,
+        "kills_avg": 0.31,
+        "shots_avg": 1.64,
+        "hit_pct": 48.9,
+        "moves_avg": 20.49,
+        "fuel_pct_remaining_avg": 84.0,
+        "fuel_zero_pct_games": 5.0,
+        "ammo_pct_remaining_avg": 77.2
       },
       {
         "id": "BLUE-PAT-O2",
         "team": "blue",
         "category": "surface",
-        "survival_pct": 93.3,
-        "damage_dealt_avg": 0.8,
-        "damage_taken_avg": 0.33,
-        "kills_avg": 0.13,
-        "shots_avg": 1.53,
-        "hit_pct": 52.2,
-        "moves_avg": 22.93,
-        "fuel_pct_remaining_avg": 92.7,
-        "fuel_zero_pct_games": 0.0,
-        "ammo_pct_remaining_avg": 83.3
+        "survival_pct": 81.2,
+        "damage_dealt_avg": 0.85,
+        "damage_taken_avg": 1.06,
+        "kills_avg": 0.17,
+        "shots_avg": 1.35,
+        "hit_pct": 41.7,
+        "moves_avg": 21.01,
+        "fuel_pct_remaining_avg": 83.4,
+        "fuel_zero_pct_games": 5.0,
+        "ammo_pct_remaining_avg": 81.6
       },
       {
         "id": "BLUE-PORTO-ACU",
         "team": "blue",
         "category": "land",
-        "survival_pct": 86.7,
+        "survival_pct": 60.0,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 5.93,
+        "damage_taken_avg": 8.1,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
@@ -1060,9 +1061,9 @@
         "id": "BLUE-PORTO-RJ",
         "team": "blue",
         "category": "land",
-        "survival_pct": 93.3,
+        "survival_pct": 97.5,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 8.53,
+        "damage_taken_avg": 5.74,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
@@ -1074,7 +1075,7 @@
         "category": "land",
         "survival_pct": 100.0,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.53,
+        "damage_taken_avg": 0.14,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
@@ -1084,9 +1085,9 @@
         "id": "BLUE-PORTO-V",
         "team": "blue",
         "category": "land",
-        "survival_pct": 6.7,
+        "survival_pct": 0.0,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 16.67,
+        "damage_taken_avg": 17.25,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
@@ -1096,116 +1097,116 @@
         "id": "BLUE-SAG-P",
         "team": "blue",
         "category": "surface",
-        "survival_pct": 73.3,
-        "damage_dealt_avg": 5.27,
-        "damage_taken_avg": 1.2,
-        "kills_avg": 1.33,
-        "shots_avg": 6.4,
-        "hit_pct": 53.1,
-        "moves_avg": 19.87,
-        "fuel_pct_remaining_avg": 92.8,
-        "fuel_zero_pct_games": 0.0,
-        "ammo_pct_remaining_avg": 86.2
+        "survival_pct": 92.5,
+        "damage_dealt_avg": 4.46,
+        "damage_taken_avg": 0.38,
+        "kills_avg": 0.59,
+        "shots_avg": 5.46,
+        "hit_pct": 56.1,
+        "moves_avg": 20.95,
+        "fuel_pct_remaining_avg": 86.0,
+        "fuel_zero_pct_games": 2.5,
+        "ammo_pct_remaining_avg": 82.2
       },
       {
         "id": "BLUE-SAG-S1",
         "team": "blue",
         "category": "surface",
-        "survival_pct": 73.3,
-        "damage_dealt_avg": 1.33,
-        "damage_taken_avg": 3.4,
-        "kills_avg": 0.4,
-        "shots_avg": 2.6,
-        "hit_pct": 38.5,
-        "moves_avg": 19.73,
-        "fuel_pct_remaining_avg": 88.0,
-        "fuel_zero_pct_games": 0.0,
-        "ammo_pct_remaining_avg": 95.9
+        "survival_pct": 91.2,
+        "damage_dealt_avg": 2.44,
+        "damage_taken_avg": 1.1,
+        "kills_avg": 0.53,
+        "shots_avg": 3.27,
+        "hit_pct": 52.7,
+        "moves_avg": 22.04,
+        "fuel_pct_remaining_avg": 82.9,
+        "fuel_zero_pct_games": 1.2,
+        "ammo_pct_remaining_avg": 90.6
       },
       {
         "id": "BLUE-SAG-S2",
         "team": "blue",
         "category": "surface",
-        "survival_pct": 66.7,
-        "damage_dealt_avg": 0.93,
-        "damage_taken_avg": 4.73,
-        "kills_avg": 0.13,
-        "shots_avg": 1.73,
-        "hit_pct": 34.6,
-        "moves_avg": 17.6,
-        "fuel_pct_remaining_avg": 89.3,
-        "fuel_zero_pct_games": 0.0,
-        "ammo_pct_remaining_avg": 98.1
+        "survival_pct": 80.0,
+        "damage_dealt_avg": 1.98,
+        "damage_taken_avg": 2.91,
+        "kills_avg": 0.4,
+        "shots_avg": 2.48,
+        "hit_pct": 46.0,
+        "moves_avg": 20.54,
+        "fuel_pct_remaining_avg": 85.7,
+        "fuel_zero_pct_games": 1.2,
+        "ammo_pct_remaining_avg": 94.7
       },
       {
         "id": "BLUE-SUB-1",
         "team": "blue",
         "category": "submarine",
-        "survival_pct": 73.3,
-        "damage_dealt_avg": 1.33,
-        "damage_taken_avg": 0.87,
-        "kills_avg": 0.07,
-        "shots_avg": 1.4,
-        "hit_pct": 57.1,
-        "moves_avg": 20.8,
-        "fuel_pct_remaining_avg": 100.0,
+        "survival_pct": 28.8,
+        "damage_dealt_avg": 1.23,
+        "damage_taken_avg": 2.35,
+        "kills_avg": 0.23,
+        "shots_avg": 1.02,
+        "hit_pct": 69.5,
+        "moves_avg": 10.88,
+        "fuel_pct_remaining_avg": 99.6,
         "fuel_zero_pct_games": 0.0,
-        "ammo_pct_remaining_avg": 85.8
+        "ammo_pct_remaining_avg": 88.0
       },
       {
         "id": "BLUE-SUB-2",
         "team": "blue",
         "category": "submarine",
-        "survival_pct": 86.7,
-        "damage_dealt_avg": 1.87,
-        "damage_taken_avg": 0.47,
-        "kills_avg": 0.53,
-        "shots_avg": 1.6,
-        "hit_pct": 62.5,
-        "moves_avg": 22.33,
-        "fuel_pct_remaining_avg": 99.7,
+        "survival_pct": 83.8,
+        "damage_dealt_avg": 1.11,
+        "damage_taken_avg": 0.46,
+        "kills_avg": 0.19,
+        "shots_avg": 1.07,
+        "hit_pct": 58.1,
+        "moves_avg": 21.76,
+        "fuel_pct_remaining_avg": 94.8,
         "fuel_zero_pct_games": 0.0,
-        "ammo_pct_remaining_avg": 85.8
+        "ammo_pct_remaining_avg": 88.9
       },
       {
         "id": "BLUE-SUB-3",
         "team": "blue",
         "category": "submarine",
-        "survival_pct": 53.3,
-        "damage_dealt_avg": 0.33,
-        "damage_taken_avg": 1.6,
-        "kills_avg": 0.0,
-        "shots_avg": 0.8,
-        "hit_pct": 41.7,
-        "moves_avg": 19.13,
-        "fuel_pct_remaining_avg": 99.7,
+        "survival_pct": 76.2,
+        "damage_dealt_avg": 0.81,
+        "damage_taken_avg": 0.85,
+        "kills_avg": 0.12,
+        "shots_avg": 0.71,
+        "hit_pct": 61.4,
+        "moves_avg": 21.04,
+        "fuel_pct_remaining_avg": 93.5,
         "fuel_zero_pct_games": 0.0,
-        "ammo_pct_remaining_avg": 94.2
+        "ammo_pct_remaining_avg": 92.8
       },
       {
         "id": "BLUE-SUB-N",
         "team": "blue",
         "category": "submarine",
-        "survival_pct": 93.3,
-        "damage_dealt_avg": 0.53,
-        "damage_taken_avg": 0.2,
-        "kills_avg": 0.07,
-        "shots_avg": 1.53,
-        "hit_pct": 30.4,
-        "moves_avg": 22.87,
-        "ammo_pct_remaining_avg": 93.7
+        "survival_pct": 80.0,
+        "damage_dealt_avg": 4.12,
+        "damage_taken_avg": 1.05,
+        "kills_avg": 0.86,
+        "shots_avg": 3.21,
+        "hit_pct": 46.7,
+        "moves_avg": 20.48,
+        "ammo_pct_remaining_avg": 88.3
       },
       {
         "id": "RED-AKE",
         "team": "red",
         "category": "surface",
-        "survival_pct": 93.3,
+        "survival_pct": 45.0,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 1.13,
+        "damage_taken_avg": 3.92,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
-        "moves_avg": 22.47,
+        "moves_avg": 19.32,
         "fuel_pct_remaining_avg": 100.0,
         "fuel_zero_pct_games": 0.0
       },
@@ -1213,199 +1214,199 @@
         "id": "RED-AOR-G",
         "team": "red",
         "category": "surface",
-        "survival_pct": 100.0,
+        "survival_pct": 86.2,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.0,
+        "damage_taken_avg": 0.56,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
-        "moves_avg": 23.47,
-        "fuel_pct_remaining_avg": 100.0,
+        "moves_avg": 22.71,
+        "fuel_pct_remaining_avg": 99.7,
         "fuel_zero_pct_games": 0.0
       },
       {
         "id": "RED-AWACS-K",
         "team": "red",
         "category": "air",
-        "survival_pct": 53.3,
+        "survival_pct": 42.5,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 1.27,
+        "damage_taken_avg": 1.44,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
-        "moves_avg": 19.33
+        "moves_avg": 17.31
       },
       {
         "id": "RED-GANF",
         "team": "red",
         "category": "surface",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 0.27,
-        "damage_taken_avg": 1.4,
+        "survival_pct": 88.8,
+        "damage_dealt_avg": 0.34,
+        "damage_taken_avg": 2.79,
         "kills_avg": 0.07,
-        "shots_avg": 0.87,
-        "hit_pct": 30.8,
-        "moves_avg": 23.47,
-        "fuel_pct_remaining_avg": 92.7,
-        "fuel_zero_pct_games": 0.0
+        "shots_avg": 1.57,
+        "hit_pct": 21.4,
+        "moves_avg": 22.55,
+        "fuel_pct_remaining_avg": 79.6,
+        "fuel_zero_pct_games": 10.0
       },
       {
         "id": "RED-GBPA",
         "team": "red",
         "category": "surface",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 6.27,
-        "damage_taken_avg": 0.0,
-        "kills_avg": 0.93,
-        "shots_avg": 6.07,
-        "hit_pct": 52.7,
-        "moves_avg": 22.47,
-        "ammo_pct_remaining_avg": 71.3
+        "survival_pct": 98.8,
+        "damage_dealt_avg": 6.96,
+        "damage_taken_avg": 0.12,
+        "kills_avg": 0.91,
+        "shots_avg": 7.12,
+        "hit_pct": 49.5,
+        "moves_avg": 23.16,
+        "ammo_pct_remaining_avg": 71.7
       },
       {
         "id": "RED-GE-1",
         "team": "red",
         "category": "surface",
         "survival_pct": 100.0,
-        "damage_dealt_avg": 16.73,
-        "damage_taken_avg": 0.0,
-        "kills_avg": 1.33,
-        "shots_avg": 11.93,
-        "hit_pct": 56.4,
-        "moves_avg": 23.27,
-        "fuel_pct_remaining_avg": 82.8,
-        "fuel_zero_pct_games": 6.7,
-        "ammo_pct_remaining_avg": 75.7
+        "damage_dealt_avg": 25.8,
+        "damage_taken_avg": 0.12,
+        "kills_avg": 2.98,
+        "shots_avg": 16.44,
+        "hit_pct": 55.1,
+        "moves_avg": 22.85,
+        "fuel_pct_remaining_avg": 77.6,
+        "fuel_zero_pct_games": 5.0,
+        "ammo_pct_remaining_avg": 69.1
       },
       {
         "id": "RED-GE-2",
         "team": "red",
         "category": "surface",
-        "survival_pct": 93.3,
-        "damage_dealt_avg": 18.47,
-        "damage_taken_avg": 1.4,
-        "kills_avg": 1.8,
-        "shots_avg": 10.53,
-        "hit_pct": 62.0,
-        "moves_avg": 23.27,
-        "fuel_pct_remaining_avg": 82.8,
-        "fuel_zero_pct_games": 6.7,
-        "ammo_pct_remaining_avg": 63.6
+        "survival_pct": 98.8,
+        "damage_dealt_avg": 18.59,
+        "damage_taken_avg": 0.28,
+        "kills_avg": 2.27,
+        "shots_avg": 13.43,
+        "hit_pct": 52.4,
+        "moves_avg": 22.81,
+        "fuel_pct_remaining_avg": 78.9,
+        "fuel_zero_pct_games": 3.8,
+        "ammo_pct_remaining_avg": 59.6
       },
       {
         "id": "RED-GE-3",
         "team": "red",
         "category": "surface",
-        "survival_pct": 86.7,
-        "damage_dealt_avg": 1.93,
-        "damage_taken_avg": 1.8,
-        "kills_avg": 0.33,
-        "shots_avg": 2.47,
-        "hit_pct": 43.2,
-        "moves_avg": 22.67,
-        "fuel_pct_remaining_avg": 80.7,
-        "fuel_zero_pct_games": 6.7,
-        "ammo_pct_remaining_avg": 88.9
+        "survival_pct": 95.0,
+        "damage_dealt_avg": 1.54,
+        "damage_taken_avg": 0.96,
+        "kills_avg": 0.39,
+        "shots_avg": 2.23,
+        "hit_pct": 51.7,
+        "moves_avg": 22.61,
+        "fuel_pct_remaining_avg": 75.8,
+        "fuel_zero_pct_games": 7.5,
+        "ammo_pct_remaining_avg": 91.1
       },
       {
         "id": "RED-GLOG",
         "team": "red",
         "category": "surface",
-        "survival_pct": 100.0,
+        "survival_pct": 68.8,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 0.0,
+        "damage_taken_avg": 2.64,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
-        "moves_avg": 22.47,
-        "fuel_pct_remaining_avg": 100.0,
+        "moves_avg": 21.76,
+        "fuel_pct_remaining_avg": 99.9,
         "fuel_zero_pct_games": 0.0
       },
       {
         "id": "RED-KMF-1",
         "team": "red",
         "category": "air",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 1.53,
-        "damage_taken_avg": 0.0,
-        "kills_avg": 0.27,
-        "shots_avg": 2.2,
-        "hit_pct": 24.2,
-        "moves_avg": 23.47
+        "survival_pct": 98.8,
+        "damage_dealt_avg": 1.77,
+        "damage_taken_avg": 0.03,
+        "kills_avg": 0.39,
+        "shots_avg": 2.58,
+        "hit_pct": 38.8,
+        "moves_avg": 23.16
       },
       {
         "id": "RED-KMF-2",
         "team": "red",
         "category": "air",
-        "survival_pct": 100.0,
-        "damage_dealt_avg": 1.87,
-        "damage_taken_avg": 0.53,
-        "kills_avg": 0.33,
-        "shots_avg": 1.87,
-        "hit_pct": 53.6,
-        "moves_avg": 23.47
+        "survival_pct": 98.8,
+        "damage_dealt_avg": 1.77,
+        "damage_taken_avg": 0.36,
+        "kills_avg": 0.51,
+        "shots_avg": 2.15,
+        "hit_pct": 42.4,
+        "moves_avg": 23.16
       },
       {
         "id": "RED-KS-1",
         "team": "red",
         "category": "submarine",
-        "survival_pct": 6.7,
-        "damage_dealt_avg": 7.47,
-        "damage_taken_avg": 2.67,
-        "kills_avg": 0.67,
-        "shots_avg": 3.47,
-        "hit_pct": 61.5,
-        "moves_avg": 6.73,
-        "fuel_pct_remaining_avg": 74.7,
-        "fuel_zero_pct_games": 6.7,
-        "ammo_pct_remaining_avg": 67.3
+        "survival_pct": 36.2,
+        "damage_dealt_avg": 6.61,
+        "damage_taken_avg": 2.11,
+        "kills_avg": 0.65,
+        "shots_avg": 3.77,
+        "hit_pct": 53.3,
+        "moves_avg": 11.9,
+        "fuel_pct_remaining_avg": 47.6,
+        "fuel_zero_pct_games": 35.0,
+        "ammo_pct_remaining_avg": 62.4
       },
       {
         "id": "RED-KSN",
         "team": "red",
         "category": "submarine",
-        "survival_pct": 86.7,
-        "damage_dealt_avg": 14.8,
-        "damage_taken_avg": 1.0,
-        "kills_avg": 0.87,
-        "shots_avg": 8.27,
-        "hit_pct": 60.5,
-        "moves_avg": 22.27,
-        "ammo_pct_remaining_avg": 71.7
+        "survival_pct": 81.2,
+        "damage_dealt_avg": 13.84,
+        "damage_taken_avg": 0.96,
+        "kills_avg": 1.3,
+        "shots_avg": 11.55,
+        "hit_pct": 47.2,
+        "moves_avg": 22.54,
+        "ammo_pct_remaining_avg": 69.9
       },
       {
         "id": "RED-MPRA-K1",
         "team": "red",
         "category": "air",
-        "survival_pct": 93.3,
-        "damage_dealt_avg": 4.27,
-        "damage_taken_avg": 0.13,
-        "kills_avg": 0.47,
-        "shots_avg": 2.67,
-        "hit_pct": 55.0,
-        "moves_avg": 23.27,
+        "survival_pct": 83.8,
+        "damage_dealt_avg": 2.51,
+        "damage_taken_avg": 0.39,
+        "kills_avg": 0.42,
+        "shots_avg": 1.55,
+        "hit_pct": 46.8,
+        "moves_avg": 22.65,
         "ammo_pct_remaining_avg": 100.0
       },
       {
         "id": "RED-MPRA-K2",
         "team": "red",
         "category": "air",
-        "survival_pct": 73.3,
-        "damage_dealt_avg": 3.87,
-        "damage_taken_avg": 0.6,
-        "kills_avg": 0.73,
-        "shots_avg": 2.07,
-        "hit_pct": 45.2,
-        "moves_avg": 22.13,
+        "survival_pct": 70.0,
+        "damage_dealt_avg": 1.18,
+        "damage_taken_avg": 0.94,
+        "kills_avg": 0.2,
+        "shots_avg": 0.88,
+        "hit_pct": 34.3,
+        "moves_avg": 21.2,
         "ammo_pct_remaining_avg": 100.0
       },
       {
         "id": "RED-OPSESP-1",
         "team": "red",
         "category": "surface",
-        "survival_pct": 6.7,
+        "survival_pct": 6.2,
         "damage_dealt_avg": 0.0,
-        "damage_taken_avg": 2.93,
+        "damage_taken_avg": 3.0,
         "kills_avg": 0.0,
         "shots_avg": 0.0,
         "hit_pct": null,
@@ -1416,239 +1417,239 @@
         "id": "RED-OPSESP-2",
         "team": "red",
         "category": "surface",
-        "survival_pct": 0.0,
-        "damage_dealt_avg": 0.73,
-        "damage_taken_avg": 2.53,
-        "kills_avg": 0.2,
-        "shots_avg": 0.53,
+        "survival_pct": 3.8,
+        "damage_dealt_avg": 0.2,
+        "damage_taken_avg": 3.59,
+        "kills_avg": 0.04,
+        "shots_avg": 0.1,
         "hit_pct": 75.0,
         "moves_avg": 0.0,
-        "ammo_pct_remaining_avg": 82.2
+        "ammo_pct_remaining_avg": 96.7
       }
     ]
   },
   "heuristic_all": {
     "n": 400,
     "win_rate": {
-      "blue": 82.0,
-      "red": 18.0
+      "red": 22.2,
+      "blue": 77.8
     },
     "win_reason": {
-      "victory": 44.2,
-      "timeout": 55.8
+      "victory": 46.0,
+      "timeout": 54.0
     },
-    "avg_turns": 13.23,
+    "avg_turns": 12.91,
     "avg_units_lost": {
-      "blue": 4.9,
-      "red": 6.21
+      "blue": 4.58,
+      "red": 6.14
     },
     "avg_dmg_taken": {
-      "blue": 50.1,
-      "red": 31.82
+      "blue": 49.12,
+      "red": 30.96
     },
     "doctrine_effect": {
       "blue": {
         "formation": {
           "concentrated": {
             "n": 194,
-            "win_rate_pct": 78.4
+            "win_rate_pct": 75.3
           },
           "dispersed": {
             "n": 206,
-            "win_rate_pct": 85.4
+            "win_rate_pct": 80.1
           }
         },
         "posture": {
           "defensive": {
-            "n": 202,
-            "win_rate_pct": 81.2
+            "n": 199,
+            "win_rate_pct": 72.4
           },
           "offensive": {
-            "n": 198,
-            "win_rate_pct": 82.8
+            "n": 201,
+            "win_rate_pct": 83.1
           }
         },
         "engagement": {
           "sequential": {
-            "n": 181,
-            "win_rate_pct": 75.1
+            "n": 195,
+            "win_rate_pct": 75.4
           },
           "simultaneous": {
-            "n": 219,
-            "win_rate_pct": 87.7
+            "n": 205,
+            "win_rate_pct": 80.0
           }
         },
         "fuel_policy": {
           "anchor": {
-            "n": 135,
-            "win_rate_pct": 77.8
+            "n": 144,
+            "win_rate_pct": 79.9
           },
           "economize": {
-            "n": 133,
-            "win_rate_pct": 83.5
+            "n": 112,
+            "win_rate_pct": 77.7
           },
           "escort": {
-            "n": 132,
-            "win_rate_pct": 84.8
+            "n": 144,
+            "win_rate_pct": 75.7
           }
         }
       },
       "red": {
         "formation": {
           "concentrated": {
-            "n": 212,
-            "win_rate_pct": 17.5
+            "n": 211,
+            "win_rate_pct": 22.3
           },
           "dispersed": {
-            "n": 188,
-            "win_rate_pct": 18.6
+            "n": 189,
+            "win_rate_pct": 22.2
           }
         },
         "posture": {
           "defensive": {
-            "n": 195,
-            "win_rate_pct": 21.0
+            "n": 180,
+            "win_rate_pct": 22.8
           },
           "offensive": {
-            "n": 205,
-            "win_rate_pct": 15.1
+            "n": 220,
+            "win_rate_pct": 21.8
           }
         },
         "engagement": {
           "sequential": {
-            "n": 193,
-            "win_rate_pct": 20.2
+            "n": 194,
+            "win_rate_pct": 21.6
           },
           "simultaneous": {
-            "n": 207,
-            "win_rate_pct": 15.9
+            "n": 206,
+            "win_rate_pct": 22.8
           }
         },
         "fuel_policy": {
           "anchor": {
-            "n": 128,
-            "win_rate_pct": 21.1
+            "n": 147,
+            "win_rate_pct": 22.4
           },
           "economize": {
-            "n": 135,
-            "win_rate_pct": 23.7
+            "n": 141,
+            "win_rate_pct": 17.0
           },
           "escort": {
-            "n": 137,
-            "win_rate_pct": 9.5
+            "n": 112,
+            "win_rate_pct": 28.6
           }
         }
       }
     }
   },
   "heuristic_victory": {
-    "n": 177,
+    "n": 184,
     "win_rate": {
-      "blue": 59.3,
-      "red": 40.7
+      "red": 48.4,
+      "blue": 51.6
     },
     "win_reason": {
       "victory": 100.0
     },
-    "avg_turns": 7.22,
+    "avg_turns": 6.93,
     "avg_units_lost": {
-      "blue": 6.37,
-      "red": 8.63
+      "blue": 5.82,
+      "red": 8.34
     },
     "avg_dmg_taken": {
-      "blue": 60.08,
-      "red": 44.58
+      "blue": 58.18,
+      "red": 42.67
     },
     "doctrine_effect": {
       "blue": {
         "formation": {
           "concentrated": {
-            "n": 89,
-            "win_rate_pct": 52.8
+            "n": 87,
+            "win_rate_pct": 44.8
           },
           "dispersed": {
-            "n": 88,
-            "win_rate_pct": 65.9
+            "n": 97,
+            "win_rate_pct": 57.7
           }
         },
         "posture": {
           "defensive": {
-            "n": 82,
-            "win_rate_pct": 53.7
+            "n": 81,
+            "win_rate_pct": 32.1
           },
           "offensive": {
-            "n": 95,
-            "win_rate_pct": 64.2
+            "n": 103,
+            "win_rate_pct": 67.0
           }
         },
         "engagement": {
           "sequential": {
-            "n": 88,
-            "win_rate_pct": 48.9
+            "n": 93,
+            "win_rate_pct": 48.4
           },
           "simultaneous": {
-            "n": 89,
-            "win_rate_pct": 69.7
+            "n": 91,
+            "win_rate_pct": 54.9
           }
         },
         "fuel_policy": {
           "anchor": {
-            "n": 58,
-            "win_rate_pct": 48.3
+            "n": 67,
+            "win_rate_pct": 56.7
           },
           "economize": {
-            "n": 60,
-            "win_rate_pct": 63.3
+            "n": 50,
+            "win_rate_pct": 50.0
           },
           "escort": {
-            "n": 59,
-            "win_rate_pct": 66.1
+            "n": 67,
+            "win_rate_pct": 47.8
           }
         }
       },
       "red": {
         "formation": {
           "concentrated": {
-            "n": 98,
-            "win_rate_pct": 37.8
+            "n": 96,
+            "win_rate_pct": 49.0
           },
           "dispersed": {
-            "n": 79,
-            "win_rate_pct": 44.3
+            "n": 88,
+            "win_rate_pct": 47.7
           }
         },
         "posture": {
           "defensive": {
-            "n": 85,
-            "win_rate_pct": 48.2
+            "n": 83,
+            "win_rate_pct": 49.4
           },
           "offensive": {
-            "n": 92,
-            "win_rate_pct": 33.7
+            "n": 101,
+            "win_rate_pct": 47.5
           }
         },
         "engagement": {
           "sequential": {
-            "n": 92,
-            "win_rate_pct": 42.4
+            "n": 88,
+            "win_rate_pct": 47.7
           },
           "simultaneous": {
-            "n": 85,
-            "win_rate_pct": 38.8
+            "n": 96,
+            "win_rate_pct": 49.0
           }
         },
         "fuel_policy": {
           "anchor": {
-            "n": 60,
-            "win_rate_pct": 45.0
+            "n": 71,
+            "win_rate_pct": 46.5
           },
           "economize": {
-            "n": 65,
-            "win_rate_pct": 49.2
+            "n": 58,
+            "win_rate_pct": 41.4
           },
           "escort": {
-            "n": 52,
-            "win_rate_pct": 25.0
+            "n": 55,
+            "win_rate_pct": 58.2
           }
         }
       }

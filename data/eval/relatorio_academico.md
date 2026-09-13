@@ -1,6 +1,6 @@
 # Relatório Estatístico e Descritivo — Simulações Operação Atlântico Sul
 
-_Gerado em 2026-08-01_
+_Gerado em 2026-09-13_
 
 ## 1. Metodologia
 
@@ -52,204 +52,204 @@ heurísticas de movimentação e combate usadas para gerar dados de treino:
 ### Geral (todas as partidas)
 
 - Partidas: **400**
-- Taxa de vitória: blue=96.2%, red=3.8%
-- Motivo de conclusão: timeout=96.2%, victory=3.8%
-- Duração média: 17.78 turnos
-- Dano médio causado por equipe (pontos de HP): blue=9.2, red=41.31
-- Unidades perdidas em média: blue=3.83, red=2.62
+- Taxa de vitória: blue=81.8%, red=18.2%
+- Motivo de conclusão: timeout=80.0%, victory=20.0%
+- Duração média: 16.76 turnos
+- Dano médio causado por equipe (pontos de HP): blue=18.0, red=74.22
+- Unidades perdidas em média: blue=9.75, red=4.12
 
 **Estatísticas por unidade (equipe azul e vermelha):**
 
 | ID | Equipe | Categoria | Sobrev.% | Dano+/jogo | Dano-/jogo | Abates/jogo | Tiros/jogo | Acerto% | Mov./jogo | Comb.% rest. | Mun.% rest. |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| BLUE-ADA-1 | blue | land | 88.5 | 0.01 | 0.48 | 0.0 | 1.1 | 0.9 | 17.49 | — | — |
-| BLUE-ADA-2 | blue | land | 100.0 | 0.0 | 0.0 | 0.0 | 0.03 | 0.0 | 31.01 | — | — |
+| BLUE-ADA-1 | blue | land | 29.2 | 0.01 | 2.56 | 0.0 | 0.09 | 8.8 | 10.52 | — | — |
+| BLUE-ADA-2 | blue | land | 99.8 | 0.03 | 0.01 | 0.0 | 0.12 | 20.4 | 25.91 | — | — |
 | BLUE-AERO-CF | blue | land | 100.0 | 0.0 | 0.0 | 0.0 | 0.01 | 0.0 | 0.0 | — | — |
 | BLUE-AERO-RJ | blue | land | 100.0 | 0.0 | 0.0 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-AERO-SP | blue | land | 100.0 | 0.0 | 0.0 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-ANFIB | blue | surface | 99.5 | 0.9 | 0.1 | 0.28 | 2.31 | 23.4 | 35.34 | 97.5 | — |
-| BLUE-CACA-1 | blue | air | 100.0 | 0.07 | 0.0 | 0.02 | 0.18 | 31.5 | 35.53 | — | — |
-| BLUE-CACA-2 | blue | air | 100.0 | 0.05 | 0.0 | 0.03 | 0.16 | 31.2 | 35.53 | — | — |
-| BLUE-CJAT-1 | blue | air | 100.0 | 0.12 | 0.01 | 0.05 | 0.13 | 56.9 | 35.53 | — | 100.0 |
-| BLUE-CJAT-2 | blue | air | 98.8 | 0.05 | 0.05 | 0.03 | 0.07 | 39.3 | 35.32 | — | 100.0 |
-| BLUE-DCOST1 | blue | land | 98.2 | 0.03 | 0.09 | 0.01 | 0.06 | 39.1 | 18.63 | — | 100.0 |
-| BLUE-DCOST2 | blue | land | 100.0 | 1.08 | 0.0 | 0.51 | 1.01 | 65.8 | 31.01 | — | 100.0 |
-| BLUE-FPSO1 | blue | surface | 53.8 | 0.0 | 4.53 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-FPSO2 | blue | surface | 90.8 | 0.0 | 0.87 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-FPSO3 | blue | surface | 72.5 | 0.0 | 3.12 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-FPSO4 | blue | surface | 52.5 | 0.0 | 4.4 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-LOG-A | blue | surface | 95.8 | 0.0 | 0.18 | 0.0 | 0.0 | — | 34.56 | 99.8 | — |
-| BLUE-LOG-T | blue | surface | 86.8 | 0.0 | 0.6 | 0.0 | 0.0 | — | 32.32 | 99.8 | — |
-| BLUE-MPRA-1 | blue | air | 99.5 | 0.33 | 0.03 | 0.06 | 0.3 | 62.5 | 35.4 | — | 100.0 |
-| BLUE-MPRA-2 | blue | air | 98.0 | 0.24 | 0.09 | 0.1 | 0.23 | 62.6 | 35.07 | — | 100.0 |
-| BLUE-PAT-C1 | blue | surface | 86.2 | 0.06 | 0.55 | 0.02 | 0.07 | 53.8 | 33.23 | 94.4 | 97.1 |
-| BLUE-PAT-C2 | blue | surface | 75.5 | 0.06 | 0.99 | 0.01 | 0.04 | 66.7 | 28.94 | 95.1 | 98.2 |
-| BLUE-PAT-O1 | blue | surface | 82.8 | 0.45 | 1.06 | 0.06 | 1.34 | 31.1 | 30.13 | 93.1 | 98.4 |
-| BLUE-PAT-O2 | blue | surface | 97.2 | 0.17 | 0.15 | 0.05 | 0.35 | 37.6 | 35.05 | 95.5 | 97.8 |
-| BLUE-PORTO-ACU | blue | land | 99.2 | 0.0 | 1.0 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-PORTO-RJ | blue | land | 99.5 | 0.0 | 1.99 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-PORTO-S | blue | land | 100.0 | 0.0 | 0.02 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-PORTO-V | blue | land | 9.2 | 0.0 | 16.55 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-SAG-P | blue | surface | 87.8 | 3.35 | 0.69 | 0.77 | 3.23 | 59.7 | 32.85 | 94.4 | 90.1 |
-| BLUE-SAG-S1 | blue | surface | 92.0 | 0.43 | 0.92 | 0.12 | 0.73 | 39.5 | 34.16 | 93.3 | 99.0 |
-| BLUE-SAG-S2 | blue | surface | 89.2 | 0.24 | 1.61 | 0.09 | 0.53 | 38.5 | 33.43 | 93.7 | 99.5 |
-| BLUE-SUB-1 | blue | submarine | 83.0 | 0.22 | 0.56 | 0.03 | 0.2 | 65.9 | 31.89 | 99.5 | 97.9 |
-| BLUE-SUB-2 | blue | submarine | 95.2 | 0.52 | 0.17 | 0.17 | 0.45 | 65.4 | 34.96 | 98.6 | 97.9 |
-| BLUE-SUB-3 | blue | submarine | 89.8 | 0.26 | 0.33 | 0.07 | 0.26 | 53.3 | 33.88 | 98.6 | 98.8 |
-| BLUE-SUB-N | blue | submarine | 96.0 | 0.56 | 0.17 | 0.15 | 0.56 | 43.7 | 34.83 | — | 99.1 |
-| RED-AKE | red | surface | 97.5 | 0.0 | 0.28 | 0.0 | 0.0 | — | 34.16 | 100.0 | — |
-| RED-AOR-G | red | surface | 99.5 | 0.0 | 0.01 | 0.0 | 0.0 | — | 35.49 | 100.0 | — |
-| RED-AWACS-K | red | air | 81.2 | 0.0 | 0.75 | 0.0 | 0.0 | — | 31.62 | — | — |
-| RED-GANF | red | surface | 99.8 | 0.06 | 0.2 | 0.01 | 0.23 | 25.6 | 35.5 | 99.0 | — |
-| RED-GBPA | red | surface | 99.8 | 1.58 | 0.02 | 0.23 | 1.72 | 48.2 | 34.49 | — | 94.0 |
-| RED-GE-1 | red | surface | 100.0 | 9.79 | 0.0 | 0.89 | 7.21 | 56.2 | 35.52 | 98.5 | 85.6 |
-| RED-GE-2 | red | surface | 99.8 | 8.91 | 0.05 | 0.82 | 6.31 | 56.3 | 35.52 | 98.5 | 78.5 |
-| RED-GE-3 | red | surface | 99.2 | 0.35 | 0.17 | 0.07 | 0.46 | 41.3 | 35.46 | 98.2 | 97.8 |
-| RED-GLOG | red | surface | 99.5 | 0.0 | 0.04 | 0.0 | 0.0 | — | 34.48 | 100.0 | — |
-| RED-KMF-1 | red | air | 99.8 | 0.39 | 0.01 | 0.06 | 0.48 | 39.7 | 35.49 | — | — |
-| RED-KMF-2 | red | air | 99.8 | 0.35 | 0.07 | 0.06 | 0.41 | 40.2 | 35.49 | — | — |
-| RED-KS-1 | red | submarine | 18.5 | 6.86 | 2.72 | 0.68 | 4.29 | 51.7 | 7.26 | 60.7 | 58.9 |
-| RED-KSN | red | submarine | 98.0 | 8.04 | 0.13 | 0.48 | 5.95 | 60.6 | 35.24 | — | 79.8 |
-| RED-MPRA-K1 | red | air | 96.5 | 2.33 | 0.08 | 0.18 | 1.57 | 47.1 | 35.2 | — | 100.0 |
-| RED-MPRA-K2 | red | air | 89.2 | 2.16 | 0.3 | 0.29 | 1.31 | 48.6 | 33.67 | — | 100.0 |
-| RED-OPSESP-1 | red | surface | 59.0 | 0.0 | 1.38 | 0.0 | 0.0 | 100.0 | 0.0 | — | 99.9 |
-| RED-OPSESP-2 | red | surface | 0.2 | 0.5 | 2.99 | 0.04 | 0.42 | 62.1 | 0.0 | — | 86.3 |
+| BLUE-AERO-SP | blue | land | 100.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | — | — |
+| BLUE-ANFIB | blue | surface | 86.2 | 1.13 | 1.84 | 0.34 | 3.54 | 23.1 | 29.73 | 83.6 | — |
+| BLUE-CACA-1 | blue | air | 100.0 | 0.32 | 0.0 | 0.07 | 0.48 | 44.6 | 33.43 | — | — |
+| BLUE-CACA-2 | blue | air | 100.0 | 0.25 | 0.01 | 0.1 | 0.41 | 43.8 | 33.43 | — | — |
+| BLUE-CJAT-1 | blue | air | 99.5 | 0.23 | 0.03 | 0.07 | 0.25 | 44.0 | 33.41 | — | 100.0 |
+| BLUE-CJAT-2 | blue | air | 96.2 | 0.15 | 0.16 | 0.04 | 0.17 | 39.1 | 33.03 | — | 100.0 |
+| BLUE-DCOST1 | blue | land | 52.5 | 0.16 | 1.81 | 0.02 | 0.2 | 60.8 | 14.03 | — | 100.0 |
+| BLUE-DCOST2 | blue | land | 99.8 | 0.85 | 0.01 | 0.34 | 0.67 | 69.3 | 25.91 | — | 100.0 |
+| BLUE-FPSO1 | blue | surface | 7.8 | 0.0 | 7.17 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-FPSO2 | blue | surface | 63.0 | 0.0 | 3.1 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-FPSO3 | blue | surface | 61.5 | 0.0 | 3.71 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-FPSO4 | blue | surface | 38.0 | 0.0 | 5.43 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-LOG-A | blue | surface | 71.0 | 0.0 | 1.42 | 0.0 | 0.0 | — | 28.34 | 99.2 | — |
+| BLUE-LOG-T | blue | surface | 40.5 | 0.0 | 2.83 | 0.0 | 0.0 | — | 19.29 | 99.8 | — |
+| BLUE-MPRA-1 | blue | air | 83.2 | 0.8 | 0.51 | 0.14 | 0.64 | 56.9 | 30.76 | — | 99.5 |
+| BLUE-MPRA-2 | blue | air | 63.0 | 0.28 | 1.27 | 0.06 | 0.32 | 46.5 | 24.57 | — | 99.2 |
+| BLUE-PAT-C1 | blue | surface | 62.0 | 0.15 | 1.5 | 0.02 | 0.15 | 62.9 | 26.35 | 74.6 | 93.0 |
+| BLUE-PAT-C2 | blue | surface | 47.5 | 0.08 | 2.15 | 0.01 | 0.11 | 60.0 | 23.77 | 78.1 | 94.8 |
+| BLUE-PAT-O1 | blue | surface | 74.2 | 0.84 | 1.58 | 0.21 | 1.18 | 47.8 | 27.42 | 86.0 | 88.1 |
+| BLUE-PAT-O2 | blue | surface | 68.8 | 0.59 | 1.8 | 0.15 | 0.98 | 41.8 | 27.79 | 84.0 | 89.9 |
+| BLUE-PORTO-ACU | blue | land | 81.5 | 0.0 | 5.05 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-PORTO-RJ | blue | land | 99.5 | 0.0 | 1.87 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-PORTO-S | blue | land | 100.0 | 0.0 | 0.05 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-PORTO-V | blue | land | 2.5 | 0.0 | 17.13 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-SAG-P | blue | surface | 89.0 | 3.77 | 0.61 | 0.56 | 4.51 | 53.4 | 30.12 | 83.4 | 89.5 |
+| BLUE-SAG-S1 | blue | surface | 90.5 | 2.04 | 1.29 | 0.5 | 2.59 | 52.6 | 31.11 | 80.8 | 94.9 |
+| BLUE-SAG-S2 | blue | surface | 76.2 | 1.4 | 3.63 | 0.39 | 1.98 | 45.9 | 28.45 | 80.7 | 97.1 |
+| BLUE-SUB-1 | blue | submarine | 32.5 | 0.96 | 2.21 | 0.16 | 0.85 | 65.9 | 16.59 | 98.8 | 89.9 |
+| BLUE-SUB-2 | blue | submarine | 75.0 | 0.52 | 0.92 | 0.12 | 0.51 | 59.8 | 29.1 | 91.0 | 94.8 |
+| BLUE-SUB-3 | blue | submarine | 67.5 | 0.38 | 1.03 | 0.07 | 0.32 | 59.1 | 28.1 | 91.3 | 96.8 |
+| BLUE-SUB-N | blue | submarine | 66.8 | 3.06 | 1.53 | 0.72 | 2.28 | 45.8 | 26.91 | — | 91.4 |
+| RED-AKE | red | surface | 64.0 | 0.0 | 2.73 | 0.0 | 0.0 | — | 28.29 | 99.8 | — |
+| RED-AOR-G | red | surface | 88.5 | 0.0 | 0.51 | 0.0 | 0.0 | — | 32.06 | 99.7 | — |
+| RED-AWACS-K | red | air | 53.0 | 0.0 | 1.19 | 0.0 | 0.0 | — | 25.26 | — | — |
+| RED-GANF | red | surface | 95.0 | 0.27 | 1.29 | 0.08 | 1.19 | 22.9 | 32.05 | 85.8 | — |
+| RED-GBPA | red | surface | 99.8 | 6.08 | 0.03 | 0.89 | 6.75 | 48.5 | 33.43 | — | 73.1 |
+| RED-GE-1 | red | surface | 99.8 | 22.87 | 0.06 | 2.94 | 17.24 | 49.1 | 32.5 | 85.0 | 68.4 |
+| RED-GE-2 | red | surface | 99.5 | 17.28 | 0.12 | 2.29 | 14.29 | 46.4 | 32.49 | 85.2 | 59.0 |
+| RED-GE-3 | red | surface | 97.5 | 1.22 | 0.47 | 0.29 | 1.69 | 47.4 | 32.06 | 83.5 | 91.7 |
+| RED-GLOG | red | surface | 82.0 | 0.0 | 1.44 | 0.0 | 0.0 | — | 31.38 | 100.0 | — |
+| RED-KMF-1 | red | air | 99.8 | 1.77 | 0.02 | 0.3 | 2.28 | 41.8 | 33.43 | — | — |
+| RED-KMF-2 | red | air | 99.2 | 1.65 | 0.42 | 0.43 | 1.93 | 43.5 | 33.38 | — | — |
+| RED-KS-1 | red | submarine | 34.8 | 7.34 | 2.09 | 0.77 | 4.22 | 54.9 | 12.54 | 41.8 | 57.9 |
+| RED-KSN | red | submarine | 92.2 | 12.28 | 0.41 | 1.21 | 11.41 | 45.7 | 32.55 | — | 70.0 |
+| RED-MPRA-K1 | red | air | 90.0 | 1.99 | 0.23 | 0.32 | 1.39 | 45.4 | 32.68 | — | 100.0 |
+| RED-MPRA-K2 | red | air | 76.0 | 1.25 | 0.65 | 0.21 | 0.89 | 44.6 | 30.55 | — | 100.0 |
+| RED-OPSESP-1 | red | surface | 14.0 | 0.01 | 2.65 | 0.0 | 0.0 | 100.0 | 0.0 | — | 99.9 |
+| RED-OPSESP-2 | red | surface | 2.8 | 0.22 | 3.69 | 0.03 | 0.2 | 59.0 | 0.0 | — | 93.5 |
 
 ### Somente vitória decisiva
 
-- Partidas: **15**
-- Taxa de vitória: red=100.0%
+- Partidas: **80**
+- Taxa de vitória: red=91.2%, blue=8.8%
 - Motivo de conclusão: victory=100.0%
-- Duração média: 12.13 turnos
-- Dano médio causado por equipe (pontos de HP): blue=17.4, red=78.2
-- Unidades perdidas em média: blue=8.0, red=4.07
+- Duração média: 11.81 turnos
+- Dano médio causado por equipe (pontos de HP): blue=24.21, red=81.11
+- Unidades perdidas em média: blue=10.14, red=4.95
 
 **Estatísticas por unidade (equipe azul e vermelha):**
 
 | ID | Equipe | Categoria | Sobrev.% | Dano+/jogo | Dano-/jogo | Abates/jogo | Tiros/jogo | Acerto% | Mov./jogo | Comb.% rest. | Mun.% rest. |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| BLUE-ADA-1 | blue | land | 80.0 | 0.07 | 0.6 | 0.0 | 1.53 | 4.3 | 12.27 | — | — |
-| BLUE-ADA-2 | blue | land | 100.0 | 0.0 | 0.0 | 0.0 | 0.4 | 0.0 | 20.53 | — | — |
-| BLUE-AERO-CF | blue | land | 100.0 | 0.0 | 0.07 | 0.0 | 0.07 | 0.0 | 0.0 | — | — |
+| BLUE-ADA-1 | blue | land | 23.8 | 0.01 | 2.83 | 0.0 | 0.05 | 25.0 | 7.11 | — | — |
+| BLUE-ADA-2 | blue | land | 98.8 | 0.1 | 0.04 | 0.01 | 0.24 | 42.1 | 19.46 | — | — |
+| BLUE-AERO-CF | blue | land | 100.0 | 0.0 | 0.0 | 0.0 | 0.01 | 0.0 | 0.0 | — | — |
 | BLUE-AERO-RJ | blue | land | 100.0 | 0.0 | 0.0 | 0.0 | 0.0 | — | 0.0 | — | — |
 | BLUE-AERO-SP | blue | land | 100.0 | 0.0 | 0.0 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-ANFIB | blue | surface | 100.0 | 1.13 | 0.0 | 0.33 | 3.33 | 24.0 | 23.47 | 97.5 | — |
-| BLUE-CACA-1 | blue | air | 100.0 | 0.07 | 0.0 | 0.0 | 0.33 | 20.0 | 23.47 | — | — |
-| BLUE-CACA-2 | blue | air | 100.0 | 0.2 | 0.0 | 0.13 | 0.33 | 60.0 | 23.47 | — | — |
-| BLUE-CJAT-1 | blue | air | 100.0 | 0.33 | 0.07 | 0.13 | 0.33 | 60.0 | 23.47 | — | 100.0 |
-| BLUE-CJAT-2 | blue | air | 93.3 | 0.0 | 0.47 | 0.0 | 0.13 | 0.0 | 23.07 | — | 100.0 |
-| BLUE-DCOST1 | blue | land | 100.0 | 0.53 | 0.07 | 0.07 | 0.93 | 28.6 | 13.13 | — | 100.0 |
-| BLUE-DCOST2 | blue | land | 100.0 | 0.8 | 0.0 | 0.53 | 1.13 | 70.6 | 20.53 | — | 100.0 |
-| BLUE-FPSO1 | blue | surface | 0.0 | 0.0 | 7.13 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-FPSO2 | blue | surface | 6.7 | 0.0 | 7.4 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-FPSO3 | blue | surface | 13.3 | 0.0 | 6.67 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-FPSO4 | blue | surface | 26.7 | 0.0 | 5.93 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-LOG-A | blue | surface | 93.3 | 0.0 | 0.27 | 0.0 | 0.0 | — | 23.33 | 99.8 | — |
-| BLUE-LOG-T | blue | surface | 73.3 | 0.0 | 1.4 | 0.0 | 0.0 | — | 20.13 | 99.8 | — |
-| BLUE-MPRA-1 | blue | air | 100.0 | 0.47 | 0.0 | 0.07 | 0.47 | 57.1 | 23.47 | — | 100.0 |
-| BLUE-MPRA-2 | blue | air | 100.0 | 0.53 | 0.13 | 0.07 | 0.33 | 80.0 | 23.47 | — | 100.0 |
-| BLUE-PAT-C1 | blue | surface | 80.0 | 0.0 | 0.6 | 0.0 | 0.2 | 0.0 | 22.67 | 92.2 | 90.0 |
-| BLUE-PAT-C2 | blue | surface | 46.7 | 0.13 | 2.13 | 0.0 | 0.2 | 66.7 | 14.8 | 90.0 | 90.0 |
-| BLUE-PAT-O1 | blue | surface | 86.7 | 0.73 | 0.8 | 0.07 | 2.47 | 27.0 | 22.0 | 90.7 | 86.7 |
-| BLUE-PAT-O2 | blue | surface | 93.3 | 0.8 | 0.33 | 0.13 | 1.53 | 52.2 | 22.93 | 92.7 | 83.3 |
-| BLUE-PORTO-ACU | blue | land | 86.7 | 0.0 | 5.93 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-PORTO-RJ | blue | land | 93.3 | 0.0 | 8.53 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-PORTO-S | blue | land | 100.0 | 0.0 | 0.53 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-PORTO-V | blue | land | 6.7 | 0.0 | 16.67 | 0.0 | 0.0 | — | 0.0 | — | — |
-| BLUE-SAG-P | blue | surface | 73.3 | 5.27 | 1.2 | 1.33 | 6.4 | 53.1 | 19.87 | 92.8 | 86.2 |
-| BLUE-SAG-S1 | blue | surface | 73.3 | 1.33 | 3.4 | 0.4 | 2.6 | 38.5 | 19.73 | 88.0 | 95.9 |
-| BLUE-SAG-S2 | blue | surface | 66.7 | 0.93 | 4.73 | 0.13 | 1.73 | 34.6 | 17.6 | 89.3 | 98.1 |
-| BLUE-SUB-1 | blue | submarine | 73.3 | 1.33 | 0.87 | 0.07 | 1.4 | 57.1 | 20.8 | 100.0 | 85.8 |
-| BLUE-SUB-2 | blue | submarine | 86.7 | 1.87 | 0.47 | 0.53 | 1.6 | 62.5 | 22.33 | 99.7 | 85.8 |
-| BLUE-SUB-3 | blue | submarine | 53.3 | 0.33 | 1.6 | 0.0 | 0.8 | 41.7 | 19.13 | 99.7 | 94.2 |
-| BLUE-SUB-N | blue | submarine | 93.3 | 0.53 | 0.2 | 0.07 | 1.53 | 30.4 | 22.87 | — | 93.7 |
-| RED-AKE | red | surface | 93.3 | 0.0 | 1.13 | 0.0 | 0.0 | — | 22.47 | 100.0 | — |
-| RED-AOR-G | red | surface | 100.0 | 0.0 | 0.0 | 0.0 | 0.0 | — | 23.47 | 100.0 | — |
-| RED-AWACS-K | red | air | 53.3 | 0.0 | 1.27 | 0.0 | 0.0 | — | 19.33 | — | — |
-| RED-GANF | red | surface | 100.0 | 0.27 | 1.4 | 0.07 | 0.87 | 30.8 | 23.47 | 92.7 | — |
-| RED-GBPA | red | surface | 100.0 | 6.27 | 0.0 | 0.93 | 6.07 | 52.7 | 22.47 | — | 71.3 |
-| RED-GE-1 | red | surface | 100.0 | 16.73 | 0.0 | 1.33 | 11.93 | 56.4 | 23.27 | 82.8 | 75.7 |
-| RED-GE-2 | red | surface | 93.3 | 18.47 | 1.4 | 1.8 | 10.53 | 62.0 | 23.27 | 82.8 | 63.6 |
-| RED-GE-3 | red | surface | 86.7 | 1.93 | 1.8 | 0.33 | 2.47 | 43.2 | 22.67 | 80.7 | 88.9 |
-| RED-GLOG | red | surface | 100.0 | 0.0 | 0.0 | 0.0 | 0.0 | — | 22.47 | 100.0 | — |
-| RED-KMF-1 | red | air | 100.0 | 1.53 | 0.0 | 0.27 | 2.2 | 24.2 | 23.47 | — | — |
-| RED-KMF-2 | red | air | 100.0 | 1.87 | 0.53 | 0.33 | 1.87 | 53.6 | 23.47 | — | — |
-| RED-KS-1 | red | submarine | 6.7 | 7.47 | 2.67 | 0.67 | 3.47 | 61.5 | 6.73 | 74.7 | 67.3 |
-| RED-KSN | red | submarine | 86.7 | 14.8 | 1.0 | 0.87 | 8.27 | 60.5 | 22.27 | — | 71.7 |
-| RED-MPRA-K1 | red | air | 93.3 | 4.27 | 0.13 | 0.47 | 2.67 | 55.0 | 23.27 | — | 100.0 |
-| RED-MPRA-K2 | red | air | 73.3 | 3.87 | 0.6 | 0.73 | 2.07 | 45.2 | 22.13 | — | 100.0 |
-| RED-OPSESP-1 | red | surface | 6.7 | 0.0 | 2.93 | 0.0 | 0.0 | — | 0.0 | — | 100.0 |
-| RED-OPSESP-2 | red | surface | 0.0 | 0.73 | 2.53 | 0.2 | 0.53 | 75.0 | 0.0 | — | 82.2 |
+| BLUE-ANFIB | blue | surface | 97.5 | 1.24 | 0.64 | 0.3 | 4.34 | 18.7 | 21.56 | 91.2 | — |
+| BLUE-CACA-1 | blue | air | 100.0 | 0.54 | 0.0 | 0.1 | 0.88 | 41.4 | 23.16 | — | — |
+| BLUE-CACA-2 | blue | air | 100.0 | 0.53 | 0.03 | 0.25 | 0.76 | 47.5 | 23.16 | — | — |
+| BLUE-CJAT-1 | blue | air | 98.8 | 0.45 | 0.05 | 0.15 | 0.45 | 50.0 | 23.14 | — | 99.8 |
+| BLUE-CJAT-2 | blue | air | 90.0 | 0.21 | 0.41 | 0.07 | 0.28 | 40.9 | 22.62 | — | 100.0 |
+| BLUE-DCOST1 | blue | land | 42.5 | 0.23 | 2.16 | 0.01 | 0.3 | 54.2 | 9.6 | — | 99.9 |
+| BLUE-DCOST2 | blue | land | 98.8 | 1.11 | 0.03 | 0.41 | 0.85 | 67.6 | 19.46 | — | 100.0 |
+| BLUE-FPSO1 | blue | surface | 0.0 | 0.0 | 7.49 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-FPSO2 | blue | surface | 11.2 | 0.0 | 6.47 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-FPSO3 | blue | surface | 38.8 | 0.0 | 4.78 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-FPSO4 | blue | surface | 36.2 | 0.0 | 5.71 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-LOG-A | blue | surface | 82.5 | 0.0 | 0.95 | 0.0 | 0.0 | — | 20.75 | 99.8 | — |
+| BLUE-LOG-T | blue | surface | 43.8 | 0.0 | 2.51 | 0.0 | 0.0 | — | 13.14 | 99.9 | — |
+| BLUE-MPRA-1 | blue | air | 77.5 | 0.93 | 0.68 | 0.17 | 0.86 | 49.3 | 21.18 | — | 98.7 |
+| BLUE-MPRA-2 | blue | air | 55.0 | 0.21 | 1.31 | 0.04 | 0.42 | 32.4 | 15.8 | — | 98.7 |
+| BLUE-PAT-C1 | blue | surface | 72.5 | 0.31 | 1.21 | 0.0 | 0.33 | 65.4 | 20.24 | 80.6 | 84.4 |
+| BLUE-PAT-C2 | blue | surface | 58.8 | 0.2 | 1.7 | 0.03 | 0.24 | 57.9 | 18.49 | 84.8 | 88.1 |
+| BLUE-PAT-O1 | blue | surface | 88.8 | 1.15 | 0.74 | 0.31 | 1.64 | 48.9 | 20.49 | 84.0 | 77.2 |
+| BLUE-PAT-O2 | blue | surface | 81.2 | 0.85 | 1.06 | 0.17 | 1.35 | 41.7 | 21.01 | 83.4 | 81.6 |
+| BLUE-PORTO-ACU | blue | land | 60.0 | 0.0 | 8.1 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-PORTO-RJ | blue | land | 97.5 | 0.0 | 5.74 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-PORTO-S | blue | land | 100.0 | 0.0 | 0.14 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-PORTO-V | blue | land | 0.0 | 0.0 | 17.25 | 0.0 | 0.0 | — | 0.0 | — | — |
+| BLUE-SAG-P | blue | surface | 92.5 | 4.46 | 0.38 | 0.59 | 5.46 | 56.1 | 20.95 | 86.0 | 82.2 |
+| BLUE-SAG-S1 | blue | surface | 91.2 | 2.44 | 1.1 | 0.53 | 3.27 | 52.7 | 22.04 | 82.9 | 90.6 |
+| BLUE-SAG-S2 | blue | surface | 80.0 | 1.98 | 2.91 | 0.4 | 2.48 | 46.0 | 20.54 | 85.7 | 94.7 |
+| BLUE-SUB-1 | blue | submarine | 28.8 | 1.23 | 2.35 | 0.23 | 1.02 | 69.5 | 10.88 | 99.6 | 88.0 |
+| BLUE-SUB-2 | blue | submarine | 83.8 | 1.11 | 0.46 | 0.19 | 1.07 | 58.1 | 21.76 | 94.8 | 88.9 |
+| BLUE-SUB-3 | blue | submarine | 76.2 | 0.81 | 0.85 | 0.12 | 0.71 | 61.4 | 21.04 | 93.5 | 92.8 |
+| BLUE-SUB-N | blue | submarine | 80.0 | 4.12 | 1.05 | 0.86 | 3.21 | 46.7 | 20.48 | — | 88.3 |
+| RED-AKE | red | surface | 45.0 | 0.0 | 3.92 | 0.0 | 0.0 | — | 19.32 | 100.0 | — |
+| RED-AOR-G | red | surface | 86.2 | 0.0 | 0.56 | 0.0 | 0.0 | — | 22.71 | 99.7 | — |
+| RED-AWACS-K | red | air | 42.5 | 0.0 | 1.44 | 0.0 | 0.0 | — | 17.31 | — | — |
+| RED-GANF | red | surface | 88.8 | 0.34 | 2.79 | 0.07 | 1.57 | 21.4 | 22.55 | 79.6 | — |
+| RED-GBPA | red | surface | 98.8 | 6.96 | 0.12 | 0.91 | 7.12 | 49.5 | 23.16 | — | 71.7 |
+| RED-GE-1 | red | surface | 100.0 | 25.8 | 0.12 | 2.98 | 16.44 | 55.1 | 22.85 | 77.6 | 69.1 |
+| RED-GE-2 | red | surface | 98.8 | 18.59 | 0.28 | 2.27 | 13.43 | 52.4 | 22.81 | 78.9 | 59.6 |
+| RED-GE-3 | red | surface | 95.0 | 1.54 | 0.96 | 0.39 | 2.23 | 51.7 | 22.61 | 75.8 | 91.1 |
+| RED-GLOG | red | surface | 68.8 | 0.0 | 2.64 | 0.0 | 0.0 | — | 21.76 | 99.9 | — |
+| RED-KMF-1 | red | air | 98.8 | 1.77 | 0.03 | 0.39 | 2.58 | 38.8 | 23.16 | — | — |
+| RED-KMF-2 | red | air | 98.8 | 1.77 | 0.36 | 0.51 | 2.15 | 42.4 | 23.16 | — | — |
+| RED-KS-1 | red | submarine | 36.2 | 6.61 | 2.11 | 0.65 | 3.77 | 53.3 | 11.9 | 47.6 | 62.4 |
+| RED-KSN | red | submarine | 81.2 | 13.84 | 0.96 | 1.3 | 11.55 | 47.2 | 22.54 | — | 69.9 |
+| RED-MPRA-K1 | red | air | 83.8 | 2.51 | 0.39 | 0.42 | 1.55 | 46.8 | 22.65 | — | 100.0 |
+| RED-MPRA-K2 | red | air | 70.0 | 1.18 | 0.94 | 0.2 | 0.88 | 34.3 | 21.2 | — | 100.0 |
+| RED-OPSESP-1 | red | surface | 6.2 | 0.0 | 3.0 | 0.0 | 0.0 | — | 0.0 | — | 100.0 |
+| RED-OPSESP-2 | red | surface | 3.8 | 0.2 | 3.59 | 0.04 | 0.1 | 75.0 | 0.0 | — | 96.7 |
 
 ## 3. Conjunto 2 — Self-play do motor heurístico de doutrina
 
 ### Geral (todas as partidas)
 
 - Partidas: **400**
-- Taxa de vitória: blue=82.0%, red=18.0%
-- Motivo de conclusão: victory=44.2%, timeout=55.8%
-- Duração média: 13.23 turnos
-- Dano médio sofrido por equipe (pontos de HP): blue=50.1, red=31.82
-- Unidades perdidas em média: blue=4.9, red=6.21
+- Taxa de vitória: red=22.2%, blue=77.8%
+- Motivo de conclusão: victory=46.0%, timeout=54.0%
+- Duração média: 12.91 turnos
+- Dano médio sofrido por equipe (pontos de HP): blue=49.12, red=30.96
+- Unidades perdidas em média: blue=4.58, red=6.14
 
 **Efeito marginal de cada eixo de doutrina sobre a taxa de vitória da própria equipe** (média sobre a doutrina do oponente, sorteada aleatoriamente):
 
 | Equipe | Eixo | Valor | n | Taxa de vitória% |
 |---|---|---|---|---|
-| blue | formation | concentrated | 194 | 78.4 |
-| blue | formation | dispersed | 206 | 85.4 |
-| blue | posture | defensive | 202 | 81.2 |
-| blue | posture | offensive | 198 | 82.8 |
-| blue | engagement | sequential | 181 | 75.1 |
-| blue | engagement | simultaneous | 219 | 87.7 |
-| blue | fuel_policy | anchor | 135 | 77.8 |
-| blue | fuel_policy | economize | 133 | 83.5 |
-| blue | fuel_policy | escort | 132 | 84.8 |
-| red | formation | concentrated | 212 | 17.5 |
-| red | formation | dispersed | 188 | 18.6 |
-| red | posture | defensive | 195 | 21.0 |
-| red | posture | offensive | 205 | 15.1 |
-| red | engagement | sequential | 193 | 20.2 |
-| red | engagement | simultaneous | 207 | 15.9 |
-| red | fuel_policy | anchor | 128 | 21.1 |
-| red | fuel_policy | economize | 135 | 23.7 |
-| red | fuel_policy | escort | 137 | 9.5 |
+| blue | formation | concentrated | 194 | 75.3 |
+| blue | formation | dispersed | 206 | 80.1 |
+| blue | posture | defensive | 199 | 72.4 |
+| blue | posture | offensive | 201 | 83.1 |
+| blue | engagement | sequential | 195 | 75.4 |
+| blue | engagement | simultaneous | 205 | 80.0 |
+| blue | fuel_policy | anchor | 144 | 79.9 |
+| blue | fuel_policy | economize | 112 | 77.7 |
+| blue | fuel_policy | escort | 144 | 75.7 |
+| red | formation | concentrated | 211 | 22.3 |
+| red | formation | dispersed | 189 | 22.2 |
+| red | posture | defensive | 180 | 22.8 |
+| red | posture | offensive | 220 | 21.8 |
+| red | engagement | sequential | 194 | 21.6 |
+| red | engagement | simultaneous | 206 | 22.8 |
+| red | fuel_policy | anchor | 147 | 22.4 |
+| red | fuel_policy | economize | 141 | 17.0 |
+| red | fuel_policy | escort | 112 | 28.6 |
 
 ### Somente vitória decisiva
 
-- Partidas: **177**
-- Taxa de vitória: blue=59.3%, red=40.7%
+- Partidas: **184**
+- Taxa de vitória: red=48.4%, blue=51.6%
 - Motivo de conclusão: victory=100.0%
-- Duração média: 7.22 turnos
-- Dano médio sofrido por equipe (pontos de HP): blue=60.08, red=44.58
-- Unidades perdidas em média: blue=6.37, red=8.63
+- Duração média: 6.93 turnos
+- Dano médio sofrido por equipe (pontos de HP): blue=58.18, red=42.67
+- Unidades perdidas em média: blue=5.82, red=8.34
 
 **Efeito marginal de cada eixo de doutrina sobre a taxa de vitória da própria equipe** (média sobre a doutrina do oponente, sorteada aleatoriamente):
 
 | Equipe | Eixo | Valor | n | Taxa de vitória% |
 |---|---|---|---|---|
-| blue | formation | concentrated | 89 | 52.8 |
-| blue | formation | dispersed | 88 | 65.9 |
-| blue | posture | defensive | 82 | 53.7 |
-| blue | posture | offensive | 95 | 64.2 |
-| blue | engagement | sequential | 88 | 48.9 |
-| blue | engagement | simultaneous | 89 | 69.7 |
-| blue | fuel_policy | anchor | 58 | 48.3 |
-| blue | fuel_policy | economize | 60 | 63.3 |
-| blue | fuel_policy | escort | 59 | 66.1 |
-| red | formation | concentrated | 98 | 37.8 |
-| red | formation | dispersed | 79 | 44.3 |
-| red | posture | defensive | 85 | 48.2 |
-| red | posture | offensive | 92 | 33.7 |
-| red | engagement | sequential | 92 | 42.4 |
-| red | engagement | simultaneous | 85 | 38.8 |
-| red | fuel_policy | anchor | 60 | 45.0 |
-| red | fuel_policy | economize | 65 | 49.2 |
-| red | fuel_policy | escort | 52 | 25.0 |
+| blue | formation | concentrated | 87 | 44.8 |
+| blue | formation | dispersed | 97 | 57.7 |
+| blue | posture | defensive | 81 | 32.1 |
+| blue | posture | offensive | 103 | 67.0 |
+| blue | engagement | sequential | 93 | 48.4 |
+| blue | engagement | simultaneous | 91 | 54.9 |
+| blue | fuel_policy | anchor | 67 | 56.7 |
+| blue | fuel_policy | economize | 50 | 50.0 |
+| blue | fuel_policy | escort | 67 | 47.8 |
+| red | formation | concentrated | 96 | 49.0 |
+| red | formation | dispersed | 88 | 47.7 |
+| red | posture | defensive | 83 | 49.4 |
+| red | posture | offensive | 101 | 47.5 |
+| red | engagement | sequential | 88 | 47.7 |
+| red | engagement | simultaneous | 96 | 49.0 |
+| red | fuel_policy | anchor | 71 | 46.5 |
+| red | fuel_policy | economize | 58 | 41.4 |
+| red | fuel_policy | escort | 55 | 58.2 |
 
 ## 4. Discussão e ressalvas metodológicas
 
-- **Achado principal:** no Conjunto 1 (rede neural), a taxa geral de vitória de Blue (96.2%) se inverte quase completamente quando o critério é restrito à vitória decisiva — Red vence 100.0% das partidas concluídas por objetivo de cenário. Isso indica que, em termos puramente táticos (não contaminados pelo desempate de timeout), a política aprendida pela rede para a equipe vermelha é substancialmente mais eficaz do que a da equipe azul.
+- **Achado principal:** no Conjunto 1 (rede neural), a taxa geral de vitória de Blue (81.8%) se inverte quase completamente quando o critério é restrito à vitória decisiva — Red vence 91.2% das partidas concluídas por objetivo de cenário. Isso indica que, em termos puramente táticos (não contaminados pelo desempate de timeout), a política aprendida pela rede para a equipe vermelha é substancialmente mais eficaz do que a da equipe azul.
 
 - A vitória por **timeout** é decidida por soma agregada de HP, o que favorece estruturalmente a equipe azul: sua OOB inclui numerosos ativos terrestres estáticos (bases aéreas, portos, baterias) que raramente são atingidos e mantêm HP pleno, inflando o total independentemente do desempenho tático. Por isso, os subconjuntos de **vitória decisiva** (concluídos por critério de objetivo, não por esse desempate) são a referência mais fiel para avaliar efetividade tática real.
 - O conjunto 1 (rede neural) usa a OOB de treino (`sim.OOB`, incluindo unidades Op.Esp. e bases sintéticas usadas só para geração de dados), não a OOB do jogo em produção (`shared/order_of_battle.js`), garantindo consistência com a distribuição em que as redes foram treinadas.
