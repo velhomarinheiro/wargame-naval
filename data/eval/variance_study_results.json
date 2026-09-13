@@ -1,0 +1,128 @@
+{
+  "0": [
+    {
+      "atk_per_game": 78.12,
+      "dmg_per_game": 73.65,
+      "decisive_pct": 8.0,
+      "contact_per_phase": 5.4148233266302785,
+      "avg_turns": 17.43,
+      "val_acc": 28.0
+    },
+    {
+      "atk_per_game": 122.86,
+      "dmg_per_game": 91.3,
+      "decisive_pct": 1.0,
+      "contact_per_phase": 9.260614525139665,
+      "avg_turns": 17.9,
+      "val_acc": 27.8
+    },
+    {
+      "atk_per_game": 61.03,
+      "dmg_per_game": 60.26,
+      "decisive_pct": 7.0,
+      "contact_per_phase": 3.1435488464824837,
+      "avg_turns": 17.58,
+      "val_acc": 27.3
+    },
+    {
+      "atk_per_game": 79.2,
+      "dmg_per_game": 71.01,
+      "decisive_pct": 22.0,
+      "contact_per_phase": 6.797129186602871,
+      "avg_turns": 15.72,
+      "val_acc": 28.3
+    },
+    {
+      "atk_per_game": 72.79,
+      "dmg_per_game": 57.66,
+      "decisive_pct": 9.0,
+      "contact_per_phase": 5.118978525827046,
+      "avg_turns": 17.25,
+      "val_acc": 28.3
+    }
+  ],
+  "8": [
+    {
+      "atk_per_game": 136.8,
+      "dmg_per_game": 102.05,
+      "decisive_pct": 32.0,
+      "contact_per_phase": 10.773263433813893,
+      "avg_turns": 15.35,
+      "val_acc": 31.4
+    },
+    {
+      "atk_per_game": 85.3,
+      "dmg_per_game": 66.35,
+      "decisive_pct": 6.0,
+      "contact_per_phase": 7.094915254237288,
+      "avg_turns": 17.71,
+      "val_acc": 31.1
+    },
+    {
+      "atk_per_game": 118.18,
+      "dmg_per_game": 96.09,
+      "decisive_pct": 49.0,
+      "contact_per_phase": 11.219249349684132,
+      "avg_turns": 13.57,
+      "val_acc": 29.7
+    },
+    {
+      "atk_per_game": 145.72,
+      "dmg_per_game": 115.28,
+      "decisive_pct": 51.0,
+      "contact_per_phase": 13.493328250095312,
+      "avg_turns": 13.26,
+      "val_acc": 30.6
+    },
+    {
+      "atk_per_game": 110.29,
+      "dmg_per_game": 79.53,
+      "decisive_pct": 3.0,
+      "contact_per_phase": 8.894956812482585,
+      "avg_turns": 17.95,
+      "val_acc": 32.0
+    }
+  ],
+  "15": [
+    {
+      "atk_per_game": 125.56,
+      "dmg_per_game": 90.25,
+      "decisive_pct": 34.0,
+      "contact_per_phase": 9.207400194741966,
+      "avg_turns": 15.47,
+      "val_acc": 30.1
+    },
+    {
+      "atk_per_game": 150.27,
+      "dmg_per_game": 109.16,
+      "decisive_pct": 16.0,
+      "contact_per_phase": 11.385069341988787,
+      "avg_turns": 17.0,
+      "val_acc": 30.9
+    },
+    {
+      "atk_per_game": 97.53,
+      "dmg_per_game": 76.44,
+      "decisive_pct": 15.0,
+      "contact_per_phase": 7.51394422310757,
+      "avg_turns": 16.35,
+      "val_acc": 31.3
+    },
+    {
+      "atk_per_game": 113.16,
+      "dmg_per_game": 87.75,
+      "decisive_pct": 60.0,
+      "contact_per_phase": 10.571036106750393,
+      "avg_turns": 12.88,
+      "val_acc": 30.4
+    },
+    {
+      "atk_per_game": 116.35,
+      "dmg_per_game": 84.82,
+      "decisive_pct": 2.0,
+      "contact_per_phase": 9.596343178621659,
+      "avg_turns": 17.78,
+      "val_acc": 31.8
+    }
+  ]
+}
