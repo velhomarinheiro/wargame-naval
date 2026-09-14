@@ -4,14 +4,23 @@ train_bot.py — Pipeline de treinamento do bot para Operação Atlântico Sul
 Execução:
     python ml/train_bot.py
 
+    # treinar só com decisões humanas (recomendado — ver PROCEDÊNCIA abaixo)
+    TRAIN_AGENTS=human python ml/train_bot.py
+
 Saída:
     ml/models/move_net.onnx    — modelo de movimentação
     ml/models/attack_net.onnx  — modelo de combate
 
+PROCEDÊNCIA: cada decisão nos logs traz `agent` ('human', 'heuristic', 'onnx').
+Em partidas solo o bot grava pelo mesmo caminho do jogador, então treinar sobre
+o dataset inteiro ensina o bot a imitar a si mesmo. O resumo por procedência é
+impresso a cada execução; use TRAIN_AGENTS para restringir. Registros anteriores
+à marcação não têm o campo e entram como 'unknown'.
+
 Requisitos: pip install -r ml/requirements.txt
 """
 
-import json, pathlib, sys
+import json, os, pathlib, sys
 import numpy as np
 import pandas as pd
 import torch
@@ -31,6 +40,10 @@ EPOCHS     = 40
 LR         = 1e-3
 VAL_SPLIT  = 0.15
 MIN_TURNS  = 2          # descarta partidas muito curtas
+
+# Procedências aceitas no treino. Vazio = todas (comportamento padrão).
+AGENT_FILTER = {a.strip() for a in os.environ.get("TRAIN_AGENTS", "").split(",") if a.strip()}
+DECISION_EVENTS = ["movement_committed", "attacks_declared"]
 
 # ── 1. Carregar logs ──────────────────────────────────────────────────────────
 
@@ -56,7 +69,42 @@ def load_logs():
     valid_rooms = over[over.turn >= MIN_TURNS]["room"].unique()
     df = df[df["room"].isin(valid_rooms)]
     print(f"[OK] {len(valid_rooms)} partida(s) válida(s) após filtro")
+    report_provenance(df)
     return df
+
+# ── 1b. Procedência das decisões ──────────────────────────────────────────────
+
+def agents_of(sub):
+    """Série de procedências de um recorte de eventos ('unknown' onde faltar)."""
+    if "agent" in sub.columns:
+        return sub["agent"].fillna("unknown")
+    return pd.Series("unknown", index=sub.index)
+
+def report_provenance(df):
+    dec = df[df.event.isin(DECISION_EVENTS)]
+    if dec.empty:
+        return
+    counts = agents_of(dec).value_counts()
+    total  = int(counts.sum())
+    print("[PROCEDÊNCIA] decisões no dataset:")
+    for agent, n in counts.items():
+        print(f"    {agent:10s} {n:6d}  ({100 * n / total:5.1f}%)")
+    heur = int(counts.get("heuristic", 0)) + int(counts.get("onnx", 0))
+    if heur:
+        print(f"    ⚠ {100 * heur / total:.0f}% vêm do próprio bot — treinar sobre isso "
+              f"é imitação do bot, não do jogador. Use TRAIN_AGENTS=human para excluir.")
+    if int(counts.get("unknown", 0)):
+        print("    ⚠ 'unknown' = registros anteriores à marcação de procedência "
+              "(mistura humano e bot, sem como separar).")
+
+def decisions(df, event):
+    """Eventos de decisão do tipo pedido, respeitando TRAIN_AGENTS."""
+    sub = df[df.event == event]
+    if not AGENT_FILTER or sub.empty:
+        return sub
+    kept = sub[agents_of(sub).isin(AGENT_FILTER)]
+    print(f"[FILTRO] {event}: {len(kept)}/{len(sub)} eventos com agent em {sorted(AGENT_FILTER)}")
+    return kept
 
 # ── 2. Converter estado em tensor (9 × 10 × 16) ──────────────────────────────
 
@@ -95,7 +143,7 @@ def state_to_array(state):
 def build_move_samples(df):
     """Retorna lista de (X, label) onde label é o índice flat do hex de destino."""
     samples = []
-    for _, row in df[df.event == "movement_committed"].iterrows():
+    for _, row in decisions(df, "movement_committed").iterrows():
         state = row["state"]
         moves = row.get("moves") or []
         if not isinstance(moves, list):
@@ -119,7 +167,7 @@ def build_attack_samples(df):
 
     # Indexa posições pelo estado de attacks_declared
     samples = []
-    for _, row in df[df.event == "attacks_declared"].iterrows():
+    for _, row in decisions(df, "attacks_declared").iterrows():
         state   = row["state"]
         attacks = row.get("attacks") or []
         if not isinstance(attacks, list) or not attacks:
