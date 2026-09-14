@@ -873,6 +873,12 @@ const BOT_TUNING = {
   finishHpThreshold:   2,               // ...exceto se o alvo está a isto de cair
 };
 
+// Procedência registrada nos logs para as decisões do bot. Enquanto a política
+// for a heurística abaixo, é 'heuristic'; uma política aprendida passa a gravar
+// 'onnx'. Constante única para que os dois pontos de gravação (movimento e
+// ataque) nunca divirjam.
+const BOT_AGENT = 'heuristic';
+
 const BOT_COMBATANT_TYPES =
   ['carrier','amphib','fragata','destroier','corveta','cruzador','sub_nuclear','submarino','caca','ataque'];
 function botIsCombatant(u) { return BOT_COMBATANT_TYPES.includes(u.type); }
@@ -1166,7 +1172,7 @@ function applyBotMoves(room) {
   if (state[key]) return;
 
   const moves = computeBotMoves(state, bt);
-  gameLogger.logMoves(room.id, state.turn, state.period, bt, moves, state);
+  gameLogger.logMoves(room.id, state.turn, state.period, bt, moves, state, BOT_AGENT);
   applyBotMovesToState(state, bt, moves);
 
   if (state.blueDone && state.redDone) {
@@ -1289,7 +1295,7 @@ io.on('connection', socket => {
     socket.data.roomId = id; socket.data.team = team;
     socket.join(id);
     room.state = newGame();
-    gameLogger.logStart(room.id, room.state);
+    gameLogger.logStart(room.id, room.state, { solo: true, botTeam });
     socket.emit('game_start', { team, state: stateFor(room.state, team), solo: true, roomId: room.id,
                                 rejoinToken: room.rejoinTokens[team] });
   });
@@ -1301,7 +1307,7 @@ io.on('connection', socket => {
     room.players.red=socket.id; socket.data.roomId=room.id; socket.data.team='red';
     socket.join(room.id);
     room.state=newGame();
-    gameLogger.logStart(room.id, room.state);
+    gameLogger.logStart(room.id, room.state, { solo: false, botTeam: null });
     io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue'),roomId:room.id,
                                                 rejoinToken:room.rejoinTokens.blue});
     socket.emit('game_start',{team:'red',state:stateFor(room.state,'red'),roomId:room.id,
@@ -1370,7 +1376,7 @@ io.on('connection', socket => {
     }
 
     // Log decision BEFORE applying moves (captures state the player acted on)
-    gameLogger.logMoves(room.id, state.turn, state.period, team, moves, state);
+    gameLogger.logMoves(room.id, state.turn, state.period, team, moves, state, 'human');
 
     // Apply all moves and charge movement fuel
     for (const {unitId, path} of (moves||[])) {
@@ -1461,7 +1467,7 @@ io.on('connection', socket => {
     if (!room?.state) return;
     const {state}=room, {team}=socket.data;
     if (state.phase!=='combat') { socket.emit('action_error','Não é a fase de combate.'); return; }
-    gameLogger.logAttacks(room.id, state.turn, state.period, team, attacks, state);
+    gameLogger.logAttacks(room.id, state.turn, state.period, team, attacks, state, 'human');
     if (team==='blue') state.blueAttacks=attacks||[]; else state.redAttacks=attacks||[];
     state.log.unshift(`${team==='blue'?'Força Azul':'Força Vermelha'} confirmou ${(attacks||[]).length} ataque(s).`);
     // Solo: bot declara ataques imediatamente após o humano
@@ -1469,7 +1475,7 @@ io.on('connection', socket => {
       const btAtkKey = room.botTeam === 'blue' ? 'blueAttacks' : 'redAttacks';
       if (state[btAtkKey] === null) {
         const botAtks = computeBotAttacks(state, room.botTeam);
-        gameLogger.logAttacks(room.id, state.turn, state.period, room.botTeam, botAtks, state);
+        gameLogger.logAttacks(room.id, state.turn, state.period, room.botTeam, botAtks, state, BOT_AGENT);
         state[btAtkKey] = botAtks;
         const botLabel = room.botTeam === 'blue' ? 'Força Azul (BOT)' : 'Força Vermelha (BOT)';
         state.log.unshift(`${botLabel} confirmou ${botAtks.length} ataque(s).`);
@@ -1514,7 +1520,7 @@ io.on('connection', socket => {
       gameLogger.logGameOver(room.id, room.state.turn, null, 'restart', obj, room.state);
     }
     room.state=newGame();
-    gameLogger.logStart(room.id, room.state);
+    gameLogger.logStart(room.id, room.state, { solo: !!room.solo, botTeam: room.botTeam ?? null });
     if (room.players.blue) io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue'),solo:!!room.solo,roomId:room.id,rejoinToken:room.rejoinTokens?.blue});
     if (room.players.red)  io.to(room.players.red ).emit('game_start',{team:'red', state:stateFor(room.state,'red'), solo:!!room.solo,roomId:room.id,rejoinToken:room.rejoinTokens?.red});
   });

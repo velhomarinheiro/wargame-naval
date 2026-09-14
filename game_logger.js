@@ -7,11 +7,18 @@
  * e a decisão tomada pelo jogador naquele momento.
  *
  * Eventos registrados:
- *   game_start          — estado inicial completo
+ *   game_start          — estado inicial completo (+ solo/botTeam da sala)
  *   movement_committed  — decisão de movimentação de uma equipe (estado + movimentos)
  *   attacks_declared    — declaração de ataques de uma equipe (estado + ataques)
  *   engagement_resolved — resultado de cada engajamento de combate
  *   game_over           — estado final, vencedor e objetivos
+ *
+ * PROCEDÊNCIA (campo `agent`): toda decisão registrada diz quem a tomou —
+ * 'human', 'heuristic' (bot do modo solo) ou 'onnx' (política aprendida).
+ * Sem isso, partidas solo gravam as jogadas do bot pelo mesmo caminho das
+ * humanas e o dataset de treino acaba ensinando o bot a imitar a si mesmo.
+ * Registros SEM o campo `agent` são anteriores a esta marcação: procedência
+ * desconhecida, e devem ser tratados como tal por quem consome o dataset.
  *
  * Os arquivos ficam em data/game-logs/ dentro do repositório e devem ser
  * comitados periodicamente para acumular o dataset de treinamento.
@@ -65,23 +72,33 @@ function _append(roomId, record) {
 
 function _ts() { return new Date().toISOString(); }
 
+// Procedência válida de uma decisão. O default é 'unknown' — e não 'human' — de
+// propósito: um ponto de chamada que esqueça de informar fica visível no
+// dataset em vez de se passar por jogada humana.
+const AGENTS = ['human', 'heuristic', 'onnx'];
+function _agent(agent) { return AGENTS.includes(agent) ? agent : 'unknown'; }
+
 // ── API pública ────────────────────────────────────────────────────────────────
 
 /**
  * Abre o arquivo de log de uma nova partida e registra o estado inicial.
  * Deve ser chamado logo após newGame() no join_room.
+ * @param {object} meta  { solo, botTeam } — contexto da sala, para classificar
+ *                       a partida inteira (humano×humano vs. humano×bot).
  */
-function logStart(roomId, state) {
+function logStart(roomId, state, meta = {}) {
   const ts   = _ts();
   const date = ts.slice(0, 10).replace(/-/g, '');
   const time = ts.slice(11, 19).replace(/:/g, '');
   const file = path.join(LOG_DIR, `game_${date}_${time}_${roomId}.jsonl`);
   _handles.set(roomId, { path: file });
   _append(roomId, {
-    event: 'game_start',
+    event:   'game_start',
     ts,
-    room:  roomId,
-    state: snapshotState(state),
+    room:    roomId,
+    solo:    !!meta.solo,
+    botTeam: meta.botTeam ?? null,
+    state:   snapshotState(state),
   });
 }
 
@@ -89,8 +106,9 @@ function logStart(roomId, state) {
  * Registra a decisão de movimentação de uma equipe.
  * Deve ser chamado ANTES de aplicar os movimentos ao estado.
  * @param {string[]} moves  Array de { unitId, path }
+ * @param {string}   agent  'human' | 'heuristic' | 'onnx' (quem decidiu)
  */
-function logMoves(roomId, turn, period, team, moves, stateBefore) {
+function logMoves(roomId, turn, period, team, moves, stateBefore, agent) {
   _append(roomId, {
     event:  'movement_committed',
     ts:     _ts(),
@@ -98,6 +116,7 @@ function logMoves(roomId, turn, period, team, moves, stateBefore) {
     turn,
     period,
     team,
+    agent:  _agent(agent),
     moves:  (moves || []).map(({ unitId, path }) => ({ unitId, path })),
     state:  snapshotState(stateBefore),
   });
@@ -107,8 +126,9 @@ function logMoves(roomId, turn, period, team, moves, stateBefore) {
  * Registra os ataques declarados por uma equipe.
  * Deve ser chamado logo após receber declare_attacks, antes da resolução.
  * @param {object[]} attacks  Array de { attackerId, targetId, amount }
+ * @param {string}   agent    'human' | 'heuristic' | 'onnx' (quem decidiu)
  */
-function logAttacks(roomId, turn, period, team, attacks, stateBefore) {
+function logAttacks(roomId, turn, period, team, attacks, stateBefore, agent) {
   _append(roomId, {
     event:   'attacks_declared',
     ts:      _ts(),
@@ -116,6 +136,7 @@ function logAttacks(roomId, turn, period, team, attacks, stateBefore) {
     turn,
     period,
     team,
+    agent:   _agent(agent),
     attacks: (attacks || []).map(({ attackerId, targetId, amount }) =>
       ({ attackerId, targetId, amount: amount ?? null })
     ),
