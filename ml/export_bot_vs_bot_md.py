@@ -50,6 +50,26 @@ def build(d: dict) -> str:
         "Blue, que quase não são atingidos).\n",
     ]
 
+    wbr = d.get("win_by_reason")
+    if wbr:
+        P.append("### 1.1. Vencedor por motivo de conclusão\n")
+        P.append("| Motivo | Partidas | % do total | Vitória Blue% | Vitória Red% |")
+        P.append("|---|---|---|---|---|")
+        order = [k for k in ("victory", "timeout") if k in wbr] + \
+                [k for k in wbr if k not in ("victory", "timeout")]
+        label = {"victory": "Por objetivo (decisiva)", "timeout": "Por timeout (soma de HP)"}
+        for r in order:
+            w = wbr[r]
+            P.append(f"| {label.get(r, r)} | {w['games']} | {w['pct_of_all']}% | "
+                     f"{w['win_rate'].get('blue', 0)}% | {w['win_rate'].get('red', 0)}% |")
+        P.append("")
+        vic = wbr.get("victory", {}).get("win_rate", {})
+        if vic:
+            P.append(f"> **Nas partidas vencidas por objetivo** (mérito tático real), "
+                     f"Red vence **{vic.get('red', 0)}%** e Blue **{vic.get('blue', 0)}%** — "
+                     "o inverso do placar geral. A vantagem agregada de Blue vem "
+                     "inteiramente do desempate de *timeout*.\n")
+
     units = d["units"]
     for team, title in (("red", "RED (agressor)"), ("blue", "BLUE (defensor)")):
         us = sorted([u for u in units if u["team"] == team],

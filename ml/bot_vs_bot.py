@@ -148,6 +148,7 @@ class EvalStats:
         self.games = 0
         self.wins = Counter()
         self.reasons = Counter()
+        self.outcomes = Counter()   # (winner, reason) -> nº de partidas
         self.turns: list[int] = []
         self.team_damage: dict[str, list[float]] = defaultdict(list)
         self.team_losses: dict[str, list[int]] = defaultdict(list)
@@ -173,6 +174,7 @@ class EvalStats:
         self.games += 1
         self.wins[winner] += 1
         self.reasons[reason] += 1
+        self.outcomes[(winner, reason)] += 1
         self.turns.append(turn)
         for team in ("blue", "red"):
             self.team_damage[team].append(self._cur_damage[team])
@@ -206,6 +208,7 @@ class EvalStats:
         other.games += self.games
         other.wins.update(self.wins)
         other.reasons.update(self.reasons)
+        other.outcomes.update(self.outcomes)
         other.turns.extend(self.turns)
         for t in ("blue", "red"):
             other.team_damage[t].extend(self.team_damage[t])
@@ -305,10 +308,23 @@ def build_report(stats: EvalStats) -> dict:
             row["ammo_pct_remaining_avg"] = pct(st["ammo_pct_sum"], st["ammo_games"])
         units_report.append(row)
 
+    # Cruzamento vencedor × motivo: dentro de cada motivo, quem venceu e quantas
+    win_by_reason = {}
+    for reason in stats.reasons:
+        n_r = stats.reasons[reason]
+        win_by_reason[reason] = {
+            "games": n_r,
+            "pct_of_all": pct(n_r, n),
+            "win_rate": {team: pct(stats.outcomes.get((team, reason), 0), n_r)
+                         for team in ("blue", "red")
+                         if stats.outcomes.get((team, reason), 0)},
+        }
+
     return {
         "games": n,
         "win_rate": {k: pct(v, n) for k, v in stats.wins.items()},
         "win_reason": {k: pct(v, n) for k, v in stats.reasons.items()},
+        "win_by_reason": win_by_reason,
         "avg_turns": avg(stats.turns),
         "team_avg_damage_dealt": {t: avg(v) for t, v in stats.team_damage.items()},
         "team_avg_units_lost":   {t: avg(v) for t, v in stats.team_losses.items()},
