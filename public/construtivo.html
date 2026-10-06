@@ -73,7 +73,15 @@
         <span>Limite de turnos</span>
         <input id="maxturns" type="number" min="1" max="40" value="12">
       </label>
+      <label class="cs-field cs-field-wide">
+        <span>Regra de vitória (cenário)</span>
+        <select id="regra">
+          <option value="objectives">Objetivos do cenário — Azul precisa de 3 de 5; Vermelho, de 2 de 2</option>
+          <option value="exhaustion">Exaustão ofensiva — vence quem deixa o adversário sem meios de atacar</option>
+        </select>
+      </label>
     </div>
+    <p class="cs-help" id="regra-aviso"></p>
     <p class="cs-help" id="plano-aviso"></p>
     <div class="cs-run-actions">
       <button id="btn-run" class="cs-btn cs-btn-go">▶ Rodar simulação</button>

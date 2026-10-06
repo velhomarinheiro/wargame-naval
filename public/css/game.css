@@ -1273,6 +1273,9 @@ body.facilitator-mode .phase-legend { display: none; }
   background: rgba(10,30,50,0.9); border: 1px solid var(--border); border-radius: 2px; padding: 4px 6px;
   text-transform: none; letter-spacing: normal; text-align: left;
 }
+/* Alvo de toque: os campos do painel são operados em tablet. */
+.fac-field input, .fac-field select { min-height: 40px; }
+.fac-hp-input { min-height: 32px; }
 .fac-list p { font-size: var(--fs-xs); color: var(--dim); margin: 0; }
 .fac-field input:focus, .fac-field select:focus, .fac-msg-text:focus, .fac-hp-input:focus {
   outline: none; border-color: var(--gold-l);

@@ -132,9 +132,20 @@ function facRenderPhase() {
 
   if (s.phase === 'setup') {
     const ready = s.seats?.blue && s.seats?.red;
+    const regra = s.victoryRule === 'exhaustion' ? 'exhaustion' : 'objectives';
     setHtml(el, `
       <p class="fac-hint">Prepare as forças: selecione unidades no mapa para ajustar SP, movimento, munição,
         posição, duplicar ou retirar. Insira contatos neutros se quiser. Depois libere a partida.</p>
+      <div class="fac-sub">Regra de vitória</div>
+      <label class="fac-field">
+        <select id="fac-victory-rule">
+          <option value="objectives" ${regra === 'objectives' ? 'selected' : ''}>Objetivos do cenário (padrão)</option>
+          <option value="exhaustion" ${regra === 'exhaustion' ? 'selected' : ''}>Exaustão ofensiva</option>
+        </select>
+      </label>
+      <p class="fac-hint">${regra === 'exhaustion'
+        ? 'Vence quem deixar o adversário sem nenhuma unidade com arma em estoque ou capacidade ofensiva. As partidas ficam bem mais longas que pelos objetivos.'
+        : 'Vence quem cumprir suas condições: Azul precisa de 3 de 5; Vermelho, de 2 de 2.'}</p>
       <button type="button" class="act-btn yellow" data-fac="start" ${ready ? '' : 'disabled'}>▶ Liberar partida</button>
       ${ready ? '' : `<p class="fac-hint">Aguardando os dois jogadores entrarem com o código da sala.</p>`}`);
     return;
@@ -348,6 +359,13 @@ document.addEventListener('click', e => {
       break;
     }
   }
+});
+
+// Regra de vitória do cenário (só aparece na configuração).
+document.addEventListener('change', e => {
+  if (!isFacilitator || e.target.id !== 'fac-victory-rule') return;
+  socket.emit('fac_set_victory_rule', { rule: e.target.value });
+  SFX.play('confirm');
 });
 
 // SP proposto na ratificação: registrado ao confirmar o campo (change).

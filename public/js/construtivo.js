@@ -40,6 +40,7 @@ async function carregarMeta() {
   renderFatores();
   atualizarTotais();
   atualizarPlano();
+  atualizarRegra();
 }
 
 function renderFatores() {
@@ -82,6 +83,22 @@ document.addEventListener('change', e => {
 });
 
 // ─── 2. Execução ─────────────────────────────────────────────────────────────
+// A regra de vitória muda o que conta como partida decidida — e, com ela, a
+// métrica E1_kcv. Dizer isso aqui evita que o número seja lido fora de contexto.
+const AVISO_REGRA = {
+  objectives: 'Regra padrão do wargame: a partida se decide quando um lado cumpre suas condições, '
+    + 'normalmente em poucos turnos. Como o Vermelho raramente chega a ficar sem meios ofensivos antes '
+    + 'disso, a medida E1_kcv tende a ficar em zero sob esta regra.',
+  exhaustion: 'Regra do estudo de capacidades: "decisivo" passa a significar reduzir o adversário à '
+    + 'incapacidade de combate — nenhuma unidade sobrevivente com arma em estoque ou capacidade ofensiva. '
+    + 'É a definição de que E1_kcv depende; sob ela a métrica volta a discriminar. As partidas ficam mais '
+    + 'longas, então convém elevar o limite de turnos.',
+};
+
+function atualizarRegra() {
+  $('regra-aviso').textContent = AVISO_REGRA[$('regra').value] || '';
+}
+
 function atualizarPlano() {
   const bloco = $('bloco').value;
   const reps  = Math.max(1, Number($('replicas').value) || 1);
@@ -105,8 +122,9 @@ function fatoresSelecionados() {
 async function rodar() {
   const bloco = $('bloco').value;
   const corpo = {
-    maxTurns: Number($('maxturns').value) || META.maxTurnsPadrao,
-    replicas: Number($('replicas').value) || 20,
+    maxTurns:    Number($('maxturns').value) || META.maxTurnsPadrao,
+    replicas:    Number($('replicas').value) || 20,
+    victoryRule: $('regra').value,
   };
   if (bloco === 'pacote') { corpo.factors = fatoresSelecionados(); corpo.nome = 'Pacote'; }
   else corpo.bloco = bloco;
@@ -175,8 +193,10 @@ function renderRelatorio(r) {
       <div class="cs-tile-foot">${foot}</div>
     </div>`;
   const pc = n => r.total ? Math.round(100 * n / r.total) + '%' : '0%';
+  const regra = r.victoryRule === 'exhaustion' ? 'exaustão ofensiva' : 'objetivos do cenário';
   $('resumo-tiles').innerHTML =
-    tile('Partidas simuladas', r.total, `${r.porCondicao.length} condição(ões) · limite de ${r.maxTurns} turnos`) +
+    tile('Partidas simuladas', r.total,
+         `${r.porCondicao.length} condição(ões) · limite de ${r.maxTurns} turnos<br>vitória por ${regra}`) +
     tile('Vitórias da Força Azul', v.blue || 0, pc(v.blue || 0)) +
     tile('Vitórias da Força Vermelha', v.red || 0, pc(v.red || 0)) +
     tile('Sem decisão', v.censurado || 0, `${pc(v.censurado || 0)} · atingiram o limite de turnos`);
@@ -286,5 +306,6 @@ $('btn-jogar').addEventListener('click', () => {
 
 $('bloco').addEventListener('change', atualizarPlano);
 $('replicas').addEventListener('input', atualizarPlano);
+$('regra').addEventListener('change', atualizarRegra);
 
 carregarMeta().catch(err => mostrarErro('Não foi possível carregar a configuração: ' + err.message));

@@ -84,6 +84,32 @@ function offensiveStock(state, team) {
   return total;
 }
 
+/**
+ * Estoque ofensivo que `team` tinha no início da partida — mesma ponderação de
+ * offensiveStock, mas sobre os valores iniciais (initWeapons/initCapabilities)
+ * e incluindo unidades já destruídas. Serve de denominador quando se quer a
+ * fração de potencial de combate que ainda resta (adjudicação por exaustão).
+ */
+function initialOffensiveStock(state, team) {
+  let total = 0;
+  for (const u of state.units) {
+    if (u.team !== team) continue;
+    const w0 = u.initWeapons || u.weapons || {};
+    const c0 = u.initCapabilities || u.capabilities || {};
+    for (const [wt, w] of Object.entries(w0)) total += (w?.quantity || 0) * weaponOffensiveWeight(wt, team);
+    for (const [cap, v] of Object.entries(c0)) {
+      if (v > 0 && !DEFENSIVE_CAPABILITIES.has(cap)) total += v * weaponOffensiveWeight(cap, team);
+    }
+  }
+  return total;
+}
+
+/** Fração [0,1] do potencial ofensivo inicial que `team` ainda retém. */
+function offensiveStockRatio(state, team) {
+  const inicial = initialOffensiveStock(state, team);
+  return inicial > 0 ? offensiveStock(state, team) / inicial : 0;
+}
+
 /** Soma de (maxHp - hp) sobre as unidades de `team` — atrito sofrido por esse lado. */
 function attrition(state, team) {
   let total = 0;
@@ -184,6 +210,8 @@ module.exports = {
   hasOffensiveMeans,
   weaponOffensiveWeight,
   offensiveStock,
+  initialOffensiveStock,
+  offensiveStockRatio,
   attrition,
   redForceCombatIneffective,
   fpsoValuePreserved,

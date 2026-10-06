@@ -87,6 +87,7 @@
 
 /* ── Execução ── */
 .cs-run-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0.8rem; margin-bottom: 0.6rem; }
+.cs-field-wide { grid-column: 1 / -1; }
 /* min-width:0 é obrigatório: sem isso o item de grid não encolhe abaixo do
    conteúdo, e o texto longo das opções do <select> estoura a página no celular. */
 .cs-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.7rem; letter-spacing: 1px;

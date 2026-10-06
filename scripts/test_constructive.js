@@ -124,6 +124,55 @@ eq(JSON.stringify(ORDER_OF_BATTLE), obAntes, 'ORDER_OF_BATTLE intacta após 25 p
 eq(JSON.stringify(SIM.runGame(TODAS, 4242, 8)), JSON.stringify(r1),
   'partida com a mesma semente continua idêntica após 25 outras no mesmo processo');
 
+// ─── Regra de vitória (opção de cenário) ─────────────────────────────────────
+// Padrão: objetivos do cenário — comportamento histórico, inalterado.
+eq(ENGINE.newGame().victoryRule, 'objectives', 'sem opção, a regra é a de objetivos');
+eq(ENGINE.newGame(undefined, { victoryRule: 'exhaustion' }).victoryRule, 'exhaustion', 'regra de exaustão é aceita');
+eq(ENGINE.newGame(undefined, { victoryRule: 'bogus' }).victoryRule, 'objectives', 'valor inválido cai no padrão');
+
+// Exaustão: um lado sem meios ofensivos entrega a vitória ao outro.
+function semMeios(state, team) {
+  for (const u of state.units.filter(x => x.team === team)) {
+    for (const w of Object.values(u.weapons || {})) w.quantity = 0;
+    u.capabilities = { airDefense: 4 };   // só interceptação
+  }
+}
+const stEx = ENGINE.newGame(undefined, { seed: 7, victoryRule: 'exhaustion' });
+eq(ENGINE.checkWinner(stEx), null, 'exaustão: no início ninguém venceu');
+semMeios(stEx, 'red');
+eq(ENGINE.checkWinner(stEx), 'blue', 'exaustão: Vermelho sem meios ofensivos → Azul vence');
+
+const stEx2 = ENGINE.newGame(undefined, { seed: 8, victoryRule: 'exhaustion' });
+semMeios(stEx2, 'blue');
+eq(ENGINE.checkWinner(stEx2), 'red', 'exaustão: Azul sem meios ofensivos → Vermelho vence');
+
+const stEx3 = ENGINE.newGame(undefined, { seed: 9, victoryRule: 'exhaustion' });
+semMeios(stEx3, 'blue'); semMeios(stEx3, 'red');
+eq(ENGINE.checkWinner(stEx3), 'blue', 'exaustão mútua → empate para Azul (convenção da plataforma)');
+
+// A mesma situação sob a regra de objetivos NÃO decide a partida: as duas
+// regras são de fato distintas, e não um rótulo sobre o mesmo comportamento.
+const stObj = ENGINE.newGame(undefined, { seed: 7 });
+semMeios(stObj, 'red');
+eq(ENGINE.checkWinner(stObj), null, 'objetivos: ficar sem meios ofensivos não decide a partida');
+
+// Estoque ofensivo remanescente (base da adjudicação por tempo sob exaustão)
+const stR = ENGINE.newGame(undefined, { seed: 11 });
+ok(Math.abs(M.offensiveStockRatio(stR, 'red') - 1) < 1e-9, 'no início, o lado retém 100% do potencial ofensivo');
+semMeios(stR, 'red');
+eq(M.offensiveStockRatio(stR, 'red'), 0, 'sem armas nem capacidade ofensiva, a fração é 0');
+
+// Efeito no lote: sob exaustão a métrica E1_kcv volta a discriminar.
+const loteObj = SIM.runBatch({ factors: TODAS, replicas: 4, maxTurns: 20, victoryRule: 'objectives' });
+const loteExa = SIM.runBatch({ factors: TODAS, replicas: 4, maxTurns: 20, victoryRule: 'exhaustion' });
+eq(loteObj.victoryRule, 'objectives', 'o lote registra a regra usada (objetivos)');
+eq(loteExa.victoryRule, 'exhaustion', 'o lote registra a regra usada (exaustão)');
+ok(loteObj.rows.every(r => r.regra_vitoria === 'objectives'), 'cada partida carrega a regra no seu registro');
+const turnosObj = loteObj.rows.reduce((a, r) => a + r.turnos, 0) / loteObj.rows.length;
+const turnosExa = loteExa.rows.reduce((a, r) => a + r.turnos, 0) / loteExa.rows.length;
+ok(turnosExa > turnosObj, `exaustão alonga as partidas (${turnosExa.toFixed(1)} vs ${turnosObj.toFixed(1)} turnos)`);
+ok(SIM.toCsv(loteExa.rows).split('\n')[0].includes('regra_vitoria'), 'CSV traz a coluna regra_vitoria');
+
 // ─── Lote ────────────────────────────────────────────────────────────────────
 const lote = SIM.runBatch({ bloco: 'ablacao', replicas: 3, maxTurns: 8 });
 eq(lote.rows.length, 18, 'lote de ablação: 6 condições × 3 réplicas = 18 partidas');

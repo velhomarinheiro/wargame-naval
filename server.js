@@ -24,6 +24,7 @@ const { mulberry32 } = require('./shared/rng');
 const combatRng = require('./shared/combat_engine');
 const { CAPABILITY_FACTORS, FACTOR_KEYS, applyCapabilityConfig } = require('./shared/capability_factors');
 const { FACTORIAL_CONDITIONS, ABLATION_CONDITIONS } = require('./shared/conditions');
+const { hasOffensiveMeans, offensiveStockRatio } = require('./shared/metrics');
 const constructiveSim = require('./shared/constructive_sim');
 
 const PORT   = process.env.PORT || 3000;
@@ -325,9 +326,12 @@ function initialUnits(ob = ORDER_OF_BATTLE) {
 
 /**
  * @param {object} ob    ordem de batalha (padrão: ORDER_OF_BATTLE)
- * @param {object} opts  { seed } — com semente, a partida fica reprodutível:
+ * @param {object} opts  { seed, victoryRule }
+ *                       `seed`: com semente, a partida fica reprodutível —
  *                       state.rng alimenta o combate e a degradação por dano.
  *                       Sem semente, nada muda (Math.random, como sempre).
+ *                       `victoryRule`: 'objectives' (padrão) ou 'exhaustion'
+ *                       (ver VICTORY_RULES).
  */
 function newGame(ob = ORDER_OF_BATTLE, opts = {}) {
   const rng = opts.seed != null ? mulberry32(opts.seed) : null;
@@ -343,6 +347,7 @@ function newGame(ob = ORDER_OF_BATTLE, opts = {}) {
     currentEngagementIndex: 0,
     battleRoundDecisions: { blue: null, red: null },
     rng,
+    victoryRule: resolveVictoryRule(opts.victoryRule),
   };
   saveMovementSnapshot(state);
   return state;
@@ -726,14 +731,20 @@ function concludeTurn(room) {
   nextTurn(state);
   if (state.fac) state.fac.pendingMoves = [];
 
-  // ── Limite operacional: ao fim do dia MAX_TURNS, vence o maior progresso ────
+  // ── Limite operacional: ao fim do dia MAX_TURNS, adjudica-se o resultado ────
+  // O critério acompanha a regra de vitória do cenário: por objetivos, vence o
+  // maior progresso nas condições; por exaustão, vence quem conservou maior
+  // fração do próprio potencial ofensivo — isto é, quem chegou mais perto de
+  // exaurir o outro. Empate → Azul, nos dois casos.
   if (state.turn > MAX_TURNS) {
     const obj = computeObjectives(state);
-    const blueProg = objectiveProgress(obj.blue);
-    const redProg  = objectiveProgress(obj.red);
+    const porExaustao = resolveVictoryRule(state.victoryRule) === 'exhaustion';
+    const blueProg = porExaustao ? offensiveStockRatio(state, 'blue') : objectiveProgress(obj.blue);
+    const redProg  = porExaustao ? offensiveStockRatio(state, 'red')  : objectiveProgress(obj.red);
     const winner = redProg > blueProg ? 'red' : 'blue';   // empate → Azul
     state.winner = winner;
-    state.log.unshift(`⏱ Limite operacional de ${MAX_TURNS} dias atingido — adjudicação por progresso nos objetivos (Azul ${(blueProg * 100).toFixed(0)}% · Vermelho ${(redProg * 100).toFixed(0)}%).`);
+    const criterio = porExaustao ? 'potencial ofensivo remanescente' : 'progresso nos objetivos';
+    state.log.unshift(`⏱ Limite operacional de ${MAX_TURNS} dias atingido — adjudicação por ${criterio} (Azul ${(blueProg * 100).toFixed(0)}% · Vermelho ${(redProg * 100).toFixed(0)}%).`);
     state.log.unshift(`🏆 ${winner === 'blue' ? 'Força Azul' : 'Força Vermelha'} VENCEU!`);
     gameLogger.logGameOver(room.id, state.turn, winner, 'timeout', obj, state);
     emitGameOver(room, { winner, objectives: obj, reason: 'timeout' });
@@ -856,12 +867,52 @@ function objectiveProgress(side) {
   return fr.length ? fr.reduce((a, b) => a + b, 0) / fr.length : 0;
 }
 
-function checkWinner(state) {
+// ─── Regras de vitória ────────────────────────────────────────────────────────
+// Duas definições de "decisivo", escolhidas por cenário:
+//
+//   objectives  (padrão) — vence quem cumpre suas condições assimétricas
+//                 (Azul 3 de 5; Vermelho 2 de 2). É a regra do wargame desde
+//                 sempre; partidas se decidem em poucos turnos.
+//   exhaustion  — vence quem deixa o adversário sem NENHUM meio ofensivo
+//                 sobrevivente (arma com estoque ou capacidade ofensiva; ver
+//                 metrics.hasOffensiveMeans). "Decisivo" passa a significar
+//                 redução geral da capacidade de combate do oponente, e não o
+//                 cumprimento de objetivos de cenário — é a definição usada no
+//                 estudo de capacidades, onde a métrica E1_kcv depende dela.
+//
+// Empate (os dois lados satisfeitos no mesmo instante) resolve para Azul nas
+// duas regras, mantendo a convenção já adotada aqui na adjudicação por tempo.
+// Nota: a implementação de origem resolvia o empate de exaustão para Vermelho,
+// por ordem de teste; aqui preferiu-se a consistência interna da plataforma.
+const VICTORY_RULES = ['objectives', 'exhaustion'];
+const VICTORY_RULE_DEFAULT = 'objectives';
+
+function resolveVictoryRule(value) {
+  return VICTORY_RULES.includes(value) ? value : VICTORY_RULE_DEFAULT;
+}
+
+function checkWinnerByObjectives(state) {
   const obj = computeObjectives(state);
   if (obj.blue.won && obj.red.won) return 'blue'; // tiebreak
   if (obj.blue.won) return 'blue';
   if (obj.red.won)  return 'red';
   return null;
+}
+
+function checkWinnerByExhaustion(state) {
+  const combativo = team => state.units.some(u =>
+    u.team === team && u.hp > 0 && hasOffensiveMeans(u));
+  const b = combativo('blue'), r = combativo('red');
+  if (!b && !r) return 'blue';   // exaustão mútua → empate para Azul
+  if (!r) return 'blue';
+  if (!b) return 'red';
+  return null;
+}
+
+function checkWinner(state) {
+  return resolveVictoryRule(state?.victoryRule) === 'exhaustion'
+    ? checkWinnerByExhaustion(state)
+    : checkWinnerByObjectives(state);
 }
 
 function nextTurn(state) {
@@ -1511,6 +1562,8 @@ app.get('/api/construtivo/meta', (_, res) => {
     },
     maxTurnsPadrao: constructiveSim.DEFAULT_MAX_TURNS,
     metricas: constructiveSim.METRIC_KEYS,
+    regrasVitoria: VICTORY_RULES,
+    regraVitoriaPadrao: VICTORY_RULE_DEFAULT,
   });
 });
 
@@ -1536,7 +1589,8 @@ app.post('/api/construtivo/run', (req, res) => {
 
   // Executa em fatias: cada setImmediate devolve o laço de eventos ao servidor,
   // para que o jogo interativo não congele durante um lote longo.
-  const maxTurns = Math.max(1, Math.min(40, Number(spec.maxTurns) || constructiveSim.DEFAULT_MAX_TURNS));
+  const maxTurns    = Math.max(1, Math.min(40, Number(spec.maxTurns) || constructiveSim.DEFAULT_MAX_TURNS));
+  const victoryRule = resolveVictoryRule(spec.victoryRule);
   const replicasOverride = spec.bloco && Number(spec.replicas) ? Number(spec.replicas) : null;
   const plano = [];
   for (const cond of conditions) {
@@ -1552,10 +1606,12 @@ app.post('/api/construtivo/run', (req, res) => {
     try {
       for (; i < fim; i++) {
         const { cond, seed, replica } = plano[i];
-        const { winner, turns, metrics, groupMetrics } = constructiveSim.runGame(cond.factors, seed, maxTurns);
+        const { winner, turns, metrics, groupMetrics } =
+          constructiveSim.runGame(cond.factors, seed, maxTurns, victoryRule);
         const row = { condicao: cond.condicao, replica, semente: seed,
                       n_capacidades: cond.n_capacidades, custo_total: cond.custo_total,
-                      ...metrics, vencedor: winner || 'censurado', turnos: turns, ...groupMetrics };
+                      ...metrics, vencedor: winner || 'censurado', turnos: turns,
+                      regra_vitoria: victoryRule, ...groupMetrics };
         for (const key of FACTOR_KEYS) row[key] = cond.factors[key];
         if (cond.capacidade_removida !== undefined) row.capacidade_removida = cond.capacidade_removida || '';
         rows.push(row);
@@ -1578,7 +1634,7 @@ app.post('/api/construtivo/run', (req, res) => {
                custo_total: cond.custo_total, replicas: condRows.length,
                resumo: constructiveSim.summarize(condRows) };
     });
-    job.resultado = { rows, porCondicao, total: rows.length, maxTurns,
+    job.resultado = { rows, porCondicao, total: rows.length, maxTurns, victoryRule,
                       gruposPresentes: constructiveSim.presentGroups(rows) };
     job.status = 'done'; job.updatedAt = Date.now();
   }
@@ -2271,6 +2327,21 @@ io.on('connection', socket => {
     state.movementSnapshot[unit.id] = { col, row };
     state.log.unshift(`⚖ Contato neutro ${unit.name} inserido em ${hexName(col, row)}.`);
     facLog(room, 'add_neutral', { template, id: unit.id, col, row });
+    broadcast(room);
+  });
+
+  // Regra de vitória do cenário — escolha do facilitador, só na configuração.
+  // Depois que a partida começa, mudar o critério de vitória no meio do jogo
+  // seria mudar o jogo sob os pés dos jogadores.
+  socket.on('fac_set_victory_rule', ({ rule } = {}) => {
+    const room = facRoomOf(socket); if (!room) return;
+    const state = room.state;
+    if (state.phase !== 'setup') { socket.emit('action_error','A regra de vitória só muda na configuração.'); return; }
+    if (!VICTORY_RULES.includes(rule)) { socket.emit('action_error','Regra de vitória inválida.'); return; }
+    state.victoryRule = rule;
+    const nome = rule === 'exhaustion' ? 'exaustão ofensiva' : 'objetivos do cenário';
+    state.log.unshift(`⚖ Regra de vitória do cenário: ${nome}.`);
+    facLog(room, 'set_victory_rule', { rule });
     broadcast(room);
   });
 

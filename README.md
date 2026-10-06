@@ -54,6 +54,12 @@ O servidor sobe em `http://localhost:3000` (porta configurável via `PORT`).
 - Vitória por objetivos assimétricos: Azul precisa de 3 de 5; Vermelho, de
   seus 2. Limite operacional de 12 dias com adjudicação por progresso
   (configurável via `MAX_TURNS`).
+- **Regra de vitória como opção de cenário**: além dos objetivos (padrão),
+  existe a **exaustão ofensiva** — vence quem deixar o adversário sem nenhuma
+  unidade com arma em estoque ou capacidade ofensiva. Escolhida pelo
+  facilitador na configuração da sala arbitrada, ou por execução no simulador
+  construtivo. Sob exaustão a adjudicação por tempo compara o potencial
+  ofensivo remanescente em vez do progresso nos objetivos.
 
 ## Estrutura do repositório
 
