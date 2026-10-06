@@ -17,7 +17,19 @@ O servidor sobe em `http://localhost:3000` (porta configurável via `PORT`).
 
 - **2 jogadores** — um jogador cria a sala (Força Azul) e compartilha o código
   de 6 letras; o outro entra como Força Vermelha.
-- **Solo vs. computador** — escolha um dos lados e jogue contra o bot.
+- **Solo vs. computador** — escolha um dos lados e jogue contra o bot. Antes de
+  começar, escolha a **doutrina do adversário**: *formação* (dividida — cada
+  unidade escolhe seu alvo; ou concentrada — os navios de superfície avançam
+  juntos sobre o mesmo alvo) e *postura* (ofensiva — busca o contato; ou
+  defensiva — evita se expor sem poder revidar e recua mais cedo). Qualquer um
+  dos eixos pode ser sorteado.
+- **Sala arbitrada (facilitador/instrutor)** — um terceiro participante abre a
+  sala e arbitra: prepara as forças antes do início (SP, movimento, munição,
+  posição, duplicar ou retirar unidades), autoriza ou nega cada movimento
+  declarado, ratifica o resultado do combate com ajustes de SP, insere contatos
+  neutros (mercante, pesqueiro, navio-hospital, pesquisa, aeronave civil — não
+  atacáveis) e envia mensagens às equipes. Ele vê o tabuleiro inteiro, sem
+  névoa de guerra. Todas as intervenções vão para o log da partida.
 
 ## Mecânicas principais
 
@@ -42,5 +54,6 @@ O servidor sobe em `http://localhost:3000` (porta configurável via `PORT`).
 | `game_logger.js` | Gravação de partidas em JSONL para o dataset de ML |
 | `shared/` | Ordem de batalha, configuração e motor de combate (usados por servidor e cliente) |
 | `public/` | Cliente web (landing, jogo em canvas, CSS, ícones, cards) |
+| `public/js/facilitator.js` | Painéis e comandos do facilitador na sala arbitrada |
 | `data/game-logs/` | Logs de partidas reais (dataset para treinar o bot) |
 | `ml/` | Scripts de treinamento do bot por imitação |

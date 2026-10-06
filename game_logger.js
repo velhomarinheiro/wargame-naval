@@ -60,14 +60,38 @@ function snapshotState(state) {
 // ── Handles de arquivo abertos (roomId → { path }) ────────────────────────────
 const _handles = new Map();
 
+// Registros emitidos ANTES de o arquivo existir (roomId → [record]).
+// Caso real: numa sala arbitrada, o facilitador ajusta as forças na fase de
+// configuração, e o arquivo só é aberto quando ele libera a partida. Sem este
+// buffer esses ajustes seriam descartados em silêncio — justamente as decisões
+// que explicam, na análise posterior, com que forças a partida foi jogada.
+// O buffer evita criar arquivo para sala que nunca começa.
+const _pending = new Map();
+const PENDING_MAX = 200;   // teto por sala, p/ uma sala abandonada não crescer
+
 function _append(roomId, record) {
   const h = _handles.get(roomId);
-  if (!h) return;
+  if (!h) {
+    const buf = _pending.get(roomId) || [];
+    if (buf.length < PENDING_MAX) {
+      buf.push(record);
+      _pending.set(roomId, buf);
+    }
+    return;
+  }
   try {
     fs.appendFileSync(h.path, JSON.stringify(record) + '\n');
   } catch (err) {
     console.error('[GameLogger] Erro ao gravar log:', err.message);
   }
+}
+
+// Descarrega no arquivo o que foi emitido antes de ele existir.
+function _flushPending(roomId) {
+  const buf = _pending.get(roomId);
+  _pending.delete(roomId);
+  if (!buf?.length) return;
+  for (const record of buf) _append(roomId, record);
 }
 
 function _ts() { return new Date().toISOString(); }
@@ -83,8 +107,9 @@ function _agent(agent) { return AGENTS.includes(agent) ? agent : 'unknown'; }
 /**
  * Abre o arquivo de log de uma nova partida e registra o estado inicial.
  * Deve ser chamado logo após newGame() no join_room.
- * @param {object} meta  { solo, botTeam } — contexto da sala, para classificar
- *                       a partida inteira (humano×humano vs. humano×bot).
+ * @param {object} meta  { solo, botTeam, botDoctrine } — contexto da sala, para
+ *                       classificar a partida inteira (humano×humano vs.
+ *                       humano×bot) e saber sob que doutrina o bot jogou.
  */
 function logStart(roomId, state, meta = {}) {
   const ts   = _ts();
@@ -93,12 +118,36 @@ function logStart(roomId, state, meta = {}) {
   const file = path.join(LOG_DIR, `game_${date}_${time}_${roomId}.jsonl`);
   _handles.set(roomId, { path: file });
   _append(roomId, {
-    event:   'game_start',
+    event:       'game_start',
     ts,
+    room:        roomId,
+    solo:        !!meta.solo,
+    botTeam:     meta.botTeam ?? null,
+    botDoctrine: meta.botDoctrine ?? null,
+    facilitated: !!meta.facilitated,
+    state:       snapshotState(state),
+  });
+  // Intervenções da configuração (sala arbitrada) vêm antes do game_start:
+  // gravadas agora, depois dele, preservando a ordem em que ocorreram.
+  _flushPending(roomId);
+}
+
+/**
+ * Registra uma intervenção do facilitador/instrutor (modo arbitrado).
+ * `action` é o comando (start_game, move_unit, deny_move, approve_movements,
+ * ratify_combat, edit_unit, clone_unit, remove_unit, add_neutral, message) e
+ * `details` o que foi ajustado — é o que permite reconstruir, na análise
+ * posterior, o que foi decidido pelos jogadores e o que foi arbitrado.
+ */
+function logFacilitator(roomId, turn, period, action, details) {
+  _append(roomId, {
+    event:   'facilitator_action',
+    ts:      _ts(),
     room:    roomId,
-    solo:    !!meta.solo,
-    botTeam: meta.botTeam ?? null,
-    state:   snapshotState(state),
+    turn,
+    period,
+    action,
+    details: details || {},
   });
 }
 
@@ -175,6 +224,7 @@ function logEngagement(roomId, turn, period, engagement) {
  * @param {string}      reason  'victory' | 'timeout' | 'abandon' | 'restart' | 'disconnect'
  */
 function logGameOver(roomId, turn, winner, reason, objectives, state) {
+  _pending.delete(roomId);   // sala encerrada: descarta buffer não gravado
   _append(roomId, {
     event:      'game_over',
     ts:         _ts(),
@@ -188,4 +238,4 @@ function logGameOver(roomId, turn, winner, reason, objectives, state) {
   _handles.delete(roomId);
 }
 
-module.exports = { logStart, logMoves, logAttacks, logEngagement, logGameOver };
+module.exports = { logStart, logMoves, logAttacks, logEngagement, logGameOver, logFacilitator };

@@ -44,6 +44,11 @@
       <div id="terrain-tip" class="terrain-tip"></div>
       <div id="error-flash" class="error-flash hidden" role="alert"></div>
       <div id="reconnect-banner" class="reconnect-banner hidden" role="status"></div>
+      <div id="fac-place-hint" class="fac-place-hint hidden" role="status"></div>
+      <div id="fac-toast" class="fac-toast hidden" role="status">
+        <div class="fac-toast-title">📢 MENSAGEM DO FACILITADOR</div>
+        <div id="fac-toast-text" class="fac-toast-text"></div>
+      </div>
       <div id="stack-picker" class="stack-picker hidden">
         <div class="sp-title">UNIDADES EMPILHADAS</div>
         <div id="sp-list"></div>
@@ -58,10 +63,24 @@
       <button class="sidebar-close-btn" title="Fechar painel" aria-label="Fechar painel lateral"
         onclick="document.querySelector('.game-body').classList.remove('sidebar-open')">✕</button>
 
+      <!-- Facilitador: situação da sala e ação da fase corrente -->
+      <div id="fac-panel" class="panel fac-panel hidden">
+        <div class="panel-title">FACILITADOR</div>
+        <div id="fac-status" class="fac-status"></div>
+        <div id="fac-phase" class="fac-phase"></div>
+      </div>
+
       <div class="panel fleet-panel">
         <div class="panel-title">FROTAS</div>
         <div class="fleet-row blue"><span id="fleet-blue">Azul: 9</span></div>
         <div class="fleet-row red" ><span id="fleet-red" >Verm: 9</span></div>
+        <div class="fleet-row neutral hidden" id="fleet-neutral-row"><span id="fleet-neutral"></span></div>
+      </div>
+
+      <!-- Jogador em sala com facilitador: mensagens recebidas -->
+      <div id="player-msg-panel" class="panel hidden">
+        <div class="panel-title">MENSAGENS DO FACILITADOR</div>
+        <div id="player-msg-list" class="fac-msg-list"></div>
       </div>
 
       <div class="panel unit-info-panel">
@@ -69,8 +88,53 @@
         <div id="unit-panel"><p class="no-sel">Clique em uma unidade sua</p></div>
       </div>
 
+      <!-- Facilitador: ajustes da unidade selecionada -->
+      <div id="fac-edit-panel" class="panel fac-edit-panel hidden">
+        <div class="panel-title">AJUSTAR UNIDADE</div>
+        <div id="fac-edit-body"></div>
+      </div>
+
+      <!-- Facilitador: criar unidade neutra -->
+      <div id="fac-neutral-panel" class="panel hidden">
+        <div class="panel-title">UNIDADES NEUTRAS</div>
+        <label class="fac-field">
+          <span>Tipo</span>
+          <select id="fac-neutral-tpl">
+            <option value="mercante">Navio mercante</option>
+            <option value="pesqueiro">Pesqueiro</option>
+            <option value="hospital">Navio-hospital (CICV)</option>
+            <option value="pesquisa">Navio de pesquisa</option>
+            <option value="aeronave">Aeronave civil</option>
+          </select>
+        </label>
+        <label class="fac-field">
+          <span>Nome (opcional)</span>
+          <input id="fac-neutral-name" type="text" maxlength="40" autocomplete="off">
+        </label>
+        <button id="fac-neutral-add" class="act-btn gray">➕ Posicionar no mapa</button>
+        <p class="fac-hint">Neutros são visíveis a todos e não podem ser atacados. Selecione um no mapa para movê-lo.</p>
+      </div>
+
+      <!-- Facilitador: mensagens às equipes -->
+      <div id="fac-msg-panel" class="panel hidden">
+        <div class="panel-title">MENSAGEM ÀS EQUIPES</div>
+        <label class="fac-field">
+          <span>Para</span>
+          <select id="fac-msg-to">
+            <option value="all">Ambas as equipes</option>
+            <option value="blue">Força Azul</option>
+            <option value="red">Força Vermelha</option>
+          </select>
+        </label>
+        <textarea id="fac-msg-text" class="fac-msg-text" maxlength="300" rows="3"
+          placeholder="Ex.: inteligência indica atividade submarina ao sul."></textarea>
+        <button id="fac-msg-send" class="act-btn gray">📢 Enviar</button>
+        <div id="fac-msg-list" class="fac-msg-list"></div>
+      </div>
+
       <div class="panel actions-panel">
         <div class="panel-title">AÇÕES</div>
+        <div id="phase-hint" class="phase-hint hidden"></div>
         <button id="end-phase-btn"  class="act-btn yellow hidden">Encerrar Movimentação</button>
         <button id="combat-btn"     class="act-btn orange hidden">Confirmar Ataques (0)</button>
         <button id="undo-step-btn"  class="act-btn gray   hidden">↩ Desfazer Passo</button>
@@ -223,5 +287,6 @@
 <script src="js/units.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/client.js"></script>
+<script src="js/facilitator.js"></script>
 </body>
 </html>

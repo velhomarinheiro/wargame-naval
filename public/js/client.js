@@ -161,7 +161,15 @@ mapImg.src = '/mapa.jpeg';
 let myTeam      = null;
 let gameState   = null;
 let isSolo      = false;
+let isFacilitated  = false;   // sala arbitrada (qualquer papel)
+let isFacilitator  = false;   // este cliente é o facilitador
 let currentRoomId = null;
+
+// Nomes de unidade e textos do facilitador vão para innerHTML — escapar sempre.
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 let prevUnitPos = new Map(); // unitId → {col, row} — for movement flash detection
 let selUnitId   = null;
 
@@ -439,10 +447,17 @@ socket.on('connect', () => {
     sessionStorage.removeItem('pendingCode');
     if (code) socket.emit('join_room', { roomId: code });
   } else if (action === 'solo') {
-    const team = sessionStorage.getItem('soloTeam') || 'blue';
+    const team      = sessionStorage.getItem('soloTeam') || 'blue';
+    const formation = sessionStorage.getItem('soloFormation') || 'random';
+    const posture   = sessionStorage.getItem('soloPosture')   || 'random';
     sessionStorage.removeItem('pendingAction');
     sessionStorage.removeItem('soloTeam');
-    socket.emit('create_solo_room', { team });
+    sessionStorage.removeItem('soloFormation');
+    sessionStorage.removeItem('soloPosture');
+    socket.emit('create_solo_room', { team, formation, posture });
+  } else if (action === 'facilitate') {
+    sessionStorage.removeItem('pendingAction');
+    socket.emit('create_facilitated_room');
   } else {
     // Sem ação pendente: se há sessão salva (F5 ou queda de rede), tenta
     // reassumir o assento dentro do período de graça do servidor.
@@ -500,8 +515,10 @@ socket.on('room_created', ({roomId, team}) => {
 });
 socket.on('join_error', msg => showLobbyErr(msg));
 
-socket.on('game_start', ({team, state, solo, roomId, rejoinToken, rejoined}) => {
+socket.on('game_start', ({team, state, solo, facilitated, roomId, rejoinToken, rejoined}) => {
   myTeam = team; gameState = state; isSolo = !!solo;
+  isFacilitated = !!facilitated;
+  isFacilitator = team === 'facilitator';
   if (roomId) currentRoomId = roomId;
   if (roomId && rejoinToken) {
     localStorage.setItem('oas_session', JSON.stringify({ roomId, team, token: rejoinToken }));
@@ -510,6 +527,13 @@ socket.on('game_start', ({team, state, solo, roomId, rejoinToken, rejoined}) => 
   disconnected.classList.add('hidden');
   if (rejoined) { gameState.log?.unshift('🔌 Você reconectou à partida.'); }
   if (isSolo) document.title = 'Operação Atlântico Sul · Solo vs BOT';
+  // O facilitador não declara ataques nem abandona: esconde o que não é dele.
+  document.body.classList.toggle('facilitator-mode', isFacilitator);
+  if (isFacilitator) {
+    document.title = 'Operação Atlântico Sul · Facilitador';
+    abandonBtn?.classList.add('hidden');
+    $('player-msg-panel')?.classList.add('hidden');
+  }
   selUnitId = null; selGroupIds = []; moveHexes = []; atkHexes = []; reachableHexes = new Map(); pendingAtks = [];
   activePath = []; plannedMoves.clear(); hideStackPicker(); hideTargetPicker(); closeWeaponPicker();
   closeBrPanel();
@@ -610,6 +634,69 @@ socket.on('opponent_disconnected', (info = {}) => {
   $('disconnect-msg').textContent = 'Oponente desconectou.';
   disconnected.classList.remove('hidden');
 });
+
+// ── Sala arbitrada: quedas dizem QUAL papel caiu ────────────────────────────
+const ROLE_PT = { facilitator: 'Facilitador', blue: 'Força Azul', red: 'Força Vermelha' };
+socket.on('participant_disconnected', (info = {}) => {
+  const who = ROLE_PT[info.role] || 'Participante';
+  if (info.grace) {
+    showReconnectBanner(`⌛ ${who} desconectou — aguardando reconexão`, info.seconds || 75);
+    return;
+  }
+  // Sem graça: a ausência não trava a partida (assento de jogador ainda na
+  // configuração). Avisa sem overlay terminal.
+  if (info.grace === false && info.seconds) { hideReconnectBanner(); }
+  if (gameState) { gameState.log?.unshift(`🔌 ${who} desconectou.`); updateUI(); }
+  if (!info.seconds) {
+    hideReconnectBanner();
+    localStorage.removeItem('oas_session');
+    if (!gameOver.classList.contains('hidden')) return;
+    $('disconnect-msg').textContent = `${who} desconectou.`;
+    disconnected.classList.remove('hidden');
+  }
+});
+socket.on('participant_reconnected', ({ role } = {}) => {
+  hideReconnectBanner();
+  if (gameState) { gameState.log?.unshift(`🔌 ${ROLE_PT[role] || 'Participante'} reconectou.`); updateUI(); }
+});
+
+// ── Sala arbitrada: mensagem do facilitador para os jogadores ───────────────
+const facMsgs = [];
+socket.on('facilitator_message', msg => {
+  facMsgs.push(msg);
+  const panel = $('player-msg-panel');
+  if (panel) {
+    panel.classList.remove('hidden');
+    $('player-msg-list').innerHTML = facMsgs.slice().reverse().map(m => `
+      <div class="fac-msg-item">
+        <div class="fac-msg-meta">Turno ${m.turn}</div>
+        <div class="fac-msg-body">${escapeHtml(m.text)}</div>
+      </div>`).join('');
+  }
+  // Aviso efêmero sobre o tabuleiro, para não passar batido no painel.
+  const toast = $('fac-toast');
+  if (toast) {
+    $('fac-toast-text').textContent = msg.text;
+    toast.classList.remove('hidden');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toast.classList.add('hidden'), 9000);
+  }
+  SFX.play('turnChange');
+});
+
+// ── Sala arbitrada: escolher assento ao entrar pelo código ──────────────────
+socket.on('join_choose_team', ({ roomId, free }) => {
+  const opts = [];
+  if (free.blue) opts.push('A = Força Azul');
+  if (free.red)  opts.push('V = Força Vermelha');
+  const ans = prompt(`Sala arbitrada ${roomId}. Escolha sua força:\n${opts.join('\n')}`, free.blue ? 'A' : 'V');
+  if (ans === null) return;
+  const pick = ans.trim().toUpperCase().startsWith('A') ? 'blue'
+             : ans.trim().toUpperCase().startsWith('V') ? 'red' : null;
+  if (!pick) { showLobbyErr('Escolha A (Azul) ou V (Vermelha).'); return; }
+  socket.emit('join_room', { roomId, team: pick });
+});
+
 // Própria conexão caiu (rede/aba/sleep): o socket.io tenta reconectar sozinho;
 // ao reconectar, o handler de 'connect' reassume o assento via rejoin_room.
 socket.on('disconnect', reason => {
@@ -999,6 +1086,9 @@ function handleClick(col, row) {
   if (!stackPicker.classList.contains('hidden'))  { hideStackPicker();   return; }
   if (!targetPicker.classList.contains('hidden')) { hideTargetPicker();  return; }
   if (!weaponPicker.classList.contains('hidden')) { closeWeaponPicker(); return; }
+
+  // Facilitador: o mapa serve para selecionar/posicionar, não para jogar.
+  if (isFacilitator) { facHandleClick(col, row); return; }
 
   // ── Combat phase ──
   if (phase === 'combat') {
@@ -1397,6 +1487,8 @@ function recalcHighlights(unit) {
 
 function isMyTurn() {
   if (!gameState) return false;
+  // Facilitador: "sua vez" é quando a partida depende de uma decisão dele.
+  if (isFacilitator) return facNeedsAction();
   const {phase, blueDone, redDone} = gameState;
   if (phase === 'movement') return myTeam === 'blue' ? !blueDone : !redDone;
   if (phase === 'combat')   return myTeam === 'blue' ? gameState.blueAttacks === null : gameState.redAttacks === null;
@@ -1447,16 +1539,35 @@ function buildAtkListHtml(atks) {
   return `<div class="atk-list"><div class="atk-list-title">Ataques declarados:</div>${items}</div>`;
 }
 
+// Rótulo de cada fase no cabeçalho. As duas fases de arbitragem só ocorrem em
+// sala com facilitador.
+const PHASE_LABELS = {
+  setup:             'Configuração',
+  movement:          'Movimentação',
+  movement_approval: 'Autorização de movimentos',
+  combat:            'Combate',
+  combat_approval:   'Ratificação do combate',
+};
+
+// Em sala arbitrada, o jogador fica inerte nas fases do facilitador — a dica
+// diz o que está sendo esperado, para a espera não parecer travamento.
+const PLAYER_WAIT_HINTS = {
+  setup:             '⚖ O facilitador está preparando as forças. A partida começa quando ele liberar.',
+  movement_approval: '⚖ Movimentos declarados. Aguardando a autorização do facilitador.',
+  combat_approval:   '⚖ Combate resolvido. Aguardando a ratificação do facilitador.',
+};
+
 // ─── UI update ────────────────────────────────────────────────────────────────
 function updateUI() {
   if (!gameState) return;
   const {turn, period, phase, units, log, winner} = gameState;
 
-  teamBadge.textContent  = myTeam === 'blue' ? 'FORÇA AZUL' : 'FORÇA VERMELHA';
-  teamBadge.className    = `team-badge ${myTeam}`;
+  teamBadge.textContent  = isFacilitator ? 'FACILITADOR'
+                         : myTeam === 'blue' ? 'FORÇA AZUL' : 'FORÇA VERMELHA';
+  teamBadge.className    = `team-badge ${isFacilitator ? 'facilitator' : myTeam}`;
   turnLabel.textContent  = gameState.maxTurns ? `Turno ${turn}/${gameState.maxTurns}` : `Turno ${turn}`;
   periodLabel.textContent= period === 'day' ? '☀ Diurno' : '🌙 Noturno';
-  phaseLabel.textContent = phase === 'movement' ? 'Movimentação' : 'Combate';
+  phaseLabel.textContent = PHASE_LABELS[phase] || phase;
 
   myTurnBanner.classList.toggle('visible', isMyTurn() && !winner);
 
@@ -1465,7 +1576,19 @@ function updateUI() {
   undoStepBtn.classList.add('hidden');
   cancelBtn.classList.toggle('hidden', selUnitId === null);
 
-  if (isMyTurn() && !winner) {
+  // Painéis do facilitador (o próprio módulo decide o que mostrar por fase).
+  if (isFacilitator) facRenderPanels();
+
+  // Jogador em sala arbitrada: dizer o que a partida está esperando, em vez de
+  // deixar a interface simplesmente inerte nas fases de arbitragem.
+  const phaseHint = $('phase-hint');
+  if (phaseHint) {
+    const waitMsg = (!isFacilitator && isFacilitated && !winner) ? PLAYER_WAIT_HINTS[phase] : null;
+    phaseHint.classList.toggle('hidden', !waitMsg);
+    if (waitMsg) phaseHint.textContent = waitMsg;
+  }
+
+  if (isMyTurn() && !winner && !isFacilitator) {
     if (phase === 'movement') {
       endPhaseBtn.classList.remove('hidden');
       const n = plannedMoves.size + (selUnitId !== null && activePath.length > 1 && !plannedMoves.has(selUnitId) ? 1 : 0);
@@ -1482,6 +1605,13 @@ function updateUI() {
   const r = units.filter(u => u.team === 'red'  && u.hp > 0).length;
   fleetBlue.textContent = `Azul: ${b}`;
   fleetRed.textContent  = `Verm: ${r}`;
+  // Contatos neutros só existem em sala arbitrada — a linha só aparece com eles.
+  const nCount = units.filter(u => u.team === 'neutral' && u.hp > 0).length;
+  const neutralRow = $('fleet-neutral-row');
+  if (neutralRow) {
+    neutralRow.classList.toggle('hidden', nCount === 0);
+    $('fleet-neutral').textContent = `Neutros: ${nCount}`;
+  }
 
   const sel = selUnitId ? gameState.units.find(u => u.id === selUnitId && u.hp > 0) : null;
   if (sel) {
@@ -1554,7 +1684,8 @@ function updateUI() {
   const inGame = !winner;
   exportLogBtn.classList.toggle('hidden', !gameState);
   exportFullLogBtn.classList.toggle('hidden', !gameState || !currentRoomId);
-  abandonBtn.classList.toggle('hidden', !inGame);
+  // O facilitador não abandona (o servidor recusa o comando): nada de botão morto.
+  abandonBtn.classList.toggle('hidden', !inGame || isFacilitator);
 
   updateObjectives();
 }
@@ -1697,6 +1828,7 @@ function render() {
   drawUnits();
   drawUnitFlashes();
   drawCoordLabels();
+  if (isFacilitator) facDrawOverlays();
   if (hoverHex) drawHover();
 
   ctx.restore();

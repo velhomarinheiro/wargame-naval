@@ -229,6 +229,43 @@
       <p id="lobby-err" class="lobby-err hidden"></p>
 
       <div class="lobby-or">— ou jogue solo —</div>
+      <div class="doctrine-picker">
+        <p class="doctrine-title">Doutrina do adversário (IA)</p>
+        <div class="doctrine-group">
+          <span class="doctrine-label">Formação</span>
+          <div class="doctrine-toggle">
+            <label class="doctrine-opt" title="Cada unidade escolhe seu próprio alvo e avança por conta própria.">
+              <input type="radio" name="doctrine-formation" value="divided">
+              <span>Dividida</span>
+            </label>
+            <label class="doctrine-opt" title="As unidades de superfície se mantêm coladas na mais forte e atacam o mesmo alvo.">
+              <input type="radio" name="doctrine-formation" value="concentrated">
+              <span>Concentrada</span>
+            </label>
+            <label class="doctrine-opt" title="Sorteada na criação da sala — você não sabe qual enfrentará.">
+              <input type="radio" name="doctrine-formation" value="random" checked>
+              <span>Aleatória</span>
+            </label>
+          </div>
+        </div>
+        <div class="doctrine-group">
+          <span class="doctrine-label">Postura</span>
+          <div class="doctrine-toggle">
+            <label class="doctrine-opt" title="Busca o contato e gasta munição e combustível livremente.">
+              <input type="radio" name="doctrine-posture" value="offensive">
+              <span>Ofensiva</span>
+            </label>
+            <label class="doctrine-opt" title="Evita se expor sem poder revidar, recua mais cedo e reabastece com mais margem.">
+              <input type="radio" name="doctrine-posture" value="defensive">
+              <span>Defensiva</span>
+            </label>
+            <label class="doctrine-opt" title="Sorteada na criação da sala — você não sabe qual enfrentará.">
+              <input type="radio" name="doctrine-posture" value="random" checked>
+              <span>Aleatória</span>
+            </label>
+          </div>
+        </div>
+      </div>
       <div class="lobby-solo">
         <button id="btn-solo-blue" class="btn-action solo-b">
           <span class="btn-icon">⚓</span>
@@ -241,6 +278,18 @@
           <small>vs Computador</small>
         </button>
       </div>
+
+      <div class="lobby-or">— ou com instrutor —</div>
+      <button id="btn-facilitate" class="btn-action fac">
+        <span class="btn-icon">⚖</span>
+        Abrir Sala Arbitrada
+        <small>Você arbitra; dois jogadores entram pelo código</small>
+      </button>
+      <p class="lobby-note">
+        O facilitador prepara as forças antes do início, autoriza os movimentos,
+        ratifica o combate, insere contatos neutros e envia mensagens às equipes.
+        Para <b>entrar</b> numa sala arbitrada, use o código no campo acima.
+      </p>
     </div>
 
     <div id="lobby-waiting" class="lobby-box waiting hidden">
@@ -526,14 +575,28 @@
 
   roomInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnJoin.click(); });
 
-  document.getElementById('btn-solo-blue').addEventListener('click', () => {
+  // Doutrina escolhida para o bot. 'random' é resolvido no servidor, na criação
+  // da sala, para o jogador não saber de antemão o que vai enfrentar.
+  function selectedDoctrine() {
+    const formation = document.querySelector('input[name="doctrine-formation"]:checked')?.value || 'random';
+    const posture   = document.querySelector('input[name="doctrine-posture"]:checked')?.value   || 'random';
+    return { formation, posture };
+  }
+
+  function startSolo(team) {
+    const { formation, posture } = selectedDoctrine();
     sessionStorage.setItem('pendingAction', 'solo');
-    sessionStorage.setItem('soloTeam', 'blue');
+    sessionStorage.setItem('soloTeam', team);
+    sessionStorage.setItem('soloFormation', formation);
+    sessionStorage.setItem('soloPosture', posture);
     location.href = '/game';
-  });
-  document.getElementById('btn-solo-red').addEventListener('click', () => {
-    sessionStorage.setItem('pendingAction', 'solo');
-    sessionStorage.setItem('soloTeam', 'red');
+  }
+
+  document.getElementById('btn-solo-blue').addEventListener('click', () => startSolo('blue'));
+  document.getElementById('btn-solo-red').addEventListener('click',  () => startSolo('red'));
+
+  document.getElementById('btn-facilitate').addEventListener('click', () => {
+    sessionStorage.setItem('pendingAction', 'facilitate');
     location.href = '/game';
   });
 
