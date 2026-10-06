@@ -23,6 +23,16 @@ O servidor sobe em `http://localhost:3000` (porta configurável via `PORT`).
   juntos sobre o mesmo alvo) e *postura* (ofensiva — busca o contato; ou
   defensiva — evita se expor sem poder revidar e recua mais cedo). Qualquer um
   dos eixos pode ser sorteado.
+- **Simulador construtivo (PBC)** — módulo analítico em `/construtivo`, sem
+  jogadores. Monta-se um **pacote de capacidades** da Força Azul (cinco fatores
+  com custo normalizado em EAC: submarino nuclear, submarinos convencionais,
+  grupos de superfície, patrulha com mísseis, defesa costeira) e a plataforma
+  joga sozinha dezenas ou centenas de partidas com ele. Delineamentos: pacote
+  avulso, ablação (C0 + cada capacidade retirada por vez) e fatorial 2⁵ (32
+  combinações). O relatório traz as medidas E1/E2/E3 + M Dsp por condição,
+  heatmaps de perda por grupo-tarefa e exportação CSV por partida. Roda sobre o
+  mesmo motor e a mesma ordem de batalha do wargame — o pacote avaliado é
+  jogável no modo solo com um clique.
 - **Sala arbitrada (facilitador/instrutor)** — um terceiro participante abre a
   sala e arbitra: prepara as forças antes do início (SP, movimento, munição,
   posição, duplicar ou retirar unidades), autoriza ou nega cada movimento
@@ -53,6 +63,11 @@ O servidor sobe em `http://localhost:3000` (porta configurável via `PORT`).
 | `fuel_model.js` | Modelo de combustível/logística naval e aérea |
 | `game_logger.js` | Gravação de partidas em JSONL para o dataset de ML |
 | `shared/` | Ordem de batalha, configuração e motor de combate (usados por servidor e cliente) |
+| `shared/capability_factors.js` | Os 5 fatores de capacidade (PBC), custos EAC e filtragem da ordem de batalha |
+| `shared/force_taxonomy.json` | Grupos de capacidade (Camada 2 — componentes de força de Coutau-Bégarié) |
+| `shared/metrics.js` | Medidas E1/E2/E3 + M Dsp e perda de SP por grupo-tarefa |
+| `shared/conditions.js` | Delineamentos experimentais: fatorial 2⁵ e ablação |
+| `shared/constructive_sim.js` | Motor headless da simulação construtiva e agregação dos lotes |
 | `public/` | Cliente web (landing, jogo em canvas, CSS, ícones, cards) |
 | `public/js/facilitator.js` | Painéis e comandos do facilitador na sala arbitrada |
 | `data/game-logs/` | Logs de partidas reais (dataset para treinar o bot) |

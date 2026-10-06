@@ -20,6 +20,11 @@ const {
   FUEL_TURN_LIMIT,
 } = require('./fuel_model');
 const gameLogger = require('./game_logger');
+const { mulberry32 } = require('./shared/rng');
+const combatRng = require('./shared/combat_engine');
+const { CAPABILITY_FACTORS, FACTOR_KEYS, applyCapabilityConfig } = require('./shared/capability_factors');
+const { FACTORIAL_CONDITIONS, ABLATION_CONDITIONS } = require('./shared/conditions');
+const constructiveSim = require('./shared/constructive_sim');
 
 const PORT   = process.env.PORT || 3000;
 const GRID_W = 16;
@@ -249,8 +254,11 @@ function makeUnit(team, spec) {
     type:          (spec.composition && spec.composition[0] && COMP_DISPLAY_TYPE[spec.composition[0].type]) || DISPLAY_TYPE_FALLBACK[spec.category] || 'fragata',
     composition:   spec.composition || [],
     movement:      spec.movement,
-    detectionRange: spec.detectionRange,
-    attackRange:   spec.attackRange,
+    // Cópias próprias: applyDegradation muta detectionRange, e compartilhar o
+    // objeto do spec faria o dano de uma partida vazar para a ORDER_OF_BATTLE
+    // global — corrompendo todas as partidas seguintes do mesmo processo.
+    detectionRange: spec.detectionRange ? { ...spec.detectionRange } : {},
+    attackRange:    spec.attackRange    ? { ...spec.attackRange    } : {},
     col:           pos.col,
     row:           pos.row,
     hp:            spec.stayingPower,
@@ -301,29 +309,40 @@ function makeNeutralUnit(id, tpl, name, col, row) {
   return unit;
 }
 
-function initialUnits() {
+// `ob` permite jogar com uma ordem de batalha diferente da padrão — é assim
+// que a simulação construtiva monta cada pacote de capacidades (ver
+// shared/capability_factors.js#applyCapabilityConfig).
+function initialUnits(ob = ORDER_OF_BATTLE) {
   const units = [];
-  for (const spec of ORDER_OF_BATTLE.forces.blue) {
+  for (const spec of ob.forces.blue) {
     units.push(makeUnit('blue', spec));
   }
-  for (const spec of ORDER_OF_BATTLE.forces.red) {
+  for (const spec of ob.forces.red) {
     units.push(makeUnit('red', spec));
   }
   return units;
 }
 
-function newGame() {
+/**
+ * @param {object} ob    ordem de batalha (padrão: ORDER_OF_BATTLE)
+ * @param {object} opts  { seed } — com semente, a partida fica reprodutível:
+ *                       state.rng alimenta o combate e a degradação por dano.
+ *                       Sem semente, nada muda (Math.random, como sempre).
+ */
+function newGame(ob = ORDER_OF_BATTLE, opts = {}) {
+  const rng = opts.seed != null ? mulberry32(opts.seed) : null;
   const state = {
     turn: 1, period: 'day', phase: 'movement',
     blueDone: false, redDone: false,
     blueAttacks: null, redAttacks: null,
-    units: initialUnits(),
+    units: initialUnits(ob),
     log: ['──── Turno 1 · Período Diurno ────', 'Fase de Movimentação iniciada.'],
     winner: null,
     movementSnapshot: {},
     combatQueue: [],
     currentEngagementIndex: 0,
     battleRoundDecisions: { blue: null, red: null },
+    rng,
   };
   saveMovementSnapshot(state);
   return state;
@@ -419,6 +438,12 @@ function defendingGroup(state, col, row, team, category) {
 }
 
 function resolveBattleRound(state, engagement, initiativeBonusTeam = null) {
+  // Amarra os dados do combate ao RNG desta partida. Partida sem semente usa
+  // Math.random (jogo interativo, comportamento de sempre); partida semeada
+  // (simulação construtiva) fica reprodutível. Feito aqui, e não uma vez por
+  // partida, para que salas interativas e lotes jamais compartilhem estado.
+  combatRng.setRng(state.rng);
+
   const att = state.units.find(u => u.id === engagement.attackerId && u.hp > 0);
   const def = state.units.find(u => u.id === engagement.targetId   && u.hp > 0);
   const brTag = `${engagement.id}·BR${engagement.battleRound}`;
@@ -479,7 +504,7 @@ function resolveBattleRound(state, engagement, initiativeBonusTeam = null) {
       const intStr = eng.interception?.intercepted > 0 ? ` (${eng.interception.intercepted} intercept.)` : '';
       state.log.unshift(`✓ ${att.name} → ${def.name} −${eng.totalDamage}SP [${eng.weaponLabel}${intStr}]`);
       spendDamageFuel(def);    // defender burns extra FP absorbing the hit
-      const degrad = applyDegradation(def, eng.totalDamage);
+      const degrad = applyDegradation(def, eng.totalDamage, state);
       if (degrad) { state.log.unshift(`  ↘ ${def.name}: ${degrad}`); eng.degradation = degrad; }
     } else {
       const intStr = eng.interception?.intercepted > 0 ? ` (${eng.interception.intercepted} intercept.)` : '';
@@ -909,7 +934,7 @@ function nextTurn(state) {
 }
 
 // ─── Damage degradation ───────────────────────────────────────────────────────
-function applyDegradation(unit, damageDealt) {
+function applyDegradation(unit, damageDealt, state = null) {
   const ratio = damageDealt / (unit.maxHp || 1);
 
   // Build pool of categories that can still lose at least 1 point
@@ -926,7 +951,10 @@ function applyDegradation(unit, damageDealt) {
 
   if (pool.length === 0) return null;
 
-  const category = pool[Math.floor(Math.random() * pool.length)];
+  // Usa o RNG da partida quando ela é semeada (simulação construtiva), para
+  // que a degradação por dano também seja reprodutível.
+  const rnd = typeof state?.rng === 'function' ? state.rng : Math.random;
+  const category = pool[Math.floor(rnd() * pool.length)];
 
   if (category === 'detection') {
     const initMax   = Math.max(1, ...Object.values(unit.initDetectionRange));
@@ -1441,9 +1469,142 @@ const app    = express();
 const server = http.createServer(app);
 const io     = new Server(server, { cors: { origin: '*' } });
 
+app.use(express.json({ limit: '256kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/',     (_, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/game', (_, res) => res.sendFile(path.join(__dirname, 'public', 'game.html')));
+app.get('/construtivo', (_, res) => res.sendFile(path.join(__dirname, 'public', 'construtivo.html')));
+
+// ─── Simulação construtiva (PBC) ──────────────────────────────────────────────
+// Lotes de partidas bot-vs-bot, sem jogadores: a página /construtivo monta um
+// pacote de capacidades, dispara o lote aqui e lê o progresso até o relatório.
+// Um bloco fatorial são 640 partidas; rodá-las de uma vez travaria o laço de
+// eventos e derrubaria as salas abertas, então o lote avança em fatias com
+// setImmediate entre elas.
+const CONSTRUCTIVE_JOBS = new Map();
+const JOB_TTL_MS    = 30 * 60 * 1000;   // resultado disponível por 30 min
+const JOB_CHUNK     = 10;               // partidas por fatia antes de ceder o laço
+const JOB_MAX_LIVE  = 4;                // lotes simultâneos
+
+function pruneJobs() {
+  const now = Date.now();
+  for (const [id, job] of CONSTRUCTIVE_JOBS) {
+    if (job.status !== 'running' && now - job.updatedAt > JOB_TTL_MS) CONSTRUCTIVE_JOBS.delete(id);
+  }
+}
+
+app.get('/api/construtivo/meta', (_, res) => {
+  res.json({
+    fatores: FACTOR_KEYS.map(k => ({
+      chave: k,
+      rotulo: CAPABILITY_FACTORS[k].label,
+      custo: CAPABILITY_FACTORS[k].cost,
+      unidades: CAPABILITY_FACTORS[k].unitIds.map(id => {
+        const spec = ORDER_OF_BATTLE.forces.blue.find(u => u.id === id);
+        return { id, nome: spec?.name || id, notas: spec?.notes || '' };
+      }),
+    })),
+    custoTotal: FACTOR_KEYS.reduce((s, k) => s + CAPABILITY_FACTORS[k].cost, 0),
+    blocos: {
+      ablacao:  ABLATION_CONDITIONS.map(c => ({ condicao: c.condicao, removida: c.capacidade_removida, custo: c.custo_total, replicas: c.replicas })),
+      fatorial: { condicoes: FACTORIAL_CONDITIONS.length, replicas: FACTORIAL_CONDITIONS[0].replicas },
+    },
+    maxTurnsPadrao: constructiveSim.DEFAULT_MAX_TURNS,
+    metricas: constructiveSim.METRIC_KEYS,
+  });
+});
+
+app.post('/api/construtivo/run', (req, res) => {
+  pruneJobs();
+  const emAndamento = [...CONSTRUCTIVE_JOBS.values()].filter(j => j.status === 'running').length;
+  if (emAndamento >= JOB_MAX_LIVE) {
+    return res.status(429).json({ error: 'Há lotes demais em execução. Aguarde um terminar.' });
+  }
+
+  const spec = req.body || {};
+  let conditions;
+  try {
+    conditions = constructiveSim.buildConditions(spec);
+  } catch (err) {
+    return res.status(400).json({ error: 'Configuração inválida: ' + err.message });
+  }
+
+  const id  = genId() + genId();
+  const job = { id, status: 'running', feito: 0, total: 0, condicaoAtual: null,
+                resultado: null, erro: null, criadoEm: Date.now(), updatedAt: Date.now() };
+  CONSTRUCTIVE_JOBS.set(id, job);
+
+  // Executa em fatias: cada setImmediate devolve o laço de eventos ao servidor,
+  // para que o jogo interativo não congele durante um lote longo.
+  const maxTurns = Math.max(1, Math.min(40, Number(spec.maxTurns) || constructiveSim.DEFAULT_MAX_TURNS));
+  const replicasOverride = spec.bloco && Number(spec.replicas) ? Number(spec.replicas) : null;
+  const plano = [];
+  for (const cond of conditions) {
+    const seeds = replicasOverride ? cond.seeds.slice(0, replicasOverride) : cond.seeds;
+    seeds.forEach((seed, idx) => plano.push({ cond, seed, replica: idx + 1 }));
+  }
+  job.total = plano.length;
+
+  const rows = [];
+  let i = 0;
+  function passo() {
+    const fim = Math.min(i + JOB_CHUNK, plano.length);
+    try {
+      for (; i < fim; i++) {
+        const { cond, seed, replica } = plano[i];
+        const { winner, turns, metrics, groupMetrics } = constructiveSim.runGame(cond.factors, seed, maxTurns);
+        const row = { condicao: cond.condicao, replica, semente: seed,
+                      n_capacidades: cond.n_capacidades, custo_total: cond.custo_total,
+                      ...metrics, vencedor: winner || 'censurado', turnos: turns, ...groupMetrics };
+        for (const key of FACTOR_KEYS) row[key] = cond.factors[key];
+        if (cond.capacidade_removida !== undefined) row.capacidade_removida = cond.capacidade_removida || '';
+        rows.push(row);
+        job.condicaoAtual = cond.condicao;
+      }
+    } catch (err) {
+      job.status = 'error'; job.erro = err.message; job.updatedAt = Date.now();
+      console.error('[construtivo] lote falhou:', err);
+      return;
+    }
+    job.feito = i; job.updatedAt = Date.now();
+    if (i < plano.length) { setImmediate(passo); return; }
+
+    // Agregação final por condição.
+    const porCondicao = conditions.map(cond => {
+      const condRows = rows.filter(r => r.condicao === cond.condicao);
+      return { condicao: cond.condicao, bloco: cond.bloco,
+               capacidade_removida: cond.capacidade_removida ?? null,
+               factors: cond.factors, n_capacidades: cond.n_capacidades,
+               custo_total: cond.custo_total, replicas: condRows.length,
+               resumo: constructiveSim.summarize(condRows) };
+    });
+    job.resultado = { rows, porCondicao, total: rows.length, maxTurns,
+                      gruposPresentes: constructiveSim.presentGroups(rows) };
+    job.status = 'done'; job.updatedAt = Date.now();
+  }
+  setImmediate(passo);
+
+  res.json({ id, total: job.total });
+});
+
+app.get('/api/construtivo/job/:id', (req, res) => {
+  const job = CONSTRUCTIVE_JOBS.get(req.params.id);
+  if (!job) return res.status(404).json({ error: 'Lote não encontrado (pode ter expirado).' });
+  // Durante a execução devolve só o progresso — o resultado completo de um
+  // fatorial são centenas de linhas, não faz sentido reenviá-las a cada sondagem.
+  if (job.status === 'running') {
+    return res.json({ id: job.id, status: job.status, feito: job.feito, total: job.total, condicaoAtual: job.condicaoAtual });
+  }
+  res.json({ id: job.id, status: job.status, feito: job.feito, total: job.total,
+             erro: job.erro, resultado: job.resultado });
+});
+
+app.get('/api/construtivo/job/:id/csv', (req, res) => {
+  const job = CONSTRUCTIVE_JOBS.get(req.params.id);
+  if (!job || job.status !== 'done') return res.status(404).json({ error: 'Lote não disponível.' });
+  res.attachment(`construtivo_${job.id}.csv`);
+  res.type('text/csv').send(constructiveSim.toCsv(job.resultado.rows));
+});
 
 // Exporta os logs de partidas (data/game-logs/*.jsonl) gravados neste servidor
 // como um .zip, para download manual e inclusão no dataset de treinamento.
@@ -1592,10 +1753,16 @@ io.on('connection', socket => {
     socket.emit('room_created',{roomId:id,team:'blue'});
   });
 
-  socket.on('create_solo_room', ({ team, formation, posture } = {}) => {
+  // `factors` (opcional) vem da simulação construtiva: joga-se a partida com o
+  // mesmo pacote de capacidades avaliado no lote, para confrontar o resultado
+  // estatístico com uma partida conduzida por um humano.
+  socket.on('create_solo_room', ({ team, formation, posture, factors } = {}) => {
     if (!['blue','red'].includes(team)) { socket.emit('join_error','Equipe inválida.'); return; }
     const id      = genId();
     const botTeam = team === 'blue' ? 'red' : 'blue';
+    const capabilityFactors = factors && FACTOR_KEYS.some(k => k in factors)
+      ? Object.fromEntries(FACTOR_KEYS.map(k => [k, factors[k] === -1 || factors[k] === false ? -1 : 1]))
+      : null;
     const botDoctrine = {
       formation: resolveDoctrineChoice(formation, ['concentrated','divided'], DOCTRINE_DEFAULT.formation),
       posture:   resolveDoctrineChoice(posture,   ['offensive','defensive'],  DOCTRINE_DEFAULT.posture),
@@ -1606,8 +1773,13 @@ io.on('connection', socket => {
     rooms.set(id, room);
     socket.data.roomId = id; socket.data.team = team;
     socket.join(id);
-    room.state = newGame();
-    gameLogger.logStart(room.id, room.state, { solo: true, botTeam, botDoctrine });
+    room.capabilityFactors = capabilityFactors;
+    room.state = newGame(capabilityFactors ? applyCapabilityConfig(ORDER_OF_BATTLE, capabilityFactors) : undefined);
+    if (capabilityFactors) {
+      const ativos = FACTOR_KEYS.filter(k => capabilityFactors[k] === 1);
+      room.state.log.unshift(`🎚 Pacote de capacidades: ${ativos.length ? ativos.join(', ') : 'nenhuma'} (${ativos.length}/5).`);
+    }
+    gameLogger.logStart(room.id, room.state, { solo: true, botTeam, botDoctrine, capabilityFactors });
     socket.emit('game_start', { team, state: stateFor(room.state, team), solo: true, roomId: room.id,
                                 rejoinToken: room.rejoinTokens[team] });
   });
@@ -2231,3 +2403,8 @@ module.exports = {
   botMoveToward, botMoveAway, botBattleRoundDecision,
   nextTurn, checkWinner, MAX_TURNS,
 };
+
+// A simulação construtiva joga sobre esta mesma máquina de estados — é o que
+// mantém a plataforma unificada. Injetado aqui, depois dos exports, porque o
+// módulo é requerido lá em cima (evita o ciclo).
+constructiveSim.useEngine(module.exports);

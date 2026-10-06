@@ -124,6 +124,9 @@ function logStart(roomId, state, meta = {}) {
     solo:        !!meta.solo,
     botTeam:     meta.botTeam ?? null,
     botDoctrine: meta.botDoctrine ?? null,
+    // Pacote de capacidades quando a partida veio da simulação construtiva —
+    // é o que permite comparar a partida jogada com o lote correspondente.
+    capabilityFactors: meta.capabilityFactors ?? null,
     facilitated: !!meta.facilitated,
     state:       snapshotState(state),
   });

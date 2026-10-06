@@ -450,11 +450,16 @@ socket.on('connect', () => {
     const team      = sessionStorage.getItem('soloTeam') || 'blue';
     const formation = sessionStorage.getItem('soloFormation') || 'random';
     const posture   = sessionStorage.getItem('soloPosture')   || 'random';
+    // Pacote de capacidades vindo do simulador construtivo (opcional): joga-se
+    // a mesma configuração que foi avaliada em lote.
+    let factors = null;
+    try { factors = JSON.parse(sessionStorage.getItem('soloFactors') || 'null'); } catch { factors = null; }
     sessionStorage.removeItem('pendingAction');
     sessionStorage.removeItem('soloTeam');
     sessionStorage.removeItem('soloFormation');
     sessionStorage.removeItem('soloPosture');
-    socket.emit('create_solo_room', { team, formation, posture });
+    sessionStorage.removeItem('soloFactors');
+    socket.emit('create_solo_room', { team, formation, posture, factors });
   } else if (action === 'facilitate') {
     sessionStorage.removeItem('pendingAction');
     socket.emit('create_facilitated_room');

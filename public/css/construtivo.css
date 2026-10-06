@@ -1,0 +1,174 @@
+/* ═══ SIMULADOR CONSTRUTIVO (PBC) ══════════════════════════════════════════
+   Herda as variáveis de cor de main.css. As rampas dos heatmaps vivem no JS
+   (construtivo.js), validadas contra esta superfície escura. */
+
+.cs-page {
+  --cs-dim:     #7aa5c5;
+  --cs-line:    rgba(100,160,210,0.2);
+  --cs-panel:   rgba(10,32,53,0.72);
+  --cs-ink:     #d0e8f4;
+  background: #071929;
+  color: var(--cs-ink);
+  min-height: 100vh;
+}
+
+/* ── Cabeçalho ── */
+.cs-header {
+  border-bottom: 1px solid var(--cs-line);
+  background: rgba(7,25,41,0.96);
+  position: sticky; top: 0; z-index: 10;
+}
+.cs-header-inner {
+  max-width: 1180px; margin: 0 auto; padding: 14px 20px;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+}
+.cs-eyebrow { font-size: 0.62rem; letter-spacing: 2.5px; color: var(--cs-dim); text-transform: uppercase; }
+.cs-title   { font-size: 1.45rem; letter-spacing: 3px; margin: 2px 0 0; color: #fff; text-transform: uppercase; }
+.cs-sub     { font-size: 0.78rem; letter-spacing: 1.5px; color: var(--gold-l, #ffd54f); margin: 2px 0 0; }
+.cs-back {
+  color: var(--cs-dim); text-decoration: none; font-size: 0.75rem; letter-spacing: 1px;
+  border: 1px solid var(--cs-line); padding: 8px 14px; min-height: 40px;
+  display: inline-flex; align-items: center;
+}
+.cs-back:hover { color: #fff; border-color: var(--blue-l, #82b1ff); }
+
+/* ── Estrutura ── */
+.cs-main  { max-width: 1180px; margin: 0 auto; padding: 20px; padding-block: 24px; }
+.cs-intro { font-size: 0.9rem; line-height: 1.7; color: var(--cs-ink); max-width: 72ch; margin: 0 0 1.5rem; }
+.cs-card {
+  border: 1px solid var(--cs-line); background: var(--cs-panel);
+  padding: 1.1rem 1.2rem; margin-bottom: 1.2rem;
+}
+.cs-h2 { font-size: 0.86rem; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold-l, #ffd54f);
+         margin: 0 0 0.5rem; display: flex; align-items: center; gap: 0.6rem; }
+.cs-h3 { font-size: 0.78rem; letter-spacing: 2px; text-transform: uppercase; color: var(--blue-l, #82b1ff);
+         margin: 1.6rem 0 0.4rem; }
+.cs-step {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid var(--gold-l, #ffd54f); color: var(--gold-l, #ffd54f);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 0.72rem;
+}
+.cs-help { font-size: 0.76rem; line-height: 1.6; color: var(--cs-dim); margin: 0 0 0.9rem; max-width: 76ch; }
+.hidden  { display: none !important; }
+
+/* ── Fatores ── */
+.cs-factors { display: flex; flex-direction: column; gap: 0.5rem; }
+.cs-factor {
+  display: flex; align-items: flex-start; gap: 0.7rem; cursor: pointer;
+  border: 1px solid var(--cs-line); padding: 10px 12px; min-height: 44px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.cs-factor input { position: absolute; opacity: 0; pointer-events: none; }
+.cs-factor-mark {
+  width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px;
+  border: 1px solid var(--cs-dim); display: inline-flex; align-items: center; justify-content: center;
+}
+/* Redundância de canal: estado ligado tem marca, borda e fundo — não só cor. */
+.cs-factor.on  { border-color: var(--blue-l, #82b1ff); background: rgba(33,150,243,0.1); }
+.cs-factor.on  .cs-factor-mark::after { content: '✓'; color: #fff; font-size: 0.8rem; }
+.cs-factor.on  .cs-factor-mark { background: var(--blue, #1565c0); border-color: var(--blue-l, #82b1ff); }
+.cs-factor.off { opacity: 0.62; }
+.cs-factor.off .cs-factor-label { text-decoration: line-through; }
+.cs-factor:focus-within { outline: 2px solid var(--gold-l, #ffd54f); outline-offset: 2px; }
+.cs-factor-body  { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.cs-factor-top   { display: flex; justify-content: space-between; gap: 0.8rem; align-items: baseline; flex-wrap: wrap; }
+.cs-factor-label { font-size: 0.82rem; color: #fff; }
+.cs-factor-cost  { font-size: 0.72rem; color: var(--gold-l, #ffd54f); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cs-factor-units { font-size: 0.7rem; color: var(--cs-dim); }
+
+/* ── Tiles ── */
+.cs-totals { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 0.7rem; margin-top: 1rem; }
+.cs-totals-4 { grid-template-columns: repeat(4, minmax(0,1fr)); margin-top: 0; }
+.cs-tile { border: 1px solid var(--cs-line); padding: 0.7rem 0.85rem; background: rgba(7,25,41,0.6); }
+.cs-tile-label { font-size: 0.64rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--cs-dim); }
+.cs-tile-value { font-size: 1.6rem; color: #fff; margin: 2px 0; line-height: 1.1; }
+.cs-tile-unit  { font-size: 0.85rem; color: var(--cs-dim); }
+.cs-tile-foot  { font-size: 0.68rem; color: var(--cs-dim); line-height: 1.45; }
+
+/* ── Execução ── */
+.cs-run-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0.8rem; margin-bottom: 0.6rem; }
+/* min-width:0 é obrigatório: sem isso o item de grid não encolhe abaixo do
+   conteúdo, e o texto longo das opções do <select> estoura a página no celular. */
+.cs-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.7rem; letter-spacing: 1px;
+            text-transform: uppercase; color: var(--cs-dim); min-width: 0; }
+.cs-field select, .cs-field input {
+  font-family: inherit; font-size: 0.8rem; color: var(--cs-ink); text-transform: none; letter-spacing: normal;
+  background: rgba(7,25,41,0.9); border: 1px solid var(--cs-line); padding: 9px 10px; min-height: 40px;
+  width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box;
+}
+.cs-field select:focus, .cs-field input:focus { outline: none; border-color: var(--gold-l, #ffd54f); }
+.cs-run-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.8rem; }
+.cs-btn {
+  font-family: inherit; font-size: 0.74rem; letter-spacing: 1.5px; text-transform: uppercase;
+  padding: 12px 18px; min-height: 44px; cursor: pointer; border: 1px solid var(--cs-line);
+  background: rgba(10,32,53,0.9); color: var(--cs-ink); transition: all 0.15s;
+}
+.cs-btn-go { background: rgba(120,92,8,0.5); border-color: #ffd54f; color: #fff4d6; }
+.cs-btn-go:hover:not(:disabled) { background: rgba(120,92,8,0.8); }
+.cs-btn-ghost:hover:not(:disabled) { border-color: var(--blue-l, #82b1ff); color: #fff; }
+.cs-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.cs-btn:focus-visible { outline: 2px solid var(--gold-l, #ffd54f); outline-offset: 2px; }
+
+.cs-progress { margin-top: 0.9rem; }
+.cs-progress-bar { height: 6px; background: rgba(7,25,41,0.9); border: 1px solid var(--cs-line); overflow: hidden; }
+.cs-progress-fill { height: 100%; width: 0; background: var(--gold-l, #ffd54f); transition: width 0.2s; }
+.cs-progress-txt { font-size: 0.72rem; color: var(--cs-dim); margin-top: 5px; font-variant-numeric: tabular-nums; }
+.cs-erro { color: #ff8a80; font-size: 0.78rem; margin-top: 0.8rem; }
+
+/* ── Tabela ── */
+.cs-table-wrap { overflow-x: auto; }
+.cs-table { width: 100%; border-collapse: collapse; font-size: 0.74rem; font-variant-numeric: tabular-nums; }
+.cs-table th, .cs-table td { padding: 7px 9px; text-align: right; border-bottom: 1px solid var(--cs-line); white-space: nowrap; }
+.cs-table thead th { text-align: right; color: var(--cs-dim); font-weight: normal; letter-spacing: 0.5px;
+                     vertical-align: bottom; border-bottom: 1px solid var(--blue-l, #82b1ff); }
+.cs-table tbody th { text-align: left; color: #fff; font-weight: bold; }
+.cs-th-sub { font-size: 0.62rem; color: var(--cs-dim); font-weight: normal; letter-spacing: 0; }
+.cs-sd { color: var(--cs-dim); font-size: 0.68rem; }
+.cs-outcomes { color: var(--cs-ink); }
+.cs-table tbody tr:hover { background: rgba(130,177,255,0.07); }
+
+/* ── Heatmaps ── */
+.cs-hm { margin: 0 0 1.6rem; }
+.cs-hm-title { font-size: 0.78rem; color: #fff; margin-bottom: 0.5rem; letter-spacing: 0.5px; }
+.cs-hm-note  { color: var(--cs-dim); font-size: 0.7rem; }
+.cs-hm-table { border-collapse: separate; border-spacing: 2px; font-size: 0.7rem; font-variant-numeric: tabular-nums; }
+.cs-hm-corner { background: transparent; }
+/* Rótulo horizontal: os nomes de condição são curtos ('C0', '07'), e girar
+   texto curto só o torna ilegível. Com 32 colunas a tabela rola dentro do
+   .cs-table-wrap, que é o lugar certo para o excesso. */
+.cs-hm-col {
+  color: var(--cs-dim); font-weight: normal; font-size: 0.66rem; padding: 2px 4px;
+  text-align: center; vertical-align: bottom; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.cs-hm-row {
+  color: #fff; font-weight: bold; text-align: left; padding: 2px 10px 2px 2px; white-space: nowrap;
+  font-size: 0.68rem;
+}
+.cs-hm-rowlabel { display: block; color: var(--cs-dim); font-weight: normal; font-size: 0.6rem; }
+.cs-hm-cell {
+  width: 34px; height: 26px; text-align: center; border-radius: 3px;
+  border: 1px solid rgba(7,25,41,0.9);   /* respiro de 2px entre células */
+}
+.cs-hm-cell:hover, .cs-hm-cell:focus { outline: 2px solid #fff; outline-offset: -2px; }
+.cs-legend { display: flex; align-items: center; gap: 2px; margin-top: 0.5rem; font-size: 0.64rem; color: var(--cs-dim); }
+.cs-leg-step { width: 26px; height: 11px; display: inline-block; border-radius: 2px; }
+.cs-leg-end  { margin: 0 6px; }
+
+.cs-nota {
+  font-size: 0.7rem; line-height: 1.65; color: var(--cs-dim);
+  border-left: 2px solid var(--gold, #c9a84c); padding-left: 0.8rem; margin-top: 1.4rem; max-width: 80ch;
+}
+
+/* ── Telas estreitas ── */
+@media (max-width: 760px) {
+  .cs-run-grid { grid-template-columns: 1fr; }
+  .cs-totals, .cs-totals-4 { grid-template-columns: 1fr 1fr; }
+  .cs-title { font-size: 1.15rem; }
+}
+@media (max-width: 440px) {
+  .cs-totals, .cs-totals-4 { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cs-progress-fill, .cs-btn, .cs-factor { transition: none; }
+}

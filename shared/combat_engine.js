@@ -2,7 +2,15 @@
 
 const { COMBAT_CONFIG: COMBAT } = require('./combat_config');
 
-function d6() { return Math.ceil(Math.random() * 6); }
+// Fonte de aleatoriedade do combate. Por padrão é Math.random — o jogo
+// interativo não muda em nada. A simulação construtiva injeta um PRNG
+// semeado (shared/rng.js) para que a mesma semente reproduza exatamente a
+// mesma partida, requisito das réplicas do estudo de capacidades.
+let _rng = Math.random;
+function setRng(fn) { _rng = typeof fn === 'function' ? fn : Math.random; }
+function getRng() { return _rng; }
+
+function d6() { return Math.ceil(_rng() * 6); }
 
 function getWeaponQuantity(unit, weaponType) {
   if (unit.weapons?.[weaponType] != null) return unit.weapons[weaponType].quantity;
@@ -153,6 +161,8 @@ function resolveEngagement({ attacker, defender, defenders, weaponType, amount, 
 
 module.exports = {
   d6,
+  setRng,
+  getRng,
   getWeaponQuantity,
   getWeaponRange,
   spendWeapon,

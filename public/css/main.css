@@ -369,6 +369,13 @@ h2 {
 .btn-action.solo-b:hover { background: rgba(13,71,161,0.8); box-shadow: 0 0 18px rgba(33,150,243,0.25); }
 .btn-action.solo-r { background: rgba(183,28,28,0.55); border-color: var(--red-l); color: #ffe1de; }
 .btn-action.solo-r:hover { background: rgba(183,28,28,0.8); box-shadow: 0 0 18px rgba(229,57,53,0.25); }
+/* Módulo analítico: simulador construtivo (PBC) */
+.btn-action.construtivo {
+  background: rgba(13,71,100,0.5); border-color: #4dd0e1; color: #d7f5fa;
+  display: block; text-decoration: none; text-align: center;
+}
+.btn-action.construtivo:hover { background: rgba(13,71,100,0.8); box-shadow: 0 0 18px rgba(77,208,225,0.22); }
+
 /* Sala arbitrada por facilitador/instrutor */
 .btn-action.fac { background: rgba(120,92,8,0.5); border-color: #ffd54f; color: #fff4d6; }
 .btn-action.fac:hover { background: rgba(120,92,8,0.78); box-shadow: 0 0 18px rgba(255,213,79,0.25); }
