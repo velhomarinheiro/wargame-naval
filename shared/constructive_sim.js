@@ -23,7 +23,8 @@
  */
 
 const { ORDER_OF_BATTLE } = require('./order_of_battle');
-const { applyCapabilityConfig, FACTOR_KEYS, totalCost, countActive, isActive } = require('./capability_factors');
+const { applyForceConfig, FACTOR_KEYS, RED_GROUP_KEYS, totalCost, countActive,
+        quantityOf, describeRedConfig } = require('./capability_factors');
 const { createCulminationTracker, computeFinalMetrics, groupLossMetrics } = require('./metrics');
 const { groupLabels } = require('./force_taxonomy');
 const { FACTORIAL_CONDITIONS, ABLATION_CONDITIONS } = require('./conditions');
@@ -51,11 +52,13 @@ const DEFAULT_MAX_TURNS = 12;
  *                             VICTORY_RULES no server.js. A regra muda o que
  *                             conta como partida decidida e, por consequência,
  *                             a métrica E1_kcv.
+ * @param {object} redGroups   quantidade por grupo-tarefa Vermelho (opcional);
+ *                             ausente = ordem de batalha original
  * @returns {{winner, turns, metrics, groupMetrics}}
  */
-function runGame(factors, seed, maxTurns = DEFAULT_MAX_TURNS, victoryRule = undefined) {
+function runGame(factors, seed, maxTurns = DEFAULT_MAX_TURNS, victoryRule = undefined, redGroups = undefined) {
   if (!ENGINE) throw new Error('constructive_sim: motor não injetado (useEngine)');
-  const ob    = applyCapabilityConfig(ORDER_OF_BATTLE, factors);
+  const ob    = applyForceConfig(ORDER_OF_BATTLE, { factors, redGroups });
   const state = ENGINE.newGame(ob, { seed, victoryRule });
 
   const culmination = createCulminationTracker();
@@ -142,9 +145,9 @@ function buildConditions(spec) {
   if (spec.bloco === 'fatorial') return FACTORIAL_CONDITIONS;
   if (spec.bloco === 'ablacao')  return ABLATION_CONDITIONS;
 
-  // Pacote avulso montado na interface.
+  // Pacote avulso montado na interface — aqui as quantidades são livres.
   const factors = {};
-  for (const key of FACTOR_KEYS) factors[key] = isActive(spec.factors?.[key]) ? 1 : -1;
+  for (const key of FACTOR_KEYS) factors[key] = quantityOf(spec.factors?.[key]);
   const replicas  = Math.max(1, Math.min(200, Number(spec.replicas) || 20));
   const seedBase  = Number(spec.seedBase) || 7000;
   return [{
@@ -167,6 +170,7 @@ function runBatch(spec = {}, onProgress = null) {
   const conditions  = buildConditions(spec);
   const maxTurns    = Math.max(1, Math.min(40, Number(spec.maxTurns) || DEFAULT_MAX_TURNS));
   const victoryRule = spec.victoryRule;
+  const redGroups   = spec.redGroups;
   const replicasOverride = spec.bloco && Number(spec.replicas) ? Number(spec.replicas) : null;
 
   const total = conditions.reduce(
@@ -181,7 +185,8 @@ function runBatch(spec = {}, onProgress = null) {
     const condRows = [];
 
     seeds.forEach((seed, idx) => {
-      const { winner, turns, metrics, groupMetrics } = runGame(cond.factors, seed, maxTurns, victoryRule);
+      const { winner, turns, metrics, groupMetrics } =
+        runGame(cond.factors, seed, maxTurns, victoryRule, redGroups);
       const row = {
         condicao:      cond.condicao,
         replica:       idx + 1,
@@ -192,6 +197,7 @@ function runBatch(spec = {}, onProgress = null) {
         vencedor:      winner || 'censurado',
         turnos:        turns,
         regra_vitoria: victoryRule === 'exhaustion' ? 'exhaustion' : 'objectives',
+        forca_vermelha: describeRedConfig(redGroups),
         ...groupMetrics,
       };
       for (const key of FACTOR_KEYS) row[key] = cond.factors[key];
@@ -216,6 +222,7 @@ function runBatch(spec = {}, onProgress = null) {
 
   return { rows, porCondicao, total, maxTurns,
            victoryRule: victoryRule === 'exhaustion' ? 'exhaustion' : 'objectives',
+           forcaVermelha: describeRedConfig(redGroups),
            gruposPresentes: presentGroups(rows) };
 }
 
@@ -247,7 +254,7 @@ function toCsv(rows) {
   if (!rows.length) return '';
   const base = ['condicao', 'capacidade_removida', 'replica', 'semente',
     ...FACTOR_KEYS, 'n_capacidades', 'custo_total',
-    ...METRIC_KEYS, 'vencedor', 'turnos', 'regra_vitoria'];
+    ...METRIC_KEYS, 'vencedor', 'turnos', 'regra_vitoria', 'forca_vermelha'];
   // Colunas de grupo na ordem doutrinária da taxonomia (não na ordem em que
   // aparecem nas linhas), para o CSV sair comparável entre lotes.
   const grupos = presentGroups(rows).map(g => g.key);

@@ -22,7 +22,9 @@ const {
 const gameLogger = require('./game_logger');
 const { mulberry32 } = require('./shared/rng');
 const combatRng = require('./shared/combat_engine');
-const { CAPABILITY_FACTORS, FACTOR_KEYS, applyCapabilityConfig } = require('./shared/capability_factors');
+const { CAPABILITY_FACTORS, FACTOR_KEYS, RED_GROUPS, RED_GROUP_KEYS,
+        applyForceConfig, quantityOf, baseUnitId, describeRedConfig,
+        MAX_QUANTITY } = require('./shared/capability_factors');
 const { FACTORIAL_CONDITIONS, ABLATION_CONDITIONS } = require('./shared/conditions');
 const { hasOffensiveMeans, offensiveStockRatio } = require('./shared/metrics');
 const constructiveSim = require('./shared/constructive_sim');
@@ -784,7 +786,24 @@ const OBJECTIVE_THRESHOLDS = {
 // adjudicação por limite de turnos usa, para recompensar dano entregue em vez
 // de contagem de condições baratas.
 const frac = (cur, need) => (need > 0 ? Math.min(1, Math.max(0, cur / need)) : 0);
-const killProgress = unit => (!unit ? 1 : frac(unit.maxHp - Math.max(0, unit.hp), unit.maxHp));
+
+// A composição de força pode duplicar um meio (ver capability_factors): um
+// objetivo escrito sobre 'RED-GBPA' precisa valer para 'RED-GBPA~2' também,
+// senão afundar a original já cumpriria a condição com uma segunda intacta no
+// mar. Daí casar por ID base e agregar o SP do conjunto. Sem cópias, cada
+// conjunto tem um elemento e as contas dão exatamente o que davam antes.
+const matchUnits = (units, id) => units.filter(x => baseUnitId(x.id) === id);
+const groupSp    = grupo => ({
+  hp:    grupo.reduce((s, x) => s + Math.max(0, x.hp || 0), 0),
+  maxHp: grupo.reduce((s, x) => s + (x.maxHp || 0), 0),
+});
+// Conjunto neutralizado = nenhum sobrevivente. Ausente da OB conta como cumprido.
+const groupDown     = grupo => grupo.length === 0 || grupo.every(x => (x.hp ?? 0) <= 0);
+const groupProgress = grupo => {
+  if (!grupo.length) return 1;
+  const { hp, maxHp } = groupSp(grupo);
+  return frac(maxHp - hp, maxHp);
+};
 
 function computeObjectives(state) {
   const u = state.units;
@@ -792,20 +811,25 @@ function computeObjectives(state) {
   const TH = OBJECTIVE_THRESHOLDS;
 
   // ─── Blue objectives (need ≥ 3 of 5) ────────────────────────────────────────
-  const carrier  = u.find(x => x.id === BT.carrier);
-  const carrierMet = !carrier || carrier.hp <= 0;
+  const carrier    = matchUnits(u, BT.carrier);
+  const carrierMet = groupDown(carrier);
+  const carrierSp  = groupSp(carrier);
 
-  const logUnits  = BT.logistics.map(id => u.find(x => x.id === id)).filter(Boolean);
-  const logDead   = logUnits.filter(x => x.hp <= 0).length;
+  // Cada ID logístico conta como UM alvo, neutralizado quando todas as suas
+  // cópias caem — o limiar do estudo é "2 de 3 navios", não "2 de N cascos".
+  const logGroups = BT.logistics.map(id => matchUnits(u, id)).filter(g => g.length);
+  const logDead   = logGroups.filter(groupDown).length;
   const logMet    = logDead >= TH.blueLogisticsKills;
 
-  const amphib    = u.find(x => x.id === BT.amphib);
-  const amphibMet = !amphib || amphib.hp <= 0;
+  const amphib    = matchUnits(u, BT.amphib);
+  const amphibMet = groupDown(amphib);
+  const amphibSp  = groupSp(amphib);
 
-  const nucsub    = u.find(x => x.id === BT.nucsub);
-  const nucsubMet = !nucsub || nucsub.hp <= 0;
+  const nucsub    = matchUnits(u, BT.nucsub);
+  const nucsubMet = groupDown(nucsub);
+  const nucsubSp  = groupSp(nucsub);
 
-  const surfUnits = BT.surface.map(id => u.find(x => x.id === id)).filter(Boolean);
+  const surfUnits = BT.surface.flatMap(id => matchUnits(u, id));
   const surfMax   = surfUnits.reduce((s, x) => s + x.maxHp, 0);
   const surfCur   = surfUnits.reduce((s, x) => s + Math.max(0, x.hp), 0);
   const surfDegPct = surfMax > 0 ? Math.round((1 - surfCur / surfMax) * 100) : 0;
@@ -813,17 +837,17 @@ function computeObjectives(state) {
 
   const blueConds = [
     { id: 'carrier',   label: 'Destruir Porta-Aviões',          met: carrierMet,
-      progress: killProgress(carrier),
-      current: carrier   ? `SP: ${carrier.hp}/${carrier.maxHp}` : 'Destruído ✓' },
-    { id: 'logistics', label: `Neutralizar ${TH.blueLogisticsKills} de ${logUnits.length} Logísticos`, met: logMet,
+      progress: groupProgress(carrier),
+      current: carrier.length ? `SP: ${carrierSp.hp}/${carrierSp.maxHp}` : 'Destruído ✓' },
+    { id: 'logistics', label: `Neutralizar ${TH.blueLogisticsKills} de ${logGroups.length} Logísticos`, met: logMet,
       progress: frac(logDead, TH.blueLogisticsKills),
-      current: `${logDead}/${logUnits.length} neutralizados (precisa ${TH.blueLogisticsKills})` },
+      current: `${logDead}/${logGroups.length} neutralizados (precisa ${TH.blueLogisticsKills})` },
     { id: 'amphib',    label: 'Neutralizar GT Anfíbio',          met: amphibMet,
-      progress: killProgress(amphib),
-      current: amphib    ? `SP: ${amphib.hp}/${amphib.maxHp}` : 'Neutralizado ✓' },
+      progress: groupProgress(amphib),
+      current: amphib.length ? `SP: ${amphibSp.hp}/${amphibSp.maxHp}` : 'Neutralizado ✓' },
     { id: 'nucsub',    label: 'Destruir Submarino Nuclear',      met: nucsubMet,
-      progress: killProgress(nucsub),
-      current: nucsub    ? `SP: ${nucsub.hp}/${nucsub.maxHp}` : 'Destruído ✓' },
+      progress: groupProgress(nucsub),
+      current: nucsub.length ? `SP: ${nucsubSp.hp}/${nucsubSp.maxHp}` : 'Destruído ✓' },
     { id: 'surface',   label: `Degradar ≥${TH.blueSurfaceDegPct}% Nav. Combatentes`, met: surfMet,
       progress: frac(surfDegPct, TH.blueSurfaceDegPct),
       current: `${surfDegPct}% degradado` },
@@ -831,11 +855,12 @@ function computeObjectives(state) {
   const blueAchieved = blueConds.filter(c => c.met).length;
 
   // ─── Red objectives (need both) ──────────────────────────────────────────────
-  const fpsoUnits = RT.fpsos.map(id => u.find(x => x.id === id)).filter(Boolean);
-  const fpsoNeut  = fpsoUnits.filter(x => x.hp <= 0).length;
-  const fpsoMet   = fpsoNeut >= TH.redFpsoKills;
+  const fpsoGroups = RT.fpsos.map(id => matchUnits(u, id)).filter(g => g.length);
+  const fpsoNeut   = fpsoGroups.filter(groupDown).length;
+  const fpsoMet    = fpsoNeut >= TH.redFpsoKills;
+  const fpsoUnits  = { length: fpsoGroups.length };
 
-  const portUnits = RT.ports.map(id => u.find(x => x.id === id)).filter(Boolean);
+  const portUnits = RT.ports.flatMap(id => matchUnits(u, id));
   const portMax   = portUnits.reduce((s, x) => s + x.maxHp, 0);
   const portCur   = portUnits.reduce((s, x) => s + Math.max(0, x.hp), 0);
   const portDegPct = portMax > 0 ? Math.round((1 - portCur / portMax) * 100) : 0;
@@ -1556,6 +1581,19 @@ app.get('/api/construtivo/meta', (_, res) => {
       }),
     })),
     custoTotal: FACTOR_KEYS.reduce((s, k) => s + CAPABILITY_FACTORS[k].cost, 0),
+    // Força Vermelha: ajustável por grupo-tarefa da taxonomia. É a ameaça do
+    // cenário, não o que está sendo adquirido — por isso varia em composição,
+    // mas não entra no custo EAC.
+    gruposVermelhos: RED_GROUP_KEYS.map(sigla => ({
+      sigla,
+      rotulo: RED_GROUPS[sigla].label,
+      dominio: RED_GROUPS[sigla].domain,
+      unidades: RED_GROUPS[sigla].unitIds.map(id => {
+        const spec = ORDER_OF_BATTLE.forces.red.find(u => u.id === id);
+        return { id, nome: spec?.name || id };
+      }),
+    })),
+    quantidadeMaxima: MAX_QUANTITY,
     blocos: {
       ablacao:  ABLATION_CONDITIONS.map(c => ({ condicao: c.condicao, removida: c.capacidade_removida, custo: c.custo_total, replicas: c.replicas })),
       fatorial: { condicoes: FACTORIAL_CONDITIONS.length, replicas: FACTORIAL_CONDITIONS[0].replicas },
@@ -1565,6 +1603,25 @@ app.get('/api/construtivo/meta', (_, res) => {
     regrasVitoria: VICTORY_RULES,
     regraVitoriaPadrao: VICTORY_RULE_DEFAULT,
   });
+});
+
+// Tamanho real da força sob uma composição. Quantidades arrastam dependentes
+// (a ala aérea sai com o porta-aviões, a equipe de OpEsp sai com o submarino
+// que a insere), e essa cascata atravessa grupos — somar unitIds no cliente
+// daria um número errado. Aqui o cálculo passa pelo mesmo applyForceConfig que
+// monta a partida, então o que a tela mostra é o que vai a campo.
+app.post('/api/construtivo/forca', (req, res) => {
+  const { factors, redGroups } = req.body || {};
+  try {
+    const ob = applyForceConfig(ORDER_OF_BATTLE, { factors: factors || {}, redGroups: redGroups || {} });
+    const lado = side => ({
+      n: ob.forces[side].length,
+      unidades: ob.forces[side].map(u => ({ id: u.id, nome: u.name })),
+    });
+    res.json({ azul: lado('blue'), vermelha: lado('red'), descricaoVermelha: describeRedConfig(redGroups || {}) });
+  } catch (err) {
+    res.status(400).json({ error: 'Composição inválida: ' + err.message });
+  }
 });
 
 app.post('/api/construtivo/run', (req, res) => {
@@ -1591,6 +1648,7 @@ app.post('/api/construtivo/run', (req, res) => {
   // para que o jogo interativo não congele durante um lote longo.
   const maxTurns    = Math.max(1, Math.min(40, Number(spec.maxTurns) || constructiveSim.DEFAULT_MAX_TURNS));
   const victoryRule = resolveVictoryRule(spec.victoryRule);
+  const redGroups   = spec.redGroups && typeof spec.redGroups === 'object' ? spec.redGroups : undefined;
   const replicasOverride = spec.bloco && Number(spec.replicas) ? Number(spec.replicas) : null;
   const plano = [];
   for (const cond of conditions) {
@@ -1607,11 +1665,12 @@ app.post('/api/construtivo/run', (req, res) => {
       for (; i < fim; i++) {
         const { cond, seed, replica } = plano[i];
         const { winner, turns, metrics, groupMetrics } =
-          constructiveSim.runGame(cond.factors, seed, maxTurns, victoryRule);
+          constructiveSim.runGame(cond.factors, seed, maxTurns, victoryRule, redGroups);
         const row = { condicao: cond.condicao, replica, semente: seed,
                       n_capacidades: cond.n_capacidades, custo_total: cond.custo_total,
                       ...metrics, vencedor: winner || 'censurado', turnos: turns,
-                      regra_vitoria: victoryRule, ...groupMetrics };
+                      regra_vitoria: victoryRule, forca_vermelha: describeRedConfig(redGroups),
+                      ...groupMetrics };
         for (const key of FACTOR_KEYS) row[key] = cond.factors[key];
         if (cond.capacidade_removida !== undefined) row.capacidade_removida = cond.capacidade_removida || '';
         rows.push(row);
@@ -1635,6 +1694,7 @@ app.post('/api/construtivo/run', (req, res) => {
                resumo: constructiveSim.summarize(condRows) };
     });
     job.resultado = { rows, porCondicao, total: rows.length, maxTurns, victoryRule,
+                      forcaVermelha: describeRedConfig(redGroups),
                       gruposPresentes: constructiveSim.presentGroups(rows) };
     job.status = 'done'; job.updatedAt = Date.now();
   }
@@ -1812,12 +1872,15 @@ io.on('connection', socket => {
   // `factors` (opcional) vem da simulação construtiva: joga-se a partida com o
   // mesmo pacote de capacidades avaliado no lote, para confrontar o resultado
   // estatístico com uma partida conduzida por um humano.
-  socket.on('create_solo_room', ({ team, formation, posture, factors } = {}) => {
+  socket.on('create_solo_room', ({ team, formation, posture, factors, redGroups } = {}) => {
     if (!['blue','red'].includes(team)) { socket.emit('join_error','Equipe inválida.'); return; }
     const id      = genId();
     const botTeam = team === 'blue' ? 'red' : 'blue';
     const capabilityFactors = factors && FACTOR_KEYS.some(k => k in factors)
-      ? Object.fromEntries(FACTOR_KEYS.map(k => [k, factors[k] === -1 || factors[k] === false ? -1 : 1]))
+      ? Object.fromEntries(FACTOR_KEYS.map(k => [k, quantityOf(factors[k])]))
+      : null;
+    const redComposition = redGroups && RED_GROUP_KEYS.some(k => k in redGroups)
+      ? Object.fromEntries(RED_GROUP_KEYS.filter(k => k in redGroups).map(k => [k, quantityOf(redGroups[k])]))
       : null;
     const botDoctrine = {
       formation: resolveDoctrineChoice(formation, ['concentrated','divided'], DOCTRINE_DEFAULT.formation),
@@ -1830,12 +1893,21 @@ io.on('connection', socket => {
     socket.data.roomId = id; socket.data.team = team;
     socket.join(id);
     room.capabilityFactors = capabilityFactors;
-    room.state = newGame(capabilityFactors ? applyCapabilityConfig(ORDER_OF_BATTLE, capabilityFactors) : undefined);
+    room.redComposition    = redComposition;
+    const composta = capabilityFactors || redComposition;
+    room.state = newGame(composta
+      ? applyForceConfig(ORDER_OF_BATTLE, { factors: capabilityFactors || {}, redGroups: redComposition || {} })
+      : undefined);
     if (capabilityFactors) {
-      const ativos = FACTOR_KEYS.filter(k => capabilityFactors[k] === 1);
-      room.state.log.unshift(`🎚 Pacote de capacidades: ${ativos.length ? ativos.join(', ') : 'nenhuma'} (${ativos.length}/5).`);
+      const partes = FACTOR_KEYS.filter(k => capabilityFactors[k] >= 1)
+        .map(k => capabilityFactors[k] > 1 ? `${k}×${capabilityFactors[k]}` : k);
+      room.state.log.unshift(`🎚 Pacote de capacidades: ${partes.length ? partes.join(', ') : 'nenhuma'}.`);
     }
-    gameLogger.logStart(room.id, room.state, { solo: true, botTeam, botDoctrine, capabilityFactors });
+    if (redComposition) {
+      room.state.log.unshift(`🎚 Força Vermelha: ${describeRedConfig(redComposition)}.`);
+    }
+    gameLogger.logStart(room.id, room.state,
+      { solo: true, botTeam, botDoctrine, capabilityFactors, redComposition });
     socket.emit('game_start', { team, state: stateFor(room.state, team), solo: true, roomId: room.id,
                                 rejoinToken: room.rejoinTokens[team] });
   });

@@ -98,8 +98,15 @@
    * unidade não listada caem no fallback INFRA.
    * @returns {{domain:string, sigla:string, label:string}}
    */
+  // Cópias geradas pela composição de força (capability_factors) carregam um
+  // sufixo no ID ('RED-GBPA~2'). Elas pertencem ao mesmo grupo da original —
+  // sem descartar o sufixo, cairiam todas em INFRA e as MOEs por grupo
+  // passariam a mentir assim que alguém duplicasse um meio.
+  const COPY_SEP = '~';
   function classifyUnit(unitId, side = 'blue') {
-    const hit = indexFor(side).get(unitId);
+    const idx = indexFor(side);
+    const raw = String(unitId);
+    const hit = idx.get(raw) || idx.get(raw.split(COPY_SEP)[0]);
     return hit ? hit : { domain: INFRA.domain, sigla: INFRA.sigla, label: INFRA.label };
   }
 

@@ -25,18 +25,19 @@
 <main class="cs-main">
 
   <p class="cs-intro">
-    Sem jogadores: você monta um <b>pacote de capacidades</b> da Força Azul, e a plataforma
-    joga sozinha dezenas ou centenas de partidas completas com esse pacote — mesmas regras,
-    mesma ordem de batalha e mesmo motor de combate do wargame. O que sai é o custo do pacote
-    confrontado com o que ele entrega em campo.
+    Sem jogadores: você monta um <b>pacote de capacidades</b> da Força Azul, escolhe a
+    <b>composição da ameaça Vermelha</b>, e a plataforma joga sozinha dezenas ou centenas de
+    partidas completas com essa configuração — mesmas regras e mesmo motor de combate do
+    wargame. O que sai é o custo do pacote confrontado com o que ele entrega em campo.
   </p>
 
-  <!-- ═══ 1. PACOTE ═══════════════════════════════════════════════════════ -->
+  <!-- ═══ 1. FORÇA AZUL ═══════════════════════════════════════════════════ -->
   <section class="cs-card" aria-labelledby="h-pacote">
-    <h2 id="h-pacote" class="cs-h2"><span class="cs-step">1</span> Pacote de capacidades</h2>
+    <h2 id="h-pacote" class="cs-h2"><span class="cs-step">1</span> Força Azul — pacote de capacidades</h2>
     <p class="cs-help">
-      Cada fator liga ou desliga meios reais da ordem de batalha azul. O custo está
-      normalizado em EAC; desligar um fator retira suas unidades da partida.
+      Cada fator corresponde a meios reais da ordem de batalha. A quantidade multiplica o
+      conjunto: <b>0</b> retira as unidades da partida, <b>1</b> é a ordem de batalha original,
+      <b>2 ou mais</b> acrescenta cópias. O custo em EAC acompanha a quantidade.
     </p>
     <div id="fatores" class="cs-factors"></div>
     <div class="cs-totals">
@@ -46,16 +47,39 @@
         <div class="cs-tile-foot" id="custo-pct">—</div>
       </div>
       <div class="cs-tile">
-        <div class="cs-tile-label">Capacidades ativas</div>
+        <div class="cs-tile-label">Capacidades presentes</div>
         <div class="cs-tile-value"><span id="n-caps">—</span><span class="cs-tile-unit">/5</span></div>
         <div class="cs-tile-foot" id="unidades-fora">—</div>
       </div>
     </div>
   </section>
 
-  <!-- ═══ 2. EXECUÇÃO ═════════════════════════════════════════════════════ -->
+  <!-- ═══ 2. FORÇA VERMELHA ═══════════════════════════════════════════════ -->
+  <section class="cs-card" aria-labelledby="h-vermelha">
+    <h2 id="h-vermelha" class="cs-h2"><span class="cs-step">2</span> Força Vermelha — composição</h2>
+    <p class="cs-help">
+      A ameaça do cenário, por grupo-tarefa da Camada 2. Varia em composição, mas não entra no
+      custo: o Vermelho não é o que está sendo adquirido. Duplicar um grupo leva junto o que
+      viaja embarcado — um segundo porta-aviões vem com sua ala aérea.
+    </p>
+    <div id="grupos-vermelhos" class="cs-factors"></div>
+    <div class="cs-totals">
+      <div class="cs-tile">
+        <div class="cs-tile-label">Composição</div>
+        <div class="cs-tile-value" id="red-resumo">—</div>
+        <div class="cs-tile-foot" id="red-detalhe">—</div>
+      </div>
+      <div class="cs-tile">
+        <div class="cs-tile-label">Grupos presentes</div>
+        <div class="cs-tile-value"><span id="red-n">—</span><span class="cs-tile-unit" id="red-n-tot"></span></div>
+        <div class="cs-tile-foot"><button type="button" id="btn-red-reset" class="cs-btn cs-btn-mini">Restaurar padrão</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 3. EXECUÇÃO ═════════════════════════════════════════════════════ -->
   <section class="cs-card" aria-labelledby="h-exec">
-    <h2 id="h-exec" class="cs-h2"><span class="cs-step">2</span> Execução</h2>
+    <h2 id="h-exec" class="cs-h2"><span class="cs-step">3</span> Execução</h2>
     <div class="cs-run-grid">
       <label class="cs-field">
         <span>Delineamento</span>
@@ -94,9 +118,9 @@
     <p id="erro" class="cs-erro hidden" role="alert"></p>
   </section>
 
-  <!-- ═══ 3. RELATÓRIO ════════════════════════════════════════════════════ -->
+  <!-- ═══ 4. RELATÓRIO ════════════════════════════════════════════════════ -->
   <section id="relatorio" class="cs-card hidden" aria-labelledby="h-rel">
-    <h2 id="h-rel" class="cs-h2"><span class="cs-step">3</span> Relatório</h2>
+    <h2 id="h-rel" class="cs-h2"><span class="cs-step">4</span> Relatório</h2>
 
     <div id="resumo-tiles" class="cs-totals cs-totals-4"></div>
 

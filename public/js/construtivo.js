@@ -11,9 +11,12 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g,
   c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let META = null;
-let estado = {};          // chave do fator -> true/false
+let estado = {};          // chave do fator azul  -> quantidade (0..MAX)
+let estadoRed = {};       // sigla do grupo verm. -> quantidade (0..MAX)
 let jobAtual = null;
 let ultimoResultado = null;
+let timerEfetivo = null;
+let textoFora = '', textoRed = '';
 
 // Rampas sequenciais de uma só matiz, validadas contra a superfície naval
 // escura (#071929): a magnitude cresce do passo mais escuro ao mais claro.
@@ -33,53 +36,149 @@ function corDaCelula(pct, lado) {
 }
 
 // ─── 1. Pacote ───────────────────────────────────────────────────────────────
+const MAXQ = () => META?.quantidadeMaxima ?? 4;
+
 async function carregarMeta() {
   const res = await fetch('/api/construtivo/meta');
   META = await res.json();
-  for (const f of META.fatores) estado[f.chave] = true;
+  for (const f of META.fatores) estado[f.chave] = 1;
+  for (const g of META.gruposVermelhos) estadoRed[g.sigla] = 1;
   renderFatores();
+  renderGruposVermelhos();
   atualizarTotais();
+  atualizarTotaisRed();
   atualizarPlano();
   atualizarRegra();
 }
 
+/**
+ * Controle de quantidade. A quantidade é o estado em si — por isso aparece
+ * como número, e não como caixa marcada: 0 é "fora da força", 1 é a ordem de
+ * batalha, acima disso são cópias.
+ */
+function stepper(escopo, chave, qty) {
+  const max = MAXQ();
+  return `<span class="cs-qty" role="group" aria-label="Quantidade">
+    <button type="button" class="cs-qty-btn" data-step="${escopo}" data-key="${chave}" data-delta="-1"
+            ${qty <= 0 ? 'disabled' : ''} aria-label="Diminuir">−</button>
+    <span class="cs-qty-val ${qty === 0 ? 'zero' : qty > 1 ? 'mais' : ''}">${qty}</span>
+    <button type="button" class="cs-qty-btn" data-step="${escopo}" data-key="${chave}" data-delta="1"
+            ${qty >= max ? 'disabled' : ''} aria-label="Aumentar">+</button>
+  </span>`;
+}
+
 function renderFatores() {
-  $('fatores').innerHTML = META.fatores.map(f => `
-    <label class="cs-factor ${estado[f.chave] ? 'on' : 'off'}" data-fator="${f.chave}">
-      <input type="checkbox" ${estado[f.chave] ? 'checked' : ''} data-chk="${f.chave}">
-      <span class="cs-factor-mark" aria-hidden="true"></span>
+  $('fatores').innerHTML = META.fatores.map(f => {
+    const q = estado[f.chave];
+    return `
+    <div class="cs-factor ${q === 0 ? 'off' : 'on'}" data-fator="${f.chave}">
+      ${stepper('blue', f.chave, q)}
       <span class="cs-factor-body">
         <span class="cs-factor-top">
           <span class="cs-factor-label">${esc(f.rotulo)}</span>
-          <span class="cs-factor-cost">${f.custo} EAC</span>
+          <span class="cs-factor-cost">${f.custo * q} EAC${q > 1 ? ` <span class="cs-sd">(${q}×${f.custo})</span>` : ''}</span>
         </span>
-        <span class="cs-factor-units">${f.unidades.map(u => esc(u.nome)).join(' · ')}</span>
+        <span class="cs-factor-units">${f.unidades.map(u => esc(u.nome)).join(' · ')}${
+          q > 1 ? ` <span class="cs-sd">— ${f.unidades.length * q} unidades</span>` : ''}</span>
       </span>
-    </label>`).join('');
+    </div>`;
+  }).join('');
+}
+
+function renderGruposVermelhos() {
+  $('grupos-vermelhos').innerHTML = META.gruposVermelhos.map(g => {
+    const q = estadoRed[g.sigla];
+    return `
+    <div class="cs-factor cs-factor-red ${q === 0 ? 'off' : 'on'}" data-grupo="${g.sigla}">
+      ${stepper('red', g.sigla, q)}
+      <span class="cs-factor-body">
+        <span class="cs-factor-top">
+          <span class="cs-factor-label">${esc(g.sigla)} — ${esc(g.rotulo)}</span>
+          <span class="cs-factor-cost">${esc(g.dominio)}</span>
+        </span>
+        <span class="cs-factor-units">${g.unidades.map(u => esc(u.nome)).join(' · ')}${
+          q > 1 ? ` <span class="cs-sd">— ${g.unidades.length * q} unidades</span>` : ''}</span>
+      </span>
+    </div>`;
+  }).join('');
 }
 
 function atualizarTotais() {
-  const ativos = META.fatores.filter(f => estado[f.chave]);
-  const custo  = ativos.reduce((s, f) => s + f.custo, 0);
-  $('custo').textContent   = custo;
-  $('n-caps').textContent  = ativos.length;
-  $('custo-pct').textContent = `${Math.round(100 * custo / META.custoTotal)}% do total (${META.custoTotal} EAC)`;
-  const fora = META.fatores.filter(f => !estado[f.chave]).flatMap(f => f.unidades);
-  $('unidades-fora').textContent = fora.length
-    ? `${fora.length} unidade(s) fora: ${fora.map(u => u.nome).join(', ')}`
-    : 'ordem de batalha completa';
+  const custo = META.fatores.reduce((s, f) => s + f.custo * estado[f.chave], 0);
+  const presentes = META.fatores.filter(f => estado[f.chave] >= 1);
+  $('custo').textContent  = custo;
+  $('n-caps').textContent = presentes.length;
+  $('custo-pct').textContent =
+    `${Math.round(100 * custo / META.custoTotal)}% da linha de base (${META.custoTotal} EAC, todas em quantidade 1)`;
+  const fora = META.fatores.filter(f => estado[f.chave] === 0).flatMap(f => f.unidades);
+  const extra = META.fatores.filter(f => estado[f.chave] > 1)
+    .map(f => `${f.chave}×${estado[f.chave]}`);
+  const partes = [];
+  if (fora.length)  partes.push(`${fora.length} unidade(s) fora: ${fora.map(u => u.nome).join(', ')}`);
+  if (extra.length) partes.push(`reforçado: ${extra.join(', ')}`);
+  textoFora = partes.length ? partes.join(' · ') : 'ordem de batalha original';
+  $('unidades-fora').textContent = textoFora;
+  agendarEfetivo();
 }
 
-document.addEventListener('change', e => {
-  const chk = e.target.closest('[data-chk]');
-  if (chk) {
-    estado[chk.dataset.chk] = chk.checked;
-    chk.closest('.cs-factor').classList.toggle('on', chk.checked);
-    chk.closest('.cs-factor').classList.toggle('off', !chk.checked);
-    atualizarTotais();
-    return;
+function atualizarTotaisRed() {
+  const total = META.gruposVermelhos.length;
+  const presentes = META.gruposVermelhos.filter(g => estadoRed[g.sigla] >= 1).length;
+  const alterados = META.gruposVermelhos.filter(g => estadoRed[g.sigla] !== 1)
+    .map(g => `${g.sigla}×${estadoRed[g.sigla]}`);
+  $('red-resumo').textContent  = alterados.length ? 'alterada' : 'padrão';
+  textoRed = alterados.length ? alterados.join(' · ') : 'ordem de batalha original';
+  $('red-detalhe').textContent = textoRed;
+  $('red-n').textContent     = presentes;
+  $('red-n-tot').textContent = `/${total}`;
+  agendarEfetivo();
+}
+
+// ─── Efetivo real das duas forças ────────────────────────────────────────────
+// Quantidade arrasta dependentes, e a cascata atravessa grupos: sem o
+// porta-aviões a ala aérea embarcada nele também não entra, ainda que pertença
+// a DAE/PATMAR. Somar unitIds aqui daria um número errado — quem conta é o
+// servidor, pelo mesmo applyForceConfig que monta a partida.
+function agendarEfetivo() {
+  clearTimeout(timerEfetivo);
+  timerEfetivo = setTimeout(atualizarEfetivo, 150);
+}
+
+async function atualizarEfetivo() {
+  const corpo = { factors: fatoresSelecionados(), redGroups: grupoVermelhoSelecionado() || {} };
+  try {
+    const res = await fetch('/api/construtivo/forca', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo),
+    });
+    if (!res.ok) throw new Error('falhou');
+    const f = await res.json();
+    $('unidades-fora').textContent = `${textoFora} — ${f.azul.n} unidades em campo`;
+    $('red-detalhe').textContent   = `${textoRed} — ${f.vermelha.n} unidades em campo`;
+  } catch {
+    /* O efetivo é informação de apoio: se o servidor não responder, a tela
+       segue utilizável com a composição que o usuário já vê. */
   }
-  if (e.target.closest('#bloco, #replicas')) atualizarPlano();
+}
+
+// Delegação dos controles de quantidade.
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-step]');
+  if (!btn || btn.disabled) return;
+  const delta = Number(btn.dataset.delta);
+  const key   = btn.dataset.key;
+  if (btn.dataset.step === 'blue') {
+    estado[key] = Math.max(0, Math.min(MAXQ(), estado[key] + delta));
+    renderFatores(); atualizarTotais();
+  } else {
+    estadoRed[key] = Math.max(0, Math.min(MAXQ(), estadoRed[key] + delta));
+    renderGruposVermelhos(); atualizarTotaisRed();
+  }
+});
+
+$('btn-red-reset').addEventListener('click', () => {
+  if (!META) return;
+  for (const g of META.gruposVermelhos) estadoRed[g.sigla] = 1;
+  renderGruposVermelhos(); atualizarTotaisRed();
 });
 
 // ─── 2. Execução ─────────────────────────────────────────────────────────────
@@ -113,10 +212,13 @@ function atualizarPlano() {
   $('btn-jogar').disabled = bloco !== 'pacote';
 }
 
-function fatoresSelecionados() {
-  const f = {};
-  for (const k of Object.keys(estado)) f[k] = estado[k] ? 1 : -1;
-  return f;
+function fatoresSelecionados() { return { ...estado }; }
+
+/** Só envia os grupos alterados — assim "padrão" fica explícito no servidor. */
+function grupoVermelhoSelecionado() {
+  const alterados = {};
+  for (const k of Object.keys(estadoRed)) if (estadoRed[k] !== 1) alterados[k] = estadoRed[k];
+  return Object.keys(alterados).length ? alterados : null;
 }
 
 async function rodar() {
@@ -128,6 +230,10 @@ async function rodar() {
   };
   if (bloco === 'pacote') { corpo.factors = fatoresSelecionados(); corpo.nome = 'Pacote'; }
   else corpo.bloco = bloco;
+  // A composição Vermelha vale para qualquer delineamento: os blocos variam a
+  // Força Azul, e a ameaça contra a qual ela é medida é escolha do cenário.
+  const red = grupoVermelhoSelecionado();
+  if (red) corpo.redGroups = red;
 
   $('erro').classList.add('hidden');
   $('btn-run').disabled = true;
@@ -196,7 +302,8 @@ function renderRelatorio(r) {
   const regra = r.victoryRule === 'exhaustion' ? 'exaustão ofensiva' : 'objetivos do cenário';
   $('resumo-tiles').innerHTML =
     tile('Partidas simuladas', r.total,
-         `${r.porCondicao.length} condição(ões) · limite de ${r.maxTurns} turnos<br>vitória por ${regra}`) +
+         `${r.porCondicao.length} condição(ões) · limite de ${r.maxTurns} turnos<br>` +
+         `vitória por ${regra}<br>Força Vermelha: ${esc(r.forcaVermelha || 'padrão')}`) +
     tile('Vitórias da Força Azul', v.blue || 0, pc(v.blue || 0)) +
     tile('Vitórias da Força Vermelha', v.red || 0, pc(v.red || 0)) +
     tile('Sem decisão', v.censurado || 0, `${pc(v.censurado || 0)} · atingiram o limite de turnos`);
@@ -301,6 +408,9 @@ $('btn-jogar').addEventListener('click', () => {
   sessionStorage.setItem('pendingAction', 'solo');
   sessionStorage.setItem('soloTeam', 'blue');
   sessionStorage.setItem('soloFactors', JSON.stringify(fatoresSelecionados()));
+  const red = grupoVermelhoSelecionado();
+  if (red) sessionStorage.setItem('soloRedGroups', JSON.stringify(red));
+  else sessionStorage.removeItem('soloRedGroups');
   window.location.href = '/game';
 });
 

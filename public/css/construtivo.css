@@ -54,27 +54,41 @@
 /* ── Fatores ── */
 .cs-factors { display: flex; flex-direction: column; gap: 0.5rem; }
 .cs-factor {
-  display: flex; align-items: flex-start; gap: 0.7rem; cursor: pointer;
+  display: flex; align-items: center; gap: 0.7rem;
   border: 1px solid var(--cs-line); padding: 10px 12px; min-height: 44px;
   transition: border-color 0.15s, background 0.15s;
 }
-.cs-factor input { position: absolute; opacity: 0; pointer-events: none; }
-.cs-factor-mark {
-  width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px;
-  border: 1px solid var(--cs-dim); display: inline-flex; align-items: center; justify-content: center;
-}
-/* Redundância de canal: estado ligado tem marca, borda e fundo — não só cor. */
+/* Redundância de canal: presença tem borda, fundo E o número — não só cor. */
 .cs-factor.on  { border-color: var(--blue-l, #82b1ff); background: rgba(33,150,243,0.1); }
-.cs-factor.on  .cs-factor-mark::after { content: '✓'; color: #fff; font-size: 0.8rem; }
-.cs-factor.on  .cs-factor-mark { background: var(--blue, #1565c0); border-color: var(--blue-l, #82b1ff); }
 .cs-factor.off { opacity: 0.62; }
 .cs-factor.off .cs-factor-label { text-decoration: line-through; }
 .cs-factor:focus-within { outline: 2px solid var(--gold-l, #ffd54f); outline-offset: 2px; }
+.cs-factor-red.on { border-color: var(--red-l, #ff8a80); background: rgba(183,28,28,0.12); }
+
+/* Controle de quantidade */
+.cs-qty { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.cs-qty-btn {
+  width: 40px; height: 40px; flex-shrink: 0; cursor: pointer;
+  font-family: inherit; font-size: 1.05rem; line-height: 1;
+  background: rgba(7,25,41,0.9); border: 1px solid var(--cs-line); color: var(--cs-ink);
+}
+.cs-qty-btn:hover:not(:disabled) { border-color: var(--blue-l, #82b1ff); color: #fff; }
+.cs-qty-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.cs-qty-btn:focus-visible { outline: 2px solid var(--gold-l, #ffd54f); outline-offset: 1px; }
+.cs-qty-val {
+  min-width: 26px; text-align: center; font-size: 0.92rem; color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.cs-qty-val.zero { color: var(--cs-dim); }
+.cs-qty-val.mais { color: var(--gold-l, #ffd54f); font-weight: bold; }
+.cs-btn-mini { padding: 8px 12px; min-height: 40px; font-size: 0.64rem; margin-top: 4px; }
 .cs-factor-body  { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .cs-factor-top   { display: flex; justify-content: space-between; gap: 0.8rem; align-items: baseline; flex-wrap: wrap; }
-.cs-factor-label { font-size: 0.82rem; color: #fff; }
+.cs-factor-label { font-size: 0.82rem; color: #fff; overflow-wrap: anywhere; }
 .cs-factor-cost  { font-size: 0.72rem; color: var(--gold-l, #ffd54f); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.cs-factor-units { font-size: 0.7rem; color: var(--cs-dim); }
+.cs-factor-units { font-size: 0.7rem; color: var(--cs-dim); overflow-wrap: anywhere; }
+/* O domínio do grupo Vermelho é texto corrido, não um número: pode quebrar. */
+.cs-factor-red .cs-factor-cost { white-space: normal; color: var(--red-l, #ff8a80); }
 
 /* ── Tiles ── */
 .cs-totals { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 0.7rem; margin-top: 1rem; }
@@ -169,6 +183,11 @@
 }
 @media (max-width: 440px) {
   .cs-totals, .cs-totals-4 { grid-template-columns: 1fr; }
+  /* No celular o controle de quantidade comeria um terço da linha. Ele desce
+     para baixo do rótulo, à direita, e o nome do fator recupera a largura. */
+  .cs-factor { flex-wrap: wrap; align-items: stretch; }
+  .cs-factor-body { flex-basis: 100%; order: -1; }
+  .cs-factor .cs-qty { margin-left: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
   .cs-progress-fill, .cs-btn, .cs-factor { transition: none; }

@@ -39,14 +39,28 @@ eq(CF.totalCost(TODAS), 248, 'custo com as 5 capacidades = 248 EAC');
 eq(CF.countActive(TODAS), 5, 'contagem de capacidades ativas');
 eq(CF.totalCost(Object.fromEntries(CF.FACTOR_KEYS.map(k => [k, -1]))), 0, 'custo sem capacidade alguma = 0');
 
+// Retirar um fator retira suas unidades e também os dependentes que o motor
+// afundaria junto com elas (server.js: a morte do hospedeiro mata aeronaves
+// embarcadas e forças especiais hospedadas). Sem isso o pacote entraria em
+// campo com referências penduradas — e com uma unidade que a regra de combate
+// não deixaria existir. Ex.: sem os SSK não há como a equipe de OpEsp operar.
 const obBase = ORDER_OF_BATTLE.forces.blue.length;
+const dependentesDe = ids => ORDER_OF_BATTLE.forces.blue
+  .filter(u => ids.includes(u.hostId) || ids.includes(u.embarked)).map(u => u.id);
 for (const key of CF.FACTOR_KEYS) {
-  const ob = CF.applyCapabilityConfig(ORDER_OF_BATTLE, { ...TODAS, [key]: -1 });
-  const n = CF.CAPABILITY_FACTORS[key].unitIds.length;
-  eq(ob.forces.blue.length, obBase - n, `desligar ${key} retira ${n} unidade(s) da OB azul`);
-  ok(CF.CAPABILITY_FACTORS[key].unitIds.every(id => !ob.forces.blue.some(u => u.id === id)),
-    `  unidades de ${key} ausentes da OB resultante`);
+  const ids = CF.CAPABILITY_FACTORS[key].unitIds;
+  const ob  = CF.applyCapabilityConfig(ORDER_OF_BATTLE, { ...TODAS, [key]: -1 });
+  const dep = dependentesDe(ids);
+  eq(ob.forces.blue.length, obBase - ids.length - dep.length,
+    `desligar ${key} retira ${ids.length} unidade(s)${dep.length ? ` + ${dep.length} dependente(s)` : ''} da OB azul`);
+  ok([...ids, ...dep].every(id => !ob.forces.blue.some(u => u.id === id)),
+    `  unidades de ${key} e seus dependentes ausentes da OB resultante`);
+  const vivos = new Set(ob.forces.blue.map(u => u.id));
+  ok(ob.forces.blue.every(u => (!u.hostId || vivos.has(u.hostId)) && (!u.embarked || vivos.has(u.embarked))),
+    `  OB sem ${key} não tem dependente órfão`);
 }
+eq(dependentesDe(CF.CAPABILITY_FACTORS.B_SSK.unitIds), ['BLUE-SEOP'],
+  'a equipe de OpEsp azul depende dos SSK (é o seu meio de inserção)');
 ok(CF.applyCapabilityConfig(ORDER_OF_BATTLE, TODAS).forces.red.length === ORDER_OF_BATTLE.forces.red.length,
   'a força Vermelha nunca é alterada pelos fatores');
 const antesOB = JSON.stringify(ORDER_OF_BATTLE);
@@ -172,6 +186,140 @@ const turnosObj = loteObj.rows.reduce((a, r) => a + r.turnos, 0) / loteObj.rows.
 const turnosExa = loteExa.rows.reduce((a, r) => a + r.turnos, 0) / loteExa.rows.length;
 ok(turnosExa > turnosObj, `exaustão alonga as partidas (${turnosExa.toFixed(1)} vs ${turnosObj.toFixed(1)} turnos)`);
 ok(SIM.toCsv(loteExa.rows).split('\n')[0].includes('regra_vitoria'), 'CSV traz a coluna regra_vitoria');
+
+// ─── Quantidades e composição da Força Vermelha ──────────────────────────────
+// A quantidade é o estado do fator: 0 retira, 1 é a ordem de batalha, N>1
+// acrescenta cópias. O que precisa valer: custo proporcional, OB de origem
+// intocada, dependentes (aeronaves embarcadas, opesp hospedados) acompanhando
+// a cópia do hospedeiro, e objetivos que não se cumprem por duplicata.
+eq(CF.MAX_QUANTITY, 4, 'teto de quantidade por fator/grupo');
+eq(CF.quantityOf(undefined), 1, 'quantidade ausente = 1 (ordem de batalha)');
+eq(CF.quantityOf(true), 1, 'legado true = 1');
+eq(CF.quantityOf(false), 0, 'legado false = 0');
+eq(CF.quantityOf(-1), 0, 'legado -1 (capacidade ausente) = 0');
+eq(CF.quantityOf(99), CF.MAX_QUANTITY, 'quantidade acima do teto é limitada');
+eq(CF.quantityOf(2.4), 2, 'quantidade fracionária é arredondada');
+eq(CF.baseUnitId('BLUE-SUB-N~3'), 'BLUE-SUB-N', 'o id base ignora o sufixo de cópia');
+eq(CF.baseUnitId('BLUE-SUB-N'), 'BLUE-SUB-N', 'id sem sufixo é o próprio id base');
+
+const dobro = { ...TODAS, A_SSN: 2 };
+eq(CF.totalCost(dobro), 248 + CF.CAPABILITY_FACTORS.A_SSN.cost, 'duplicar um fator soma outro custo dele');
+eq(CF.countActive(dobro), 5, 'duplicar não muda a contagem de capacidades presentes');
+
+// Quantidade 1 em tudo tem de devolver exatamente a ordem de batalha original.
+const neutro = CF.applyForceConfig(ORDER_OF_BATTLE, {
+  factors: TODAS,
+  redGroups: Object.fromEntries(CF.RED_GROUP_KEYS.map(k => [k, 1])),
+});
+eq(neutro.forces.blue.map(u => u.id), ORDER_OF_BATTLE.forces.blue.map(u => u.id),
+  'quantidade 1 preserva a Força Azul da OB');
+eq(neutro.forces.red.map(u => u.id), ORDER_OF_BATTLE.forces.red.map(u => u.id),
+  'quantidade 1 preserva a Força Vermelha da OB');
+
+// A OB global é compartilhada pelo servidor: compor força nunca pode mutá-la.
+const antesBlue = ORDER_OF_BATTLE.forces.blue.length;
+const antesRed  = ORDER_OF_BATTLE.forces.red.length;
+const reforcado = CF.applyForceConfig(ORDER_OF_BATTLE, { factors: dobro, redGroups: { INTERV: 2 } });
+eq(ORDER_OF_BATTLE.forces.blue.length, antesBlue, 'compor força não altera a OB global (Azul)');
+eq(ORDER_OF_BATTLE.forces.red.length, antesRed, 'compor força não altera a OB global (Vermelha)');
+
+const ssn = CF.CAPABILITY_FACTORS.A_SSN.unitIds;
+const copiasSsn = reforcado.forces.blue.filter(u => ssn.includes(CF.baseUnitId(u.id)));
+eq(copiasSsn.length, ssn.length * 2, 'A_SSN×2 coloca duas vezes as unidades do fator em campo');
+ok(copiasSsn.some(u => u.id.includes('~2')), 'a cópia recebe sufixo próprio de id');
+eq(new Set(reforcado.forces.blue.map(u => u.id)).size, reforcado.forces.blue.length,
+  'não há ids duplicados após a expansão');
+
+// Dependentes: um segundo porta-aviões chega com a ala aérea repontada.
+const anf = reforcado.forces.red.filter(u => u.id.includes('~2'));
+ok(anf.length > CF.RED_GROUPS.INTERV.unitIds.length,
+  'duplicar INTERV leva junto os dependentes (aeronaves embarcadas)');
+const hostes = new Set(reforcado.forces.red.map(u => u.id));
+ok(reforcado.forces.red.every(u => !u.hostId || hostes.has(u.hostId)),
+  'nenhum dependente aponta para hospedeiro inexistente');
+ok(reforcado.forces.red.every(u => !u.embarked || hostes.has(u.embarked)),
+  'toda aeronave embarcada aponta para um navio presente');
+
+// Zerar um grupo tem de levar os dependentes embora — não deixa aeronave órfã.
+const semInterv = CF.applyForceConfig(ORDER_OF_BATTLE, { redGroups: { INTERV: 0 } });
+ok(semInterv.forces.red.length < antesRed, 'INTERV=0 reduz a Força Vermelha');
+ok(semInterv.forces.red.every(u => TAX.classifyUnit(u.id, 'red').sigla !== 'INTERV'),
+  'nenhuma unidade do grupo zerado sobrevive');
+const idsSem = new Set(semInterv.forces.red.map(u => u.id));
+ok(semInterv.forces.red.every(u => (!u.hostId || idsSem.has(u.hostId)) && (!u.embarked || idsSem.has(u.embarked))),
+  'zerar um grupo não deixa dependente órfão');
+// O corte atravessa grupos quando a dependência atravessa: sem porta-aviões,
+// a ala aérea embarcada nele também sai, ainda que pertença a DAE/PATMAR.
+ok(!semInterv.forces.red.some(u => u.embarked === 'RED-GBPA'),
+  'sem o porta-aviões, sua ala aérea não entra em campo');
+
+// A taxonomia precisa reconhecer a cópia como sendo do mesmo grupo.
+const umId = ssn[0];
+eq(TAX.classifyUnit(umId + '~2', 'blue').sigla, TAX.classifyUnit(umId, 'blue').sigla,
+  'a cópia é classificada no mesmo grupo de capacidade do original');
+
+// Aritmética do efetivo: é o número que a tela do simulador mostra ao usuário,
+// e o que torna a cascata visível (INTERV×2 traz 8 unidades, não 2).
+const efetivo = cfg => CF.applyForceConfig(ORDER_OF_BATTLE, cfg);
+eq(efetivo({}).forces.red.length, ORDER_OF_BATTLE.forces.red.length,
+  'sem composição, o efetivo Vermelho é o da OB');
+eq(efetivo({ redGroups: { INTERV: 2 } }).forces.red.length - ORDER_OF_BATTLE.forces.red.length, 8,
+  'INTERV×2 traz 8 unidades (navios do grupo + ala aérea + OpEsp hospedada)');
+eq(ORDER_OF_BATTLE.forces.red.length - efetivo({ redGroups: { LOG: 0 } }).forces.red.length, 3,
+  'LOG×0 retira as 3 unidades logísticas, que não têm dependentes');
+eq(efetivo({ factors: { A_SSN: 2, B_SSK: 0 } }).forces.blue.length,
+   ORDER_OF_BATTLE.forces.blue.length + 1 - 3 - 1,
+  'A_SSN×2 com B_SSK×0: +1 SSN, −3 SSK e −1 OpEsp dependente');
+
+// Sem alteração, a composição Vermelha se descreve como padrão.
+eq(CF.describeRedConfig({}), 'padrão', 'composição Vermelha sem alteração é "padrão"');
+ok(CF.describeRedConfig({ INTERV: 2 }).includes('INTERV'), 'composição alterada é descrita por grupo');
+
+// Lote com quantidades e Vermelho alterado: o registro carrega a configuração.
+const loteQtd = SIM.runBatch({
+  factors: dobro, redGroups: { INTERV: 2 }, replicas: 2, maxTurns: 6, nome: 'Reforçado',
+});
+eq(loteQtd.porCondicao[0].custo_total, CF.totalCost(dobro), 'o custo do lote segue a quantidade');
+ok(loteQtd.rows.every(r => r.forca_vermelha && r.forca_vermelha.includes('INTERV')),
+  'cada partida registra a composição Vermelha usada');
+ok(loteQtd.forcaVermelha.includes('INTERV'), 'o resultado do lote expõe a composição Vermelha');
+ok(SIM.toCsv(loteQtd.rows).split('\n')[0].includes('forca_vermelha'), 'CSV traz a coluna forca_vermelha');
+
+// Sinal de validade: reforçar a Força Azul contra a MESMA ameaça tem de
+// melhorar o desfecho, senão a quantidade não informa planejamento nenhum.
+// Qual medida responde depende da regra de vitória, e isso não é defeito:
+//  · objetivos — a partida termina em poucos turnos, e E1_atrito é a foto do
+//    fim; reforçar encurta a partida, então E1 satura. O que responde é a
+//    própria economia de força (atrito_azul) e o tempo até a decisão.
+//  · exaustão — a partida vai até a incapacitação; aí E1 e E1_kcv respondem.
+const DOBRO = Object.fromEntries(CF.FACTOR_KEYS.map(k => [k, 2]));
+const turnoMedio = r => r.rows.reduce((a, x) => a + x.turnos, 0) / r.rows.length;
+
+const objBase = SIM.runBatch({ factors: TODAS, replicas: 12, maxTurns: 12 });
+const objMais = SIM.runBatch({ factors: DOBRO, replicas: 12, maxTurns: 12 });
+ok(objMais.porCondicao[0].resumo.atrito_azul.media < objBase.porCondicao[0].resumo.atrito_azul.media,
+  'objetivos: reforçar a Força Azul reduz o atrito sofrido por ela');
+ok(turnoMedio(objMais) < turnoMedio(objBase),
+  `objetivos: reforçar encurta o caminho até a decisão (${turnoMedio(objMais).toFixed(1)} vs ${turnoMedio(objBase).toFixed(1)} turnos)`);
+
+const exaBase = SIM.runBatch({ factors: TODAS, replicas: 12, maxTurns: 30, victoryRule: 'exhaustion' });
+const exaMais = SIM.runBatch({ factors: DOBRO, replicas: 12, maxTurns: 30, victoryRule: 'exhaustion' });
+ok(exaMais.porCondicao[0].resumo.E1_atrito.media > exaBase.porCondicao[0].resumo.E1_atrito.media,
+  'exaustão: reforçar a Força Azul aumenta o atrito imposto ao Vermelho');
+ok(exaMais.porCondicao[0].resumo.atrito_azul.media < exaBase.porCondicao[0].resumo.atrito_azul.media,
+  'exaustão: reforçar a Força Azul reduz o atrito sofrido por ela');
+
+// E reduzir a ameaça, a Força Azul fixa, tem de puxar na direção oposta.
+const redFraco = SIM.runBatch({ factors: TODAS, redGroups: { INTERV: 0 }, replicas: 12, maxTurns: 12 });
+ok(redFraco.porCondicao[0].resumo.atrito_azul.media < objBase.porCondicao[0].resumo.atrito_azul.media,
+  'retirar o grupo de intervenção Vermelho reduz o atrito sofrido pela Força Azul');
+
+// Reprodutibilidade continua valendo com quantidades.
+const q1 = SIM.runBatch({ factors: dobro, redGroups: { INTERV: 2 }, replicas: 3, maxTurns: 6 });
+const q2 = SIM.runBatch({ factors: dobro, redGroups: { INTERV: 2 }, replicas: 3, maxTurns: 6 });
+eq(q1.rows.map(r => `${r.semente}:${r.vencedor}:${r.turnos}`),
+   q2.rows.map(r => `${r.semente}:${r.vencedor}:${r.turnos}`),
+  'lote com quantidades é reprodutível por semente');
 
 // ─── Lote ────────────────────────────────────────────────────────────────────
 const lote = SIM.runBatch({ bloco: 'ablacao', replicas: 3, maxTurns: 8 });

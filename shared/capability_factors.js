@@ -4,17 +4,32 @@
  * capability_factors.js
  * ======================
  *
- * Defines the 5 Blue capability factors used by the PBC (Planejamento
- * Baseado em Capacidades) capability-comparison study (ablation design +
- * full factorial 2^5), per "Projeto de Pesquisa com Simulação Construtiva
- * v3.0" (Tabela 1) and the matriz_fatorial_2a5.xlsx "Dicionario" sheet.
+ * Composição de força para o estudo de Planejamento Baseado em Capacidades.
  *
- * Each factor maps to a set of forces/order_of_battle.js unit ids that are
- * removed from the Blue order of battle when the factor is "off" (-1).
- * Costs are EAC-normalized (Dicionario sheet): A_SSN=100, B_SSK=31,
- * C_Azuis=78, D_MSS=27, E_Terra=12 (sum=248, matches Cond_C0 baseline cost
- * in the ablation matrix).
+ * FORÇA AZUL — os 5 fatores de capacidade do estudo (delineamento de ablação +
+ * fatorial 2^5), conforme "Projeto de Pesquisa com Simulação Construtiva v3.0"
+ * (Tabela 1). Cada fator mapeia um conjunto de unidades da ordem de batalha.
+ * Custos normalizados em EAC: A_SSN=100, B_SSK=31, C_Azuis=78, D_MSS=27,
+ * E_Terra=12 (soma 248, a linha de base C0 da matriz de ablação).
+ *
+ * FORÇA VERMELHA — os grupos-tarefa da taxonomia (Camada 2, componentes de
+ * força de Coutau-Bégarié; ver force_taxonomy.json). O Vermelho é a ameaça do
+ * cenário, não o que está sendo adquirido: por isso varia em composição, mas
+ * não tem custo EAC.
+ *
+ * QUANTIDADE — cada fator/grupo tem uma quantidade inteira:
+ *   0  retira as unidades da partida;
+ *   1  é a ordem de batalha original (padrão);
+ *   N>1 acrescenta N−1 cópias de cada unidade do conjunto.
+ * Valores legados (+1/-1, true/false) continuam válidos e significam 1 e 0 —
+ * é o que mantém `conditions.js` (fatorial/ablação) funcionando sem mudança.
+ *
+ * Uma cópia recebe ID próprio (`BLUE-SUB-N~2`) e leva junto o que viaja nela:
+ * aeronaves embarcadas e forças especiais hospedadas são duplicadas e
+ * repontadas para a cópia, para não se criar um porta-aviões sem ala aérea.
  */
+
+const { TAXONOMY } = require('./force_taxonomy');
 
 const CAPABILITY_FACTORS = {
   A_SSN: {
@@ -46,6 +61,19 @@ const CAPABILITY_FACTORS = {
 
 const FACTOR_KEYS = Object.keys(CAPABILITY_FACTORS);
 
+/** Grupos-tarefa ajustáveis da Força Vermelha, derivados da taxonomia. */
+const RED_GROUPS = (() => {
+  const out = {};
+  for (const dom of TAXONOMY.red || []) {
+    for (const grp of dom.groups) {
+      if (!grp.units?.length) continue;
+      out[grp.sigla] = { label: grp.label, domain: dom.domain, unitIds: [...grp.units] };
+    }
+  }
+  return out;
+})();
+const RED_GROUP_KEYS = Object.keys(RED_GROUPS);
+
 // E2_vp: pontos de valor de infraestrutura crítica (plataformas offshore).
 const FPSO_UNIT_IDS = ['BLUE-FPSO1', 'BLUE-FPSO2', 'BLUE-FPSO3', 'BLUE-FPSO4'];
 
@@ -53,46 +81,148 @@ const FPSO_UNIT_IDS = ['BLUE-FPSO1', 'BLUE-FPSO2', 'BLUE-FPSO3', 'BLUE-FPSO4'];
 // das linhas de comunicação marítimas (SLOC).
 const PORT_UNIT_IDS = ['BLUE-PORTO-S', 'BLUE-PORTO-RJ', 'BLUE-PORTO-V', 'BLUE-PORTO-ACU'];
 
-/** factors[key] truthy/+1 => capability present (on). */
+// Teto de cópias por fator/grupo: segura tanto o absurdo de cenário quanto o
+// custo de um lote (cada cópia é mais uma unidade em cada uma das N partidas).
+const MAX_QUANTITY = 4;
+
+// Separador do sufixo de cópia. Escolhido por não ocorrer em nenhum ID da OB.
+const COPY_SEP = '~';
+
+/** ID original de uma unidade, descartando o sufixo de cópia. */
+function baseUnitId(unitId) {
+  const i = String(unitId).indexOf(COPY_SEP);
+  return i === -1 ? String(unitId) : String(unitId).slice(0, i);
+}
+
+/** Quantidade de um fator/grupo. Aceita a forma legada (+1/-1, true/false). */
+function quantityOf(value) {
+  if (value === undefined || value === null) return 1;
+  if (value === true || value === '+1') return 1;
+  if (value === false) return 0;
+  const n = Number(value);
+  if (Number.isNaN(n)) return 1;
+  if (n < 0) return 0;                       // -1 legado = capacidade ausente
+  return Math.max(0, Math.min(MAX_QUANTITY, Math.round(n)));
+}
+
+/** factors[key] presente (quantidade >= 1)? */
 function isActive(value) {
-  return value === true || value === 1 || value === '1' || value === '+1';
+  return quantityOf(value) >= 1;
 }
 
+/** Custo EAC do pacote: cada cópia custa o mesmo que a original. */
 function totalCost(factors) {
-  return FACTOR_KEYS.reduce((sum, key) => sum + (isActive(factors[key]) ? CAPABILITY_FACTORS[key].cost : 0), 0);
+  return FACTOR_KEYS.reduce((sum, key) =>
+    sum + quantityOf(factors?.[key]) * CAPABILITY_FACTORS[key].cost, 0);
 }
 
+/** Quantos dos 5 fatores estão presentes (quantidade >= 1). */
 function countActive(factors) {
-  return FACTOR_KEYS.reduce((n, key) => n + (isActive(factors[key]) ? 1 : 0), 0);
+  return FACTOR_KEYS.reduce((n, key) => n + (isActive(factors?.[key]) ? 1 : 0), 0);
 }
 
 /**
- * Returns a deep-cloned Order of Battle with the units belonging to every
- * "off" capability factor removed from forces.blue.
- *
- * @param {object} baseOB     ORDER_OF_BATTLE-shaped object
- * @param {object} factors    { A_SSN, B_SSK, C_Azuis, D_MSS, E_Terra } -> truthy/+1 = on
- * @returns {object} cloned OB with inactive-factor units removed
+ * Cópia de um spec com ID e nome próprios. `n` é o número da cópia (2, 3, …).
  */
-function applyCapabilityConfig(baseOB, factors) {
-  const ob = JSON.parse(JSON.stringify(baseOB));
-  const removeIds = new Set();
-  for (const key of FACTOR_KEYS) {
-    if (!isActive(factors[key])) {
-      for (const id of CAPABILITY_FACTORS[key].unitIds) removeIds.add(id);
+function copySpec(spec, n) {
+  const copy = JSON.parse(JSON.stringify(spec));
+  copy.id   = `${spec.id}${COPY_SEP}${n}`;
+  copy.name = `${spec.name} (${n})`;
+  return copy;
+}
+
+/**
+ * Expande um conjunto de unidades para a quantidade pedida, dentro de `specs`
+ * (array da força). Devolve o array resultante.
+ *
+ * - quantidade 0 → remove as unidades do conjunto E o que viajava nelas;
+ * - quantidade 1 → inalterado;
+ * - quantidade N → acrescenta N−1 cópias de cada unidade, levando junto
+ *   aeronaves embarcadas (`embarked`) e hóspedes (`hostId`) repontados.
+ */
+function expandSet(specs, unitIds, qty) {
+  const alvo = new Set(unitIds);
+  if (qty === 1) return specs;
+
+  if (qty === 0) {
+    // Sai a unidade e sai quem só existe a bordo dela.
+    const fora = new Set(unitIds);
+    for (const s of specs) {
+      if ((s.embarked && fora.has(s.embarked)) || (s.hostId && fora.has(s.hostId))) fora.add(s.id);
+    }
+    return specs.filter(s => !fora.has(s.id));
+  }
+
+  const out = [...specs];
+  for (const spec of specs) {
+    if (!alvo.has(spec.id)) continue;
+    const dependentes = specs.filter(s => s.embarked === spec.id || s.hostId === spec.id);
+    for (let n = 2; n <= qty; n++) {
+      const copia = copySpec(spec, n);
+      out.push(copia);
+      for (const dep of dependentes) {
+        const depCopia = copySpec(dep, n);
+        if (depCopia.embarked) depCopia.embarked = copia.id;
+        if (depCopia.hostId)   depCopia.hostId   = copia.id;
+        out.push(depCopia);
+      }
     }
   }
-  ob.forces.blue = ob.forces.blue.filter(spec => !removeIds.has(spec.id));
+  return out;
+}
+
+/**
+ * Ordem de batalha com a composição pedida aplicada aos dois lados.
+ *
+ * @param {object} baseOB    ORDER_OF_BATTLE
+ * @param {object} config    { factors, redGroups } — quantidades por fator
+ *                           (Azul) e por grupo-tarefa (Vermelho)
+ * @returns {object} OB clonada; a original nunca é tocada
+ */
+function applyForceConfig(baseOB, config = {}) {
+  const ob = JSON.parse(JSON.stringify(baseOB));
+  const { factors = {}, redGroups = {} } = config;
+
+  for (const key of FACTOR_KEYS) {
+    ob.forces.blue = expandSet(ob.forces.blue, CAPABILITY_FACTORS[key].unitIds, quantityOf(factors[key]));
+  }
+  for (const sigla of RED_GROUP_KEYS) {
+    // Sem chave informada, o grupo fica como está (quantidade 1).
+    if (!(sigla in redGroups)) continue;
+    ob.forces.red = expandSet(ob.forces.red, RED_GROUPS[sigla].unitIds, quantityOf(redGroups[sigla]));
+  }
   return ob;
+}
+
+/** Forma histórica: só os fatores azuis. Mantida para conditions.js e testes. */
+function applyCapabilityConfig(baseOB, factors) {
+  return applyForceConfig(baseOB, { factors });
+}
+
+/** Resumo textual da composição Vermelha, para log e dataset. */
+function describeRedConfig(redGroups = {}) {
+  const partes = RED_GROUP_KEYS
+    .filter(s => s in redGroups && quantityOf(redGroups[s]) !== 1)
+    .map(s => `${s}×${quantityOf(redGroups[s])}`);
+  return partes.length ? partes.join(' ') : 'padrão';
 }
 
 module.exports = {
   CAPABILITY_FACTORS,
   FACTOR_KEYS,
+  RED_GROUPS,
+  RED_GROUP_KEYS,
   FPSO_UNIT_IDS,
   PORT_UNIT_IDS,
+  MAX_QUANTITY,
+  COPY_SEP,
+  baseUnitId,
+  quantityOf,
   isActive,
   totalCost,
   countActive,
+  expandSet,
+  applyForceConfig,
   applyCapabilityConfig,
+  describeRedConfig,
 };
