@@ -31,9 +31,37 @@
     wargame. O que sai é o custo do pacote confrontado com o que ele entrega em campo.
   </p>
 
-  <!-- ═══ 1. FORÇA AZUL ═══════════════════════════════════════════════════ -->
+  <!-- ═══ 1. ORDEM DE BATALHA ═════════════════════════════════════════════ -->
+  <section class="cs-card" aria-labelledby="h-ob">
+    <h2 id="h-ob" class="cs-h2"><span class="cs-step">1</span> Ordem de batalha</h2>
+    <p class="cs-help">
+      A base de tudo: as unidades das duas forças, com suas características. Baixe a
+      planilha, edite-a no Excel (ou LibreOffice, Google Planilhas) e carregue-a de volta
+      para simular com ela. Dá para mudar qualquer característica e incluir ou remover
+      unidades; uma unidade nova precisa ser classificada num <b>pacote de capacidade</b>
+      para o simulador tratá-la como as demais do pacote. As instruções estão na própria
+      planilha.
+    </p>
+    <div class="cs-ob-ativa">
+      <span class="cs-tile-label">Em uso</span>
+      <span id="ob-nome" class="cs-ob-nome">Ordem de batalha padrão</span>
+      <span id="ob-id" class="cs-sd"></span>
+    </div>
+    <div id="ob-resumo" class="cs-help cs-ob-resumo"></div>
+    <div class="cs-run-actions">
+      <button type="button" id="btn-ob-baixar" class="cs-btn cs-btn-ghost">⬇ Baixar planilha</button>
+      <label class="cs-btn cs-btn-ghost cs-file">
+        ⬆ Carregar planilha
+        <input type="file" id="ob-arquivo" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+      </label>
+      <button type="button" id="btn-ob-padrao" class="cs-btn cs-btn-ghost hidden">↺ Voltar à padrão</button>
+    </div>
+    <div id="ob-msgs" class="cs-ob-msgs hidden" role="status" aria-live="polite"></div>
+  </section>
+
+  <!-- ═══ 2. FORÇA AZUL ═══════════════════════════════════════════════════ -->
   <section class="cs-card" aria-labelledby="h-pacote">
-    <h2 id="h-pacote" class="cs-h2"><span class="cs-step">1</span> Força Azul — pacote de capacidades</h2>
+    <h2 id="h-pacote" class="cs-h2"><span class="cs-step">2</span> Força Azul — pacote de capacidades</h2>
     <p class="cs-help">
       Cada fator corresponde a meios reais da ordem de batalha. A quantidade multiplica o
       conjunto: <b>0</b> retira as unidades da partida, <b>1</b> é a ordem de batalha original,
@@ -54,9 +82,9 @@
     </div>
   </section>
 
-  <!-- ═══ 2. FORÇA VERMELHA ═══════════════════════════════════════════════ -->
+  <!-- ═══ 3. FORÇA VERMELHA ═══════════════════════════════════════════════ -->
   <section class="cs-card" aria-labelledby="h-vermelha">
-    <h2 id="h-vermelha" class="cs-h2"><span class="cs-step">2</span> Força Vermelha — composição</h2>
+    <h2 id="h-vermelha" class="cs-h2"><span class="cs-step">3</span> Força Vermelha — composição</h2>
     <p class="cs-help">
       A ameaça do cenário, por grupo-tarefa da Camada 2. Varia em composição, mas não entra no
       custo: o Vermelho não é o que está sendo adquirido. Duplicar um grupo leva junto o que
@@ -77,9 +105,9 @@
     </div>
   </section>
 
-  <!-- ═══ 3. EXECUÇÃO ═════════════════════════════════════════════════════ -->
+  <!-- ═══ 4. EXECUÇÃO ═════════════════════════════════════════════════════ -->
   <section class="cs-card" aria-labelledby="h-exec">
-    <h2 id="h-exec" class="cs-h2"><span class="cs-step">3</span> Execução</h2>
+    <h2 id="h-exec" class="cs-h2"><span class="cs-step">4</span> Execução</h2>
     <div class="cs-run-grid">
       <label class="cs-field">
         <span>Delineamento</span>
@@ -118,9 +146,9 @@
     <p id="erro" class="cs-erro hidden" role="alert"></p>
   </section>
 
-  <!-- ═══ 4. RELATÓRIO ════════════════════════════════════════════════════ -->
+  <!-- ═══ 5. RELATÓRIO ════════════════════════════════════════════════════ -->
   <section id="relatorio" class="cs-card hidden" aria-labelledby="h-rel">
-    <h2 id="h-rel" class="cs-h2"><span class="cs-step">4</span> Relatório</h2>
+    <h2 id="h-rel" class="cs-h2"><span class="cs-step">5</span> Relatório</h2>
 
     <div id="resumo-tiles" class="cs-totals cs-totals-4"></div>
 

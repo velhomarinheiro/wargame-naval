@@ -42,8 +42,16 @@ const DWELL = {
 
 async function carregar() {
   try {
-    const res = await fetch('/api/construtivo/replay' + location.search);
-    const dados = await res.json();
+    let res = await fetch('/api/construtivo/replay' + location.search);
+    let dados = await res.json();
+    // Partida jogada com uma OB carregada de planilha, que o servidor esqueceu
+    // (reiniciou). O simulador guardou a OB validada neste navegador: reenvia
+    // e tenta de novo. Sem ela, pede a mesma planilha (ver pedirPlanilha).
+    if (res.status === 404 && dados.codigo === 'OB_DESCONHECIDA') {
+      if (!(await reenviarOB(dados.obId))) { pedirPlanilha(dados.obId); return; }
+      res = await fetch('/api/construtivo/replay' + location.search);
+      dados = await res.json();
+    }
     if (!res.ok) throw new Error(dados.error || 'Falha ao reproduzir a partida.');
     T = dados;
   } catch (err) {
@@ -76,6 +84,58 @@ async function carregar() {
   initIcons(() => { TINT_CACHE.clear(); desenhar(); });
   ligarControles();
   irPara(0);
+}
+
+/** Reenvia a OB guardada pelo simulador. true se o servidor a reconheceu. */
+async function reenviarOB(obId) {
+  let g = null;
+  try { g = JSON.parse(localStorage.getItem('ob:' + obId) || 'null'); } catch { g = null; }
+  if (!g?.ob) return false;
+  try {
+    const res = await fetch('/api/construtivo/ob/json', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ob: g.ob, nome: g.nome }),
+    });
+    return res.ok && (await res.json()).obId === obId;
+  } catch { return false; }
+}
+
+/**
+ * Nem o servidor nem este navegador têm a OB com que a partida foi jogada.
+ * Pede a planilha e confere a impressão digital: só uma OB idêntica reproduz
+ * a mesma partida, e uma planilha diferente é recusada com essa explicação.
+ */
+function pedirPlanilha(obId) {
+  $('rp-carregando').classList.add('hidden');
+  const caixa = $('rp-erro');
+  caixa.classList.remove('hidden');
+  caixa.innerHTML =
+    `⚠ Esta partida foi jogada com uma ordem de batalha carregada de planilha `
+    + `(<b>${esc(obId)}</b>), que o servidor não tem mais. Carregue a mesma planilha para reproduzi-la. `
+    + `<label class="cs-btn cs-btn-ghost cs-file" style="margin-top:10px">⬆ Carregar planilha`
+    + `<input type="file" id="rp-ob-arquivo" accept=".xlsx"></label>`;
+  $('rp-ob-arquivo').addEventListener('change', async e => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    try {
+      const res = await fetch('/api/construtivo/ob', {
+        method: 'POST', body: f,
+        headers: { 'Content-Type': 'application/octet-stream', 'X-Nome-Arquivo': encodeURIComponent(f.name) },
+      });
+      const r = await res.json();
+      if (!res.ok) throw new Error((r.erros || []).slice(0, 3).join(' · ') || 'planilha recusada');
+      if (r.obId !== obId) {
+        throw new Error(`esta planilha é outra ordem de batalha (${r.obId}), não a da partida (${obId}). `
+          + `Uma OB diferente produziria outra partida.`);
+      }
+      try { localStorage.setItem('ob:' + r.obId, JSON.stringify({ nome: r.nome, ob: r.ob })); } catch { /* sem armazenamento */ }
+      caixa.classList.add('hidden');
+      $('rp-carregando').classList.remove('hidden');
+      carregar();
+    } catch (err) {
+      caixa.insertAdjacentHTML('beforeend', `<br>✗ ${esc(err.message)}`);
+    }
+  });
 }
 
 /** Dobra os deltas em quadros completos — um por passo. */
@@ -484,8 +544,11 @@ function pintarForcas() {
 function paramsHtml() {
   const p = T.partida;
   const f = Object.entries(p.factors).map(([k, v]) => `${k}×${v}`).join(' · ');
+  const ob = p.obId && p.obId !== 'padrao'
+    ? ` · Ordem de batalha: ${esc(p.obNome)} (${esc(p.obId)}), carregada de planilha`
+    : ' · Ordem de batalha padrão';
   return `<b>Parâmetros desta reprodução:</b> semente ${p.seed} · limite de ${p.maxTurns} turnos · `
-       + `${f} · Força Vermelha: ${esc(p.forcaVermelha)} · ${p.custoTotal} EAC.`;
+       + `${f} · Força Vermelha: ${esc(p.forcaVermelha)} · ${p.custoTotal} EAC${ob}.`;
 }
 
 // ─── Avisos ──────────────────────────────────────────────────────────────────

@@ -63,9 +63,22 @@ const DEFAULT_MAX_TURNS = 12;
  */
 function runGame(factors, seed, maxTurns = DEFAULT_MAX_TURNS, victoryRule = undefined,
                  redGroups = undefined, trace = NO_TRACE) {
+  return runGameWith({ factors, seed, maxTurns, victoryRule, redGroups, trace });
+}
+
+/**
+ * Mesma partida, com os parâmetros por nome. É a forma que aceita uma ordem de
+ * batalha carregada de planilha (`ob`, anotada) — a posicional acima continua
+ * existindo para quem já a chama, e joga sempre com a OB padrão.
+ *
+ * A OB viaja aqui por parâmetro, nunca por estado global: lotes e salas rodam
+ * ao mesmo tempo no mesmo processo, cada um com a sua.
+ */
+function runGameWith({ factors, seed, maxTurns = DEFAULT_MAX_TURNS, victoryRule,
+                       redGroups, trace = NO_TRACE, ob: baseOB = ORDER_OF_BATTLE, obId = 'padrao' }) {
   if (!ENGINE) throw new Error('constructive_sim: motor não injetado (useEngine)');
-  const ob    = applyForceConfig(ORDER_OF_BATTLE, { factors, redGroups });
-  const state = ENGINE.newGame(ob, { seed, victoryRule });
+  const ob    = applyForceConfig(baseOB, { factors, redGroups });
+  const state = ENGINE.newGame(ob, { seed, victoryRule, obId });
   if (trace.bindEngine) trace.bindEngine(ENGINE);
 
   const culmination = createCulminationTracker();
@@ -141,8 +154,11 @@ function runGame(factors, seed, maxTurns = DEFAULT_MAX_TURNS, victoryRule = unde
  */
 function traceGame(spec = {}) {
   const trace = createCollector({ maxSteps: spec.maxSteps, maxBytes: spec.maxBytes });
-  const resultado = runGame(spec.factors, spec.seed, spec.maxTurns, spec.victoryRule,
-                            spec.redGroups, trace);
+  const resultado = runGameWith({
+    factors: spec.factors, seed: spec.seed, maxTurns: spec.maxTurns ?? DEFAULT_MAX_TURNS,
+    victoryRule: spec.victoryRule, redGroups: spec.redGroups, trace,
+    ob: spec.ob || ORDER_OF_BATTLE, obId: spec.obId || 'padrao',
+  });
   const t = trace.result();
   return {
     resultado,
@@ -221,11 +237,68 @@ function buildConditions(spec) {
  * partida — o servidor usa isso para transmitir progresso, já que um bloco
  * fatorial são 640 partidas.
  */
+/**
+ * Uma linha do dataset: joga a partida (condição × semente) e monta o registro.
+ *
+ * Usada pelo lote síncrono (runBatch) E pelo lote em fatias do servidor
+ * (POST /api/construtivo/run). Antes os dois montavam a linha cada um por si, e
+ * qualquer campo novo precisava ser lembrado em dois lugares.
+ *
+ * @param {object} ctx  { maxTurns, victoryRule, redGroups, ob, obId }
+ */
+function runRow(cond, seed, replica, ctx = {}) {
+  const victoryRule = ctx.victoryRule === 'exhaustion' ? 'exhaustion' : 'objectives';
+  const { winner, turns, metrics, groupMetrics } = runGameWith({
+    factors: cond.factors, seed, maxTurns: ctx.maxTurns ?? DEFAULT_MAX_TURNS,
+    victoryRule: ctx.victoryRule, redGroups: ctx.redGroups,
+    ob: ctx.ob || ORDER_OF_BATTLE, obId: ctx.obId || 'padrao',
+  });
+  const row = {
+    condicao:      cond.condicao,
+    replica,
+    semente:       seed,
+    n_capacidades: cond.n_capacidades,
+    custo_total:   cond.custo_total,
+    ...metrics,
+    vencedor:      winner || 'censurado',
+    turnos:        turns,
+    regra_vitoria: victoryRule,
+    forca_vermelha: describeRedConfig(ctx.redGroups),
+    ...groupMetrics,
+  };
+  for (const key of FACTOR_KEYS) row[key] = cond.factors[key];
+  if (cond.capacidade_removida !== undefined) row.capacidade_removida = cond.capacidade_removida || '';
+  // Só quando a OB não é a padrão: assim o CSV de um lote padrão continua
+  // idêntico, coluna por coluna, ao de antes.
+  if (ctx.obId && ctx.obId !== 'padrao') row.ob_id = ctx.obId;
+  return row;
+}
+
+/**
+ * Recusa composições grandes demais antes de começar o lote: o bot é ~O(n²)
+ * por partida, e uma OB carregada com 150 unidades e tudo em quantidade 4
+ * travaria o servidor. A OB padrão chega no máximo a 164 unidades.
+ */
+const LIMITE_EXPANDIDA = 400;
+function checarTamanho(conditions, ctx) {
+  const base = ctx.ob || ORDER_OF_BATTLE;
+  for (const cond of conditions) {
+    const ob = applyForceConfig(base, { factors: cond.factors, redGroups: ctx.redGroups });
+    const n = ob.forces.blue.length + ob.forces.red.length;
+    if (n > LIMITE_EXPANDIDA) {
+      throw new Error(`A condição ${cond.condicao} põe ${n} unidades em campo; o limite é `
+        + `${LIMITE_EXPANDIDA}. Reduza as quantidades ou o tamanho da ordem de batalha.`);
+    }
+  }
+}
+
 function runBatch(spec = {}, onProgress = null) {
   const conditions  = buildConditions(spec);
   const maxTurns    = Math.max(1, Math.min(40, Number(spec.maxTurns) || DEFAULT_MAX_TURNS));
   const victoryRule = spec.victoryRule;
   const redGroups   = spec.redGroups;
+  const ctx = { maxTurns, victoryRule, redGroups, ob: spec.ob, obId: spec.obId };
+  checarTamanho(conditions, ctx);
   const replicasOverride = spec.bloco && Number(spec.replicas) ? Number(spec.replicas) : null;
 
   const total = conditions.reduce(
@@ -240,23 +313,7 @@ function runBatch(spec = {}, onProgress = null) {
     const condRows = [];
 
     seeds.forEach((seed, idx) => {
-      const { winner, turns, metrics, groupMetrics } =
-        runGame(cond.factors, seed, maxTurns, victoryRule, redGroups);
-      const row = {
-        condicao:      cond.condicao,
-        replica:       idx + 1,
-        semente:       seed,
-        n_capacidades: cond.n_capacidades,
-        custo_total:   cond.custo_total,
-        ...metrics,
-        vencedor:      winner || 'censurado',
-        turnos:        turns,
-        regra_vitoria: victoryRule === 'exhaustion' ? 'exhaustion' : 'objectives',
-        forca_vermelha: describeRedConfig(redGroups),
-        ...groupMetrics,
-      };
-      for (const key of FACTOR_KEYS) row[key] = cond.factors[key];
-      if (cond.capacidade_removida !== undefined) row.capacidade_removida = cond.capacidade_removida || '';
+      const row = runRow(cond, seed, idx + 1, ctx);
       rows.push(row);
       condRows.push(row);
       feito++;
@@ -279,6 +336,7 @@ function runBatch(spec = {}, onProgress = null) {
            victoryRule: victoryRule === 'exhaustion' ? 'exhaustion' : 'objectives',
            forcaVermelha: describeRedConfig(redGroups),
            redGroupsUsados: redGroups || {},
+           obId: spec.obId || 'padrao',
            gruposPresentes: presentGroups(rows) };
 }
 
@@ -301,7 +359,10 @@ function presentGroups(rows) {
 function csvValue(v) {
   if (v === null || v === undefined) return '';
   if (typeof v === 'number') return Number.isInteger(v) ? String(v) : v.toFixed(4);
-  const s = String(v);
+  let s = String(v);
+  // Texto que começa com = + - @ (ou tab/CR) o Excel interpreta como fórmula
+  // ao abrir o CSV. O nome do pacote vem do usuário; neutraliza com apóstrofo.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
@@ -310,7 +371,7 @@ function toCsv(rows) {
   if (!rows.length) return '';
   const base = ['condicao', 'capacidade_removida', 'replica', 'semente',
     ...FACTOR_KEYS, 'n_capacidades', 'custo_total',
-    ...METRIC_KEYS, 'vencedor', 'turnos', 'regra_vitoria', 'forca_vermelha'];
+    ...METRIC_KEYS, 'vencedor', 'turnos', 'regra_vitoria', 'forca_vermelha', 'ob_id'];
   // Colunas de grupo na ordem doutrinária da taxonomia (não na ordem em que
   // aparecem nas linhas), para o CSV sair comparável entre lotes.
   const grupos = presentGroups(rows).map(g => g.key);
@@ -323,6 +384,10 @@ function toCsv(rows) {
 module.exports = {
   useEngine,
   runGame,
+  runGameWith,
+  runRow,
+  checarTamanho,
+  LIMITE_EXPANDIDA,
   traceGame,
   runBatch,
   summarize,

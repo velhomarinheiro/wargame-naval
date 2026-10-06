@@ -110,6 +110,11 @@ function logStart(roomId, state, meta = {}) {
     // Pacote de capacidades quando a partida veio da simulação construtiva —
     // é o que permite comparar a partida jogada com o lote correspondente.
     capabilityFactors: meta.capabilityFactors ?? null,
+    redComposition:    meta.redComposition ?? null,
+    // Ordem de batalha usada: 'padrao', ou a impressão digital de uma OB
+    // carregada de planilha. Quem treina o bot com este dataset precisa poder
+    // separar as partidas jogadas com forças editadas pelo usuário.
+    obId:        meta.obId ?? 'padrao',
     facilitated: !!meta.facilitated,
     state:       snapshotState(state),
   });

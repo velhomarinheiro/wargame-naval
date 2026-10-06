@@ -28,70 +28,18 @@ const { CAPABILITY_FACTORS, FACTOR_KEYS, RED_GROUPS, RED_GROUP_KEYS,
         totalCost, MAX_QUANTITY } = require('./shared/capability_factors');
 const { FACTORIAL_CONDITIONS, ABLATION_CONDITIONS } = require('./shared/conditions');
 const { hasOffensiveMeans, offensiveStockRatio } = require('./shared/metrics');
+const scenario = require('./shared/scenario');
+const { cenarioDe } = scenario;
 const constructiveSim = require('./shared/constructive_sim');
 
 const PORT   = process.env.PORT || 3000;
-const GRID_W = 16;
-const GRID_H = 10;
+// Grade, terreno e tipos de plataforma: shared/board.js (o validador de OB
+// carregada de planilha usa as mesmas regras).
+const { GRID_W, GRID_H, T_LAND, T_SHALLOW, T_SHELF, T_DEEP, T_OIL,
+        getTerrain, canEnterTerrain,
+        COMP_DISPLAY_TYPE, DISPLAY_TYPE_FALLBACK } = require('./shared/board');
 // Limite operacional em dias de jogo (turnos dia+noite); configurável p/ testes
 const MAX_TURNS = parseInt(process.env.MAX_TURNS, 10) || 12;
-
-// ─── Terrain (mirror of public/js/terrain.js) ────────────────────────────────
-const T_LAND = 0, T_SHALLOW = 1, T_SHELF = 2, T_DEEP = 3, T_OIL = 4;
-const TERRAIN_MAP = [
-  [0,0,0,0,0,0,1,2,3,3,3,3,3,3,3,3],
-  [0,0,0,0,0,1,1,2,3,3,3,3,3,3,3,3],
-  [0,0,0,0,1,1,2,4,3,3,3,3,3,3,3,3],
-  [0,0,0,1,1,2,4,4,3,3,3,3,3,3,3,3],
-  [0,0,1,1,2,4,4,2,3,3,3,3,3,3,3,3],
-  [0,1,1,2,4,4,2,3,3,3,3,3,3,3,3,3],
-  [1,1,2,4,4,2,3,3,3,3,3,3,3,3,3,3],
-  [1,2,2,4,2,2,3,3,3,3,3,3,3,3,3,3],
-  [1,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3],
-  [1,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3],
-];
-function getTerrain(col, row) {
-  if (row < 0 || row >= GRID_H || col < 0 || col >= GRID_W) return T_LAND;
-  return TERRAIN_MAP[row][col];
-}
-function canEnterTerrain(category, terrain) {
-  if (category === 'air' || category === 'specops') return true;
-  if (category === 'land')      return terrain === T_LAND || terrain === T_SHALLOW;
-  if (category === 'submarine') return terrain !== T_LAND && terrain !== T_SHALLOW;
-  return terrain !== T_LAND; // surface
-}
-
-// ─── Display type: primary composition type → counter icon type ───────────────
-const COMP_DISPLAY_TYPE = {
-  'operacoes_especiais':   'specops',
-  'navio_aeródromo':       'carrier',
-  'navio_doca':            'amphib',
-  'navio_desembarque':     'amphib',
-  'fragata':               'fragata',
-  'corveta':               'corveta',
-  'destroier':             'destroier',
-  'destroyer':             'destroier',
-  'cruzador':              'cruzador',
-  'navio_patoc':           'patrulha_oc',
-  'navio_patrulha':        'patrulha_c',
-  'navio_logistico':       'logistico',
-  'navio_tanque':          'tanque',
-  'submarino_nuclear':     'sub_nuclear',
-  'submarino_convencional':'submarino',
-  'patrulha_maritima':     'patrulha',
-  'caca':                  'caca',
-  'ataque':                'ataque',
-  'aew':                   'aew',
-  'helicoptero_ASW':       'helicoptero',
-  'helicoptero_ASup':      'helicoptero',
-  'bateria_costeira':      'bateria_costeira',
-  'bateria_ada':           'bateria_ada',
-  'base_naval':            'bateria_ada',
-  'plataforma':            'fpso',
-  'porto':                 'porto',
-  'aeroporto':             'aeroporto',
-};
-const DISPLAY_TYPE_FALLBACK = { surface: 'fragata', submarine: 'submarino', air: 'patrulha', land: 'corveta', specops: 'specops' };
 
 // ─── Range helper ─────────────────────────────────────────────────────────────
 function rangeAgainst(rangeTable, targetCategory) {
@@ -150,7 +98,9 @@ function stateFor(state, team) {
   const night = state.period === 'night';
 
   // Strip server-internal combat queue fields — clients don't need them
-  const { combatQueue: _cq, battleRoundDecisions: _brd, fac: _fac, ...stateRest } = state;
+  // `cenario` (classificação de uma OB carregada de planilha) também fica: é
+  // dado interno do motor, e listaria os alvos do adversário.
+  const { combatQueue: _cq, battleRoundDecisions: _brd, fac: _fac, cenario: _cen, ...stateRest } = state;
 
   // Facilitador: visão completa, sem névoa de guerra, inclusive os dados de
   // arbitragem (movimentos pendentes de autorização, relatório de combate).
@@ -351,6 +301,12 @@ function newGame(ob = ORDER_OF_BATTLE, opts = {}) {
     battleRoundDecisions: { blue: null, red: null },
     rng,
     victoryRule: resolveVictoryRule(opts.victoryRule),
+    // Classificação de uma OB carregada de planilha (alvos, limiares, grupos).
+    // null para a OB padrão — aí objetivos e métricas usam as constantes.
+    cenario: cenarioDe(ob),
+    // Impressão digital da OB, para o cliente (cartas de unidade só valem na
+    // padrão) e para o registro da partida.
+    obId: opts.obId || 'padrao',
   };
   saveMovementSnapshot(state);
   return state;
@@ -757,30 +713,12 @@ function concludeTurn(room) {
   broadcast(room);
 }
 
-// IDs das condições de vitória — fonte única, compartilhada com o bot
-// (botObjectiveWeights) para que a IA persiga exatamente o que pontua.
-const OBJECTIVE_IDS = {
-  blueTargets: {
-    carrier:   'RED-GBPA',
-    logistics: ['RED-AOR-G', 'RED-GLOG', 'RED-AKE'],
-    amphib:    'RED-GANF',
-    nucsub:    'RED-KSN',
-    surface:   ['RED-GBPA', 'RED-GE-1', 'RED-GE-2', 'RED-GE-3', 'RED-GANF'],
-  },
-  redTargets: {
-    fpsos: ['BLUE-FPSO1', 'BLUE-FPSO2', 'BLUE-FPSO3', 'BLUE-FPSO4'],
-    ports: ['BLUE-PORTO-S', 'BLUE-PORTO-RJ', 'BLUE-PORTO-V', 'BLUE-PORTO-ACU'],
-  },
-};
-
-// Limiares das condições de vitória — fonte única; os rótulos exibidos são
-// derivados destes números para que UI e regra nunca divirjam.
-const OBJECTIVE_THRESHOLDS = {
-  blueLogisticsKills: 2,   // de 3 navios logísticos vermelhos
-  blueSurfaceDegPct:  50,  // % do SP agregado dos combatentes de superfície
-  redFpsoKills:       3,   // de 4 plataformas FPSO
-  redPortDegPct:      40,  // % do SP agregado dos 4 portos
-};
+// Alvos e limiares das condições de vitória da OB padrão: shared/objectives.js.
+// Uma OB carregada de planilha traz os seus em `state.cenario` (ver newGame);
+// estas constantes são o fallback, e com elas tudo funciona como antes.
+const { OBJECTIVE_IDS, OBJECTIVE_THRESHOLDS } = require('./shared/objectives');
+const objectiveIdsOf        = state => state?.cenario?.objectiveIds || OBJECTIVE_IDS;
+const objectiveThresholdsOf = state => state?.cenario?.thresholds   || OBJECTIVE_THRESHOLDS;
 
 // `progress` é a fração real de conclusão (0..1) de cada condição, inclusive
 // crédito parcial nas condições binárias (dano relativo no alvo). É o que a
@@ -793,7 +731,14 @@ const frac = (cur, need) => (need > 0 ? Math.min(1, Math.max(0, cur / need)) : 0
 // senão afundar a original já cumpriria a condição com uma segunda intacta no
 // mar. Daí casar por ID base e agregar o SP do conjunto. Sem cópias, cada
 // conjunto tem um elemento e as contas dão exatamente o que davam antes.
-const matchUnits = (units, id) => units.filter(x => baseUnitId(x.id) === id);
+//
+// Aceita um id ou uma lista: na OB padrão o porta-aviões é um só ('RED-GBPA'),
+// mas numa OB carregada de planilha o usuário pode marcar dois navios como
+// `carrier` — e então a condição é afundar os dois, a mesma regra das cópias.
+const matchUnits = (units, ids) => {
+  const alvo = new Set([].concat(ids));
+  return units.filter(x => alvo.has(baseUnitId(x.id)));
+};
 const groupSp    = grupo => ({
   hp:    grupo.reduce((s, x) => s + Math.max(0, x.hp || 0), 0),
   maxHp: grupo.reduce((s, x) => s + (x.maxHp || 0), 0),
@@ -808,8 +753,9 @@ const groupProgress = grupo => {
 
 function computeObjectives(state) {
   const u = state.units;
-  const BT = OBJECTIVE_IDS.blueTargets, RT = OBJECTIVE_IDS.redTargets;
-  const TH = OBJECTIVE_THRESHOLDS;
+  const OI = objectiveIdsOf(state);
+  const BT = OI.blueTargets, RT = OI.redTargets;
+  const TH = objectiveThresholdsOf(state);
 
   // ─── Blue objectives (need ≥ 3 of 5) ────────────────────────────────────────
   const carrier    = matchUnits(u, BT.carrier);
@@ -1156,17 +1102,19 @@ function botGenericPrio(u) {
 function botObjectiveWeights(state, botTeam) {
   const w   = new Map();
   const obj = computeObjectives(state);
+  // Alvo único ou lista (OB carregada pode marcar dois porta-aviões).
+  const todos = ids => [].concat(ids);
   if (botTeam === 'blue') {
     const met = Object.fromEntries(obj.blue.conditions.map(c => [c.id, c.met]));
-    const T   = OBJECTIVE_IDS.blueTargets;
-    if (!met.carrier)   w.set(T.carrier, 0);
+    const T   = objectiveIdsOf(state).blueTargets;
+    if (!met.carrier)   todos(T.carrier).forEach(id => w.set(id, 0));
     if (!met.logistics) T.logistics.forEach(id => w.set(id, 0));
-    if (!met.amphib)    w.set(T.amphib, 0);
-    if (!met.nucsub)    w.set(T.nucsub, 0);
+    if (!met.amphib)    todos(T.amphib).forEach(id => w.set(id, 0));
+    if (!met.nucsub)    todos(T.nucsub).forEach(id => w.set(id, 0));
     if (!met.surface)   T.surface.forEach(id => { if (!w.has(id)) w.set(id, 1); });
   } else {
     const met = Object.fromEntries(obj.red.conditions.map(c => [c.id, c.met]));
-    const T   = OBJECTIVE_IDS.redTargets;
+    const T   = objectiveIdsOf(state).redTargets;
     if (!met.fpsos) T.fpsos.forEach(id => w.set(id, 0));
     if (!met.ports) T.ports.forEach(id => w.set(id, 0));
   }
@@ -1561,7 +1509,7 @@ app.get('/replay',      (_, res) => res.sendFile(path.join(__dirname, 'public', 
 // setImmediate entre elas.
 const CONSTRUCTIVE_JOBS = new Map();
 const JOB_TTL_MS    = 30 * 60 * 1000;   // resultado disponível por 30 min
-const JOB_CHUNK     = 10;               // partidas por fatia antes de ceder o laço
+const JOB_SLICE_MS  = 30;               // tempo por fatia antes de ceder o laço
 const JOB_MAX_LIVE  = 4;                // lotes simultâneos
 
 function pruneJobs() {
@@ -1571,16 +1519,69 @@ function pruneJobs() {
   }
 }
 
-app.get('/api/construtivo/meta', (_, res) => {
+// ─── Ordens de batalha carregadas de planilha ────────────────────────────────
+// Cache em memória por impressão digital (SHA-256 do conteúdo canônico). Não é
+// a fonte de verdade: o Render reinicia e apaga a memória, então o navegador
+// guarda a OB validada e a reenvia (POST /api/construtivo/ob/json) quando o
+// servidor responde que não a conhece. Mesmo conteúdo → mesmo id.
+const OB_CACHE     = new Map();          // obId → { ob, nome, usadaEm }
+const OB_CACHE_MAX = 50;
+const OB_ID_RE     = /^([0-9a-f]{16}|padrao)$/;
+
+function registrarOB(ob, nome) {
+  const obId = scenario.ehPadrao(ob) ? 'padrao' : scenario.obHash(ob);
+  if (obId === 'padrao') return obId;    // a padrão sem edição usa o caminho de sempre
+  OB_CACHE.delete(obId);                 // reinserir = mais recente (LRU pela ordem do Map)
+  OB_CACHE.set(obId, { ob: deepFreeze(ob), nome: String(nome || 'planilha').slice(0, 80), usadaEm: Date.now() });
+  while (OB_CACHE.size > OB_CACHE_MAX) OB_CACHE.delete(OB_CACHE.keys().next().value);
+  return obId;
+}
+
+/**
+ * OB a usar numa simulação. Sem id (ou 'padrao') é a OB de sempre. Id
+ * desconhecido devolve 404 com código próprio — é o sinal para o navegador
+ * reenviar a OB que tem guardada.
+ */
+function resolverOB(obId) {
+  if (obId === undefined || obId === null || obId === '' || obId === 'padrao') {
+    return { ob: ORDER_OF_BATTLE, obId: 'padrao', nome: 'Ordem de batalha padrão' };
+  }
+  if (!OB_ID_RE.test(String(obId))) {
+    return { status: 400, erro: { error: 'Identificador de ordem de batalha inválido.' } };
+  }
+  const e = OB_CACHE.get(obId);
+  if (!e) {
+    return { status: 404, erro: { error: 'Ordem de batalha desconhecida neste servidor.', codigo: 'OB_DESCONHECIDA', obId } };
+  }
+  e.usadaEm = Date.now();
+  OB_CACHE.delete(obId); OB_CACHE.set(obId, e);
+  return { ob: e.ob, obId, nome: e.nome };
+}
+
+// Congelada: a mesma OB é lida por lotes e salas ao mesmo tempo, e qualquer
+// escrita acidental nela vazaria entre eles. Em modo estrito, escrever lança.
+function deepFreeze(o) {
+  if (o && typeof o === 'object' && !Object.isFrozen(o)) {
+    Object.freeze(o);
+    for (const v of Object.values(o)) deepFreeze(v);
+  }
+  return o;
+}
+
+app.get('/api/construtivo/meta', (req, res) => {
+  const obSel = resolverOB(req.query.ob);
+  if (obSel.erro) return res.status(obSel.status).json(obSel.erro);
+  // Unidades por pacote e por grupo vêm da OB em uso: numa OB carregada, uma
+  // fragata nova classificada em C_Azuis aparece listada no pacote.
+  const { pacotes, grupos } = scenario.descreverForcas(obSel.ob);
+  const notas = Object.fromEntries(obSel.ob.forces.blue.map(u => [u.id, u.notes || '']));
   res.json({
+    ob: { id: obSel.obId, nome: obSel.nome, resumo: scenario.resumirOB(obSel.ob) },
     fatores: FACTOR_KEYS.map(k => ({
       chave: k,
       rotulo: CAPABILITY_FACTORS[k].label,
       custo: CAPABILITY_FACTORS[k].cost,
-      unidades: CAPABILITY_FACTORS[k].unitIds.map(id => {
-        const spec = ORDER_OF_BATTLE.forces.blue.find(u => u.id === id);
-        return { id, nome: spec?.name || id, notas: spec?.notes || '' };
-      }),
+      unidades: pacotes[k].map(u => ({ ...u, notas: notas[u.id] || '' })),
     })),
     custoTotal: FACTOR_KEYS.reduce((s, k) => s + CAPABILITY_FACTORS[k].cost, 0),
     // Força Vermelha: ajustável por grupo-tarefa da taxonomia. É a ameaça do
@@ -1590,10 +1591,7 @@ app.get('/api/construtivo/meta', (_, res) => {
       sigla,
       rotulo: RED_GROUPS[sigla].label,
       dominio: RED_GROUPS[sigla].domain,
-      unidades: RED_GROUPS[sigla].unitIds.map(id => {
-        const spec = ORDER_OF_BATTLE.forces.red.find(u => u.id === id);
-        return { id, nome: spec?.name || id };
-      }),
+      unidades: grupos[sigla],
     })),
     quantidadeMaxima: MAX_QUANTITY,
     blocos: {
@@ -1613,9 +1611,11 @@ app.get('/api/construtivo/meta', (_, res) => {
 // daria um número errado. Aqui o cálculo passa pelo mesmo applyForceConfig que
 // monta a partida, então o que a tela mostra é o que vai a campo.
 app.post('/api/construtivo/forca', (req, res) => {
-  const { factors, redGroups } = req.body || {};
+  const { factors, redGroups, obId } = req.body || {};
+  const obSel = resolverOB(obId);
+  if (obSel.erro) return res.status(obSel.status).json(obSel.erro);
   try {
-    const ob = applyForceConfig(ORDER_OF_BATTLE, { factors: factors || {}, redGroups: redGroups || {} });
+    const ob = applyForceConfig(obSel.ob, { factors: factors || {}, redGroups: redGroups || {} });
     const lado = side => ({
       n: ob.forces[side].length,
       unidades: ob.forces[side].map(u => ({ id: u.id, nome: u.name })),
@@ -1626,12 +1626,117 @@ app.post('/api/construtivo/forca', (req, res) => {
   }
 });
 
-// Rótulos das condições de vitória — fixos, iguais em toda partida. Calculados
-// uma vez para irem no envelope do replay, e não repetidos em cada passo.
-const ROTULOS_OBJETIVOS = (() => {
-  const { rotulosObjetivos } = require('./shared/replay_trace');
-  return rotulosObjetivos(computeObjectives(newGame()));
-})();
+// ─── Ordem de batalha em planilha ─────────────────────────────────────────────
+const obPlanilha = require('./shared/ob_spreadsheet');
+
+// Baixar a OB em uso (padrão, ou uma carregada) como .xlsx.
+app.get('/api/construtivo/ob/planilha', async (req, res) => {
+  const obSel = resolverOB(req.query.ob);
+  if (obSel.erro) return res.status(obSel.status).json(obSel.erro);
+  try {
+    const ob  = obSel.obId === 'padrao' ? scenario.DEFAULT_ANOTADA : obSel.ob;
+    const buf = await obPlanilha.exportarPlanilha(ob, { nome: obSel.nome });
+    const arq = obSel.obId === 'padrao' ? 'ordem_de_batalha_padrao.xlsx' : `ordem_de_batalha_${obSel.obId}.xlsx`;
+    res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.set('Content-Disposition', `attachment; filename="${arq}"`);
+    res.send(buf);
+  } catch (err) {
+    console.error('[ob] exportação falhou:', err);
+    res.status(500).json({ error: 'Não foi possível gerar a planilha.' });
+  }
+});
+
+// Resposta comum aos dois caminhos de carga: valida, registra, devolve a OB
+// canônica — que o navegador guarda para reenviar se o servidor reiniciar.
+function responderOB(res, rascunho, nome, errosLeitura = [], avisosLeitura = []) {
+  // Sem rascunho (arquivo ilegível) só há os erros de leitura. Com rascunho, a
+  // validação roda MESMO havendo erros de leitura: o usuário vê tudo o que
+  // precisa corrigir de uma vez, em vez de corrigir em rodadas. As células que
+  // a leitura já recusou não geram um segundo erro (_invalido).
+  if (!rascunho) return res.status(422).json({ erros: errosLeitura, avisos: avisosLeitura });
+  const v = scenario.validarOB(rascunho);
+  const avisos = [...avisosLeitura, ...v.avisos];
+  const erros  = [...errosLeitura, ...v.erros];
+  if (erros.length) return res.status(422).json({ erros, avisos });
+  const obId = registrarOB(v.ob, nome);
+  res.json({
+    obId,
+    nome: obId === 'padrao' ? 'Ordem de batalha padrão' : String(nome || 'planilha').slice(0, 80),
+    padrao: obId === 'padrao',
+    resumo: scenario.resumirOB(v.ob),
+    avisos,
+    ob: v.ob,
+  });
+}
+
+// Carregar uma planilha. O arquivo vem como corpo bruto (o navegador manda o
+// File direto no fetch) — sem parser multipart. Content-Type forçado pelo
+// cliente: File.type pode vir vazio, e aí express.raw entregaria {}.
+app.post('/api/construtivo/ob',
+  express.raw({ type: 'application/octet-stream', limit: obPlanilha.MAX_BYTES }),
+  async (req, res) => {
+    if (!Buffer.isBuffer(req.body) || !req.body.length) {
+      return res.status(400).json({ erros: ['Nenhum arquivo recebido.'], avisos: [] });
+    }
+    let nome = 'planilha.xlsx';
+    try { nome = decodeURIComponent(String(req.get('X-Nome-Arquivo') || nome)); } catch { /* nome padrão */ }
+    nome = nome.replace(/[<>&"`]/g, '').slice(0, 80);
+    const lida = await obPlanilha.lerPlanilhaIsolada(req.body);
+    responderOB(res, lida.rascunho, nome, lida.erros, lida.avisos);
+  });
+
+// Reenviar uma OB que o navegador já tinha validado (o servidor reiniciou e a
+// esqueceu). Passa pela MESMA validação — nunca se confia no hash do cliente:
+// o id é recalculado do conteúdo, e conteúdo igual dá o mesmo id.
+app.post('/api/construtivo/ob/json', (req, res) => {
+  const { ob, nome } = req.body || {};
+  if (!ob || typeof ob !== 'object' || !ob.forces || !Array.isArray(ob.forces.blue) || !Array.isArray(ob.forces.red)) {
+    return res.status(400).json({ erros: ['Ordem de batalha em formato inválido.'], avisos: [] });
+  }
+  // Só os campos de dado: marcas internas da leitura de planilha (_onde,
+  // _invalido) poderiam suprimir erros da validação se viessem de fora.
+  const limpar = u => {
+    if (!u || typeof u !== 'object' || Array.isArray(u)) return {};
+    const { _onde, _invalido, ...resto } = u;
+    void _onde; void _invalido;
+    resto.composition = Array.isArray(resto.composition)
+      ? resto.composition.map(c => (c && typeof c === 'object') ? { type: c.type, quantity: c.quantity } : {})
+      : [];
+    return resto;
+  };
+  const rascunho = {
+    forces: { blue: ob.forces.blue.map(limpar), red: ob.forces.red.map(limpar) },
+    limiares: ob.limiares && typeof ob.limiares === 'object' ? ob.limiares : {},
+  };
+  responderOB(res, rascunho, typeof nome === 'string' ? nome.replace(/[<>&"`]/g, '') : 'planilha');
+});
+
+// Corpo grande demais (planilha acima de 1 MB, JSON acima do limite global):
+// o padrão do Express responde com uma página HTML e o stack trace. Aqui vira
+// uma mensagem que a tela consegue mostrar.
+app.use('/api/construtivo', (err, req, res, next) => {
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ erros: [`O arquivo passa do limite de ${obPlanilha.MAX_BYTES / 1024} KB.`], avisos: [] });
+  }
+  if (err?.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Corpo da requisição inválido.', erros: ['Corpo da requisição inválido.'], avisos: [] });
+  }
+  next(err);
+});
+
+// Rótulos das condições de vitória — fixos dentro de uma OB, e calculados uma
+// vez por OB para irem no envelope do replay. Por OB, e não uma vez só: os
+// rótulos trazem contagens e limiares ("Neutralizar 3 de 4 FPSOs") que uma OB
+// carregada de planilha pode ter mudado.
+const { rotulosObjetivos } = require('./shared/replay_trace');
+const ROTULOS_POR_OB = new Map();
+function rotulosPara(obSel) {
+  if (!ROTULOS_POR_OB.has(obSel.obId)) {
+    if (ROTULOS_POR_OB.size > OB_CACHE_MAX) ROTULOS_POR_OB.clear();
+    ROTULOS_POR_OB.set(obSel.obId, rotulosObjetivos(computeObjectives(newGame(obSel.ob))));
+  }
+  return ROTULOS_POR_OB.get(obSel.obId);
+}
 
 // ─── Replay de uma partida ────────────────────────────────────────────────────
 // Reproduz UMA partida do simulador construtivo, gravando o caminho passo a
@@ -1689,9 +1794,15 @@ app.get('/api/construtivo/replay', (req, res) => {
     }
   }
 
+  // Partida jogada com uma OB carregada só se reproduz com a mesma OB. Se o
+  // servidor não a conhece (reiniciou), a página reenvia a que guardou.
+  const obSel = resolverOB(q.ob);
+  if (obSel.erro) return res.status(obSel.status).json(obSel.erro);
+
   let t;
   try {
-    t = constructiveSim.traceGame({ factors, seed, maxTurns, victoryRule, redGroups });
+    t = constructiveSim.traceGame({ factors, seed, maxTurns, victoryRule, redGroups,
+                                    ob: obSel.ob, obId: obSel.obId });
   } catch (err) {
     console.error('[replay] falhou:', err);
     return res.status(500).json({ error: 'Não foi possível reproduzir a partida: ' + err.message });
@@ -1710,6 +1821,8 @@ app.get('/api/construtivo/replay', (req, res) => {
       // A doutrina não é parâmetro: o laço construtivo chama computeBotMoves sem
       // ela, então os dois lados jogam sempre no padrão.
       doutrinaBot:   `${DOCTRINE_DEFAULT.formation}/${DOCTRINE_DEFAULT.posture}`,
+      obId:          obSel.obId,
+      obNome:        obSel.nome,
     },
     catalogo:      t.catalogo,
     quadroInicial: t.quadroInicial,
@@ -1726,7 +1839,7 @@ app.get('/api/construtivo/replay', (req, res) => {
         ([k, p]) => [k, { label: p.label, targets: p.targets, expendable: !!p.expendable,
                           defaultRange: p.defaultRange, interceptableBy: p.interceptableBy || [] }])),
     },
-    objetivosRotulos: ROTULOS_OBJETIVOS,
+    objetivosRotulos: rotulosPara(obSel),
   };
 
   enviarJson(req, res, payload);
@@ -1792,6 +1905,11 @@ app.post('/api/construtivo/run', (req, res) => {
     return res.status(400).json({ error: 'Configuração inválida: ' + err.message });
   }
 
+  // OB do lote: a padrão, ou uma carregada de planilha. O job guarda a
+  // referência — se o cache a descartar durante o lote, o lote não quebra.
+  const obSel = resolverOB(spec.obId);
+  if (obSel.erro) return res.status(obSel.status).json(obSel.erro);
+
   const id  = genId() + genId();
   const job = { id, status: 'running', feito: 0, total: 0, condicaoAtual: null,
                 resultado: null, erro: null, criadoEm: Date.now(), updatedAt: Date.now() };
@@ -1802,6 +1920,13 @@ app.post('/api/construtivo/run', (req, res) => {
   const maxTurns    = Math.max(1, Math.min(40, Number(spec.maxTurns) || constructiveSim.DEFAULT_MAX_TURNS));
   const victoryRule = resolveVictoryRule(spec.victoryRule);
   const redGroups   = spec.redGroups && typeof spec.redGroups === 'object' ? spec.redGroups : undefined;
+  const ctx = { maxTurns, victoryRule, redGroups, ob: obSel.ob, obId: obSel.obId };
+  try {
+    constructiveSim.checarTamanho(conditions, ctx);
+  } catch (err) {
+    CONSTRUCTIVE_JOBS.delete(id);
+    return res.status(400).json({ error: err.message });
+  }
   const replicasOverride = spec.bloco && Number(spec.replicas) ? Number(spec.replicas) : null;
   const plano = [];
   for (const cond of conditions) {
@@ -1813,21 +1938,17 @@ app.post('/api/construtivo/run', (req, res) => {
   const rows = [];
   let i = 0;
   function passo() {
-    const fim = Math.min(i + JOB_CHUNK, plano.length);
+    // Fatia por TEMPO, não por contagem: com uma OB carregada grande, dez
+    // partidas por fatia podiam prender o laço de eventos por segundos e
+    // congelar as salas interativas. Sempre ao menos uma partida por fatia.
+    const ate = Date.now() + JOB_SLICE_MS;
     try {
-      for (; i < fim; i++) {
+      while (i < plano.length) {
         const { cond, seed, replica } = plano[i];
-        const { winner, turns, metrics, groupMetrics } =
-          constructiveSim.runGame(cond.factors, seed, maxTurns, victoryRule, redGroups);
-        const row = { condicao: cond.condicao, replica, semente: seed,
-                      n_capacidades: cond.n_capacidades, custo_total: cond.custo_total,
-                      ...metrics, vencedor: winner || 'censurado', turnos: turns,
-                      regra_vitoria: victoryRule, forca_vermelha: describeRedConfig(redGroups),
-                      ...groupMetrics };
-        for (const key of FACTOR_KEYS) row[key] = cond.factors[key];
-        if (cond.capacidade_removida !== undefined) row.capacidade_removida = cond.capacidade_removida || '';
-        rows.push(row);
+        rows.push(constructiveSim.runRow(cond, seed, replica, ctx));
         job.condicaoAtual = cond.condicao;
+        i++;
+        if (Date.now() >= ate) break;
       }
     } catch (err) {
       job.status = 'error'; job.erro = err.message; job.updatedAt = Date.now();
@@ -1851,6 +1972,7 @@ app.post('/api/construtivo/run', (req, res) => {
                       // O objeto, e não só a descrição: é o que o relatório
                       // precisa para montar o link de replay de cada partida.
                       redGroupsUsados: redGroups || {},
+                      obId: obSel.obId, obNome: obSel.nome,
                       gruposPresentes: constructiveSim.presentGroups(rows) };
     job.status = 'done'; job.updatedAt = Date.now();
   }
@@ -2028,8 +2150,17 @@ io.on('connection', socket => {
   // `factors` (opcional) vem da simulação construtiva: joga-se a partida com o
   // mesmo pacote de capacidades avaliado no lote, para confrontar o resultado
   // estatístico com uma partida conduzida por um humano.
-  socket.on('create_solo_room', ({ team, formation, posture, factors, redGroups } = {}) => {
+  socket.on('create_solo_room', ({ team, formation, posture, factors, redGroups, obId } = {}) => {
     if (!['blue','red'].includes(team)) { socket.emit('join_error','Equipe inválida.'); return; }
+    // OB carregada de planilha ("Jogar este pacote" a partir do simulador). Se
+    // o servidor não a conhece (reiniciou), o cliente reenvia a que guardou e
+    // tenta de novo — por isso um evento próprio, e não uma mensagem de erro.
+    const obSel = resolverOB(obId);
+    if (obSel.erro) {
+      if (obSel.erro.codigo === 'OB_DESCONHECIDA') socket.emit('ob_desconhecida', { obId });
+      else socket.emit('join_error', obSel.erro.error);
+      return;
+    }
     const id      = genId();
     const botTeam = team === 'blue' ? 'red' : 'blue';
     const capabilityFactors = factors && FACTOR_KEYS.some(k => k in factors)
@@ -2050,23 +2181,40 @@ io.on('connection', socket => {
     socket.join(id);
     room.capabilityFactors = capabilityFactors;
     room.redComposition    = redComposition;
-    const composta = capabilityFactors || redComposition;
-    room.state = newGame(composta
-      ? applyForceConfig(ORDER_OF_BATTLE, { factors: capabilityFactors || {}, redGroups: redComposition || {} })
-      : undefined);
-    if (capabilityFactors) {
-      const partes = FACTOR_KEYS.filter(k => capabilityFactors[k] >= 1)
-        .map(k => capabilityFactors[k] > 1 ? `${k}×${capabilityFactors[k]}` : k);
-      room.state.log.unshift(`🎚 Pacote de capacidades: ${partes.length ? partes.join(', ') : 'nenhuma'}.`);
-    }
-    if (redComposition) {
-      room.state.log.unshift(`🎚 Força Vermelha: ${describeRedConfig(redComposition)}.`);
-    }
+    room.ob   = obSel.ob;
+    room.obId = obSel.obId;
+    room.state = novaPartidaSolo(room);
     gameLogger.logStart(room.id, room.state,
-      { solo: true, botTeam, botDoctrine, capabilityFactors, redComposition });
+      { solo: true, botTeam, botDoctrine, capabilityFactors, redComposition, obId: room.obId });
     socket.emit('game_start', { team, state: stateFor(room.state, team), solo: true, roomId: room.id,
                                 rejoinToken: room.rejoinTokens[team] });
   });
+
+  // Partida de uma sala solo a partir do que a sala guardou — pacote, força
+  // Vermelha e OB. Usada na criação e no reinício: antes o reinício chamava
+  // newGame() puro e a partida recomeçava com a OB padrão completa, perdendo o
+  // pacote escolhido.
+  function novaPartidaSolo(room) {
+    const { capabilityFactors, redComposition } = room;
+    const obId = room.obId || 'padrao';
+    const composta = capabilityFactors || redComposition || obId !== 'padrao';
+    const state = newGame(composta
+      ? applyForceConfig(room.ob || ORDER_OF_BATTLE, { factors: capabilityFactors || {}, redGroups: redComposition || {} })
+      : undefined, { obId });
+    if (capabilityFactors) {
+      const partes = FACTOR_KEYS.filter(k => capabilityFactors[k] >= 1)
+        .map(k => capabilityFactors[k] > 1 ? `${k}×${capabilityFactors[k]}` : k);
+      state.log.unshift(`🎚 Pacote de capacidades: ${partes.length ? partes.join(', ') : 'nenhuma'}.`);
+    }
+    if (redComposition) {
+      state.log.unshift(`🎚 Força Vermelha: ${describeRedConfig(redComposition)}.`);
+    }
+    if (obId !== 'padrao') {
+      const nome = OB_CACHE.get(obId)?.nome || 'planilha carregada';
+      state.log.unshift(`📋 Ordem de batalha: ${nome} (${obId}).`);
+    }
+    return state;
+  }
 
   // ── Sala com facilitador/instrutor ─────────────────────────────────────────
   // O facilitador abre a sala e entra direto no tabuleiro (fase 'setup'); os
@@ -2611,9 +2759,12 @@ io.on('connection', socket => {
       broadcast(room);
       return;
     }
-    room.state=newGame();
+    room.state = room.solo ? novaPartidaSolo(room) : newGame();
     gameLogger.logStart(room.id, room.state, { solo: !!room.solo, botTeam: room.botTeam ?? null,
-                                               botDoctrine: room.botDoctrine ?? null });
+                                               botDoctrine: room.botDoctrine ?? null,
+                                               capabilityFactors: room.capabilityFactors ?? null,
+                                               redComposition: room.redComposition ?? null,
+                                               obId: room.obId ?? 'padrao' });
     if (room.players.blue) io.to(room.players.blue).emit('game_start',{team:'blue',state:stateFor(room.state,'blue'),solo:!!room.solo,roomId:room.id,rejoinToken:room.rejoinTokens?.blue});
     if (room.players.red)  io.to(room.players.red ).emit('game_start',{team:'red', state:stateFor(room.state,'red'), solo:!!room.solo,roomId:room.id,rejoinToken:room.rejoinTokens?.red});
   });
@@ -2690,7 +2841,7 @@ if (require.main === module) {
 // Exported for tests (combat internals). Importing the module does not start
 // the HTTP/Socket.IO listener thanks to the require.main guard above.
 module.exports = {
-  newGame, newFacilitatedGame, buildCombatQueue, defendingGroup,
+  newGame, newFacilitatedGame, buildCombatQueue, defendingGroup, stateFor,
   NEUTRAL_TEAM, NEUTRAL_TEMPLATES, makeNeutralUnit,
   placeUnit, attachedUnits, destroyWithCargo, canPlaceAt, hexName,
   resolveBattleRound, resolveCounterAttacks,

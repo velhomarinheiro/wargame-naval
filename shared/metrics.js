@@ -126,10 +126,16 @@ function redForceCombatIneffective(state) {
   return combative ? 0 : 1;
 }
 
+// Uma OB carregada de planilha marca FPSOs e portos pela coluna `objetivo` —
+// a mesma marcação que define os alvos do Vermelho, então métrica e condição de
+// vitória nunca divergem. Sem OB anotada, valem os ids fixos de sempre.
+const fpsoIdsOf = state => state?.cenario?.objectiveIds?.redTargets?.fpsos || FPSO_UNIT_IDS;
+const portIdsOf = state => state?.cenario?.objectiveIds?.redTargets?.ports || PORT_UNIT_IDS;
+
 /** Soma do hp restante das FPSOs (E2_vp — infraestrutura crítica preservada). */
 function fpsoValuePreserved(state) {
   let total = 0;
-  for (const id of FPSO_UNIT_IDS) {
+  for (const id of fpsoIdsOf(state)) {
     const u = state.units.find(x => x.id === id);
     if (u) total += Math.max(0, u.hp || 0);
   }
@@ -139,7 +145,7 @@ function fpsoValuePreserved(state) {
 /** Razão [0,1] de hp/maxHp agregado dos portos (E2_sloc). */
 function slocSecurityIndex(state) {
   let hp = 0, maxHp = 0;
-  for (const id of PORT_UNIT_IDS) {
+  for (const id of portIdsOf(state)) {
     const u = state.units.find(x => x.id === id);
     if (!u) continue;
     hp += Math.max(0, u.hp || 0);
@@ -155,11 +161,16 @@ function slocSecurityIndex(state) {
  */
 function groupLossMetrics(state) {
   const out = {};
+  // OB carregada: o grupo vem da coluna `grupo` da planilha (por id base, para
+  // as cópias caírem no grupo da original). Sem ela, a taxonomia fixa.
+  const grupos = state?.cenario?.grupos;
   for (const side of ['blue', 'red']) {
     const acc = new Map();
     for (const u of state.units) {
       if (u.team !== side) continue;
-      const sigla = classifyUnit(u.id, side).sigla;
+      const sigla = grupos
+        ? (grupos[side]?.[String(u.id).split('~')[0]] || 'INFRA')
+        : classifyUnit(u.id, side).sigla;
       const a = acc.get(sigla) || { hp: 0, maxHp: 0 };
       a.hp += Math.max(0, u.hp || 0);
       a.maxHp += u.maxHp || 0;

@@ -163,6 +163,10 @@ let gameState   = null;
 let isSolo      = false;
 let isFacilitated  = false;   // sala arbitrada (qualquer papel)
 let isFacilitator  = false;   // este cliente é o facilitador
+// Pedido de sala solo, guardado para ser repetido se o servidor pedir a OB de
+// novo (ver 'ob_desconhecida').
+let pedidoSolo       = null;
+let reenvioOBTentado = false;
 let currentRoomId = null;
 
 // Nomes de unidade e textos do facilitador vão para innerHTML — escapar sempre.
@@ -223,9 +227,17 @@ const UNIT_CARD = {
   'RED-MPRA-K2':   'Red_MPRA_K2.jpg',
   'RED-AWACS-K':   'Red_AWACS_K.jpg',
 };
+// As cartas descrevem as unidades da OB padrão. Numa partida com ordem de
+// batalha carregada de planilha, um id pode ter outras características (ou ser
+// outra unidade com o mesmo id) — a carta mostraria números errados. Nesse
+// caso, sem cartas.
+function temCarta(unitId) {
+  if (gameState?.obId && gameState.obId !== 'padrao') return false;
+  return !!UNIT_CARD[unitId];
+}
 function cardUrl(unitId) {
-  const f = UNIT_CARD[unitId];
-  return f ? `/cards/${encodeURIComponent(f)}` : null;
+  if (!temCarta(unitId)) return null;
+  return `/cards/${encodeURIComponent(UNIT_CARD[unitId])}`;
 }
 
 // ─── Card modal (tier 3) ──────────────────────────────────────────────────────
@@ -368,7 +380,7 @@ function _showTooltip(units, clientX, clientY) {
   const det   = u.detectionRange || {};
   const extra = units.length > 1
     ? `<div class="ut-hint">${units.length} unidades neste hexágono</div>` : '';
-  const hasCard = units.some(x => UNIT_CARD[x.id]);
+  const hasCard = units.some(x => temCarta(x.id));
   const cardHint = hasCard ? '<div class="ut-hint">Clique direito · card completo</div>' : '';
   unitTooltipEl.innerHTML = `
     <div class="ut-name ${u.team}">${u.name}</div>
@@ -455,13 +467,17 @@ socket.on('connect', () => {
     let factors = null, redGroups = null;
     try { factors   = JSON.parse(sessionStorage.getItem('soloFactors')   || 'null'); } catch { factors = null; }
     try { redGroups = JSON.parse(sessionStorage.getItem('soloRedGroups') || 'null'); } catch { redGroups = null; }
+    // Ordem de batalha carregada de planilha no simulador (opcional).
+    const obId = sessionStorage.getItem('soloObId') || undefined;
     sessionStorage.removeItem('pendingAction');
     sessionStorage.removeItem('soloTeam');
     sessionStorage.removeItem('soloFormation');
     sessionStorage.removeItem('soloPosture');
     sessionStorage.removeItem('soloFactors');
     sessionStorage.removeItem('soloRedGroups');
-    socket.emit('create_solo_room', { team, formation, posture, factors, redGroups });
+    sessionStorage.removeItem('soloObId');
+    pedidoSolo = { team, formation, posture, factors, redGroups, obId };
+    socket.emit('create_solo_room', pedidoSolo);
   } else if (action === 'facilitate') {
     sessionStorage.removeItem('pendingAction');
     socket.emit('create_facilitated_room');
@@ -521,6 +537,30 @@ socket.on('room_created', ({roomId, team}) => {
   lobbyWaiting.classList.remove('hidden');
 });
 socket.on('join_error', msg => showLobbyErr(msg));
+
+// O servidor não conhece a OB carregada (reiniciou depois que ela foi enviada).
+// O simulador guardou a OB validada neste navegador: reenvia e tenta de novo,
+// uma vez. Sem ela guardada, não há como jogar com aquela OB — diz isso.
+socket.on('ob_desconhecida', async ({ obId } = {}) => {
+  let guardada = null;
+  try { guardada = JSON.parse(localStorage.getItem('ob:' + obId) || 'null'); } catch { guardada = null; }
+  if (reenvioOBTentado || !guardada?.ob || !pedidoSolo) {
+    showLobbyErr('A ordem de batalha carregada no simulador não está mais disponível. Carregue a planilha de novo em /construtivo.');
+    return;
+  }
+  reenvioOBTentado = true;
+  try {
+    const res = await fetch('/api/construtivo/ob/json', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ob: guardada.ob, nome: guardada.nome }),
+    });
+    const r = await res.json();
+    if (!res.ok || r.obId !== obId) throw new Error();
+    socket.emit('create_solo_room', pedidoSolo);
+  } catch {
+    showLobbyErr('Não foi possível reenviar a ordem de batalha ao servidor.');
+  }
+});
 
 socket.on('game_start', ({team, state, solo, facilitated, roomId, rejoinToken, rejoined}) => {
   myTeam = team; gameState = state; isSolo = !!solo;
@@ -907,7 +947,7 @@ canvas.addEventListener('contextmenu', e => {
   if (h.col < 0 || h.col >= GRID_W || h.row < 0 || h.row >= GRID_H) return;
   const units = gameState.units.filter(u => u.col === h.col && u.row === h.row && u.hp > 0);
   if (units.length === 0) return;
-  const target = units.find(u => UNIT_CARD[u.id]) || units[0];
+  const target = units.find(u => temCarta(u.id)) || units[0];
   showCardModal(target.id);
 });
 
@@ -971,8 +1011,8 @@ canvas.addEventListener('touchstart', e => {
       const { x, y } = toGamePx(_touchState.startX, _touchState.startY);
       const h = pixelToHex(x, y);
       const units = gameState.units.filter(u => u.col === h.col && u.row === h.row && u.hp > 0);
-      const target = units.find(u => UNIT_CARD[u.id]) || units[0];
-      if (target && UNIT_CARD[target.id]) showCardModal(target.id);
+      const target = units.find(u => temCarta(u.id)) || units[0];
+      if (target && temCarta(target.id)) showCardModal(target.id);
     }, 500);
   } else if (e.touches.length === 2) {
     clearTimeout(_longPressTimer);
@@ -1168,8 +1208,8 @@ function tryShowEnemyCard(col, row) {
     u => u.col === col && u.row === row && u.hp > 0 && u.team !== myTeam
   );
   if (enemies.length === 0) return false;
-  const target = enemies.find(u => UNIT_CARD[u.id]) || enemies[0];
-  if (UNIT_CARD[target.id]) { showCardModal(target.id); return true; }
+  const target = enemies.find(u => temCarta(u.id)) || enemies[0];
+  if (temCarta(target.id)) { showCardModal(target.id); return true; }
   return false;
 }
 

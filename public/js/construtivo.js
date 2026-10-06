@@ -35,14 +35,160 @@ function corDaCelula(pct, lado) {
   return { bg: r[i], fg: i >= r.length - 3 ? TINTA_ESCURA : TINTA_CLARA };
 }
 
-// ─── 1. Pacote ───────────────────────────────────────────────────────────────
+// ─── 1. Ordem de batalha ─────────────────────────────────────────────────────
+// A OB em uso: 'padrao', ou a impressão digital de uma planilha carregada.
+//
+// O servidor guarda as OBs carregadas só em memória, e o servidor reinicia. Por
+// isso o navegador guarda a OB validada (localStorage `ob:<id>`) e, quando o
+// servidor responde que não a conhece, reenvia-a e tenta de novo — conteúdo
+// igual dá o mesmo id, então nada muda para quem está usando.
+let OB_ID = 'padrao';
+
+// localStorage pode lançar (janela privada, armazenamento bloqueado): a tela
+// tem de funcionar sem ele, só perdendo a OB ao recarregar a página.
+const LS = {
+  get(k)    { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); return true; } catch { return false; } },
+  del(k)    { try { localStorage.removeItem(k); } catch { /* sem armazenamento */ } },
+};
+function obGuardada(id) {
+  try { return JSON.parse(LS.get('ob:' + id) || 'null'); } catch { return null; }
+}
+const qsOB = (sep = '?') => (OB_ID !== 'padrao' ? `${sep}ob=${encodeURIComponent(OB_ID)}` : '');
+
+/** Reenvia a OB guardada ao servidor. true se ele a reconheceu com o mesmo id. */
+async function reenviarOB(id) {
+  const g = obGuardada(id);
+  if (!g?.ob) return false;
+  try {
+    const res = await fetch('/api/construtivo/ob/json', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ob: g.ob, nome: g.nome }),
+    });
+    return res.ok && (await res.json()).obId === id;
+  } catch { return false; }
+}
+
+/** fetch que sobrevive a um servidor que esqueceu a OB: reenvia e repete. */
+async function fetchComOB(url, opts) {
+  let res = await fetch(url, opts);
+  if (res.status === 404 && OB_ID !== 'padrao') {
+    const j = await res.clone().json().catch(() => ({}));
+    if (j.codigo === 'OB_DESCONHECIDA' && await reenviarOB(OB_ID)) res = await fetch(url, opts);
+  }
+  return res;
+}
+
+function renderOB() {
+  const ob = META.ob;
+  const padrao = ob.id === 'padrao';
+  $('ob-nome').textContent = ob.nome;
+  $('ob-id').textContent   = padrao ? '' : `· ${ob.id}`;
+  $('btn-ob-padrao').classList.toggle('hidden', padrao);
+  const r = ob.resumo;
+  const partes = [`${r.blue.unidades} unidades azuis, ${r.red.unidades} vermelhas`];
+  const mud = lado => [
+    r[lado].incluidas.length ? `${r[lado].incluidas.length} incluída(s)` : '',
+    r[lado].removidas.length ? `${r[lado].removidas.length} removida(s)` : '',
+  ].filter(Boolean).join(', ');
+  if (mud('blue')) partes.push(`Azul: ${mud('blue')}`);
+  if (mud('red'))  partes.push(`Vermelho: ${mud('red')}`);
+  $('ob-resumo').textContent = partes.join(' · ') + (padrao ? '' : ' em relação à padrão.');
+}
+
+/** Mensagens da carga: lista de erros por célula, ou confirmação com avisos. */
+function msgsOB(tipo, titulo, itens = []) {
+  const caixa = $('ob-msgs');
+  caixa.className = `cs-ob-msgs ${tipo === 'erro' ? 'cs-ob-erros' : 'cs-ob-ok'}`;
+  caixa.innerHTML = `<b>${esc(titulo)}</b>` +
+    (itens.length ? `<ul>${itens.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
+}
+
+async function ativarOB(id) {
+  OB_ID = id;
+  if (id === 'padrao') LS.del('ob:ativa'); else LS.set('ob:ativa', id);
+  await carregarMeta();
+}
+
+async function carregarPlanilha(arquivo) {
+  msgsOB('ok', `Lendo ${arquivo.name}…`);
+  let res, r;
+  try {
+    // O File vai como corpo bruto. Content-Type forçado: File.type pode vir
+    // vazio, e o servidor só lê application/octet-stream.
+    res = await fetch('/api/construtivo/ob', {
+      method: 'POST', body: arquivo,
+      headers: { 'Content-Type': 'application/octet-stream', 'X-Nome-Arquivo': encodeURIComponent(arquivo.name) },
+    });
+    r = await res.json();
+  } catch {
+    msgsOB('erro', 'Não foi possível enviar a planilha ao servidor.');
+    return;
+  }
+  if (!res.ok) {
+    const n = r.erros?.length || 0;
+    msgsOB('erro', `A planilha não foi carregada: ${n} problema(s) a corrigir. A ordem de batalha em uso não mudou.`,
+      [...(r.erros || []), ...(r.avisos || []).map(a => '⚠ ' + a)]);
+    return;
+  }
+  if (r.padrao) {
+    await ativarOB('padrao');
+    msgsOB('ok', 'A planilha é idêntica à ordem de batalha padrão — nada a mudar.');
+    return;
+  }
+  const guardou = LS.set('ob:' + r.obId, JSON.stringify({ nome: r.nome, ob: r.ob }));
+  await ativarOB(r.obId);
+  const avisos = [...r.avisos];
+  if (!guardou) avisos.push('O navegador não permitiu guardar a planilha: se o servidor reiniciar, será preciso carregá-la de novo.');
+  msgsOB('ok', `Ordem de batalha carregada: ${r.nome}. As próximas simulações usam esta OB.`, avisos);
+}
+
+async function baixarPlanilha() {
+  try {
+    const res = await fetchComOB('/api/construtivo/ob/planilha' + qsOB());
+    if (!res.ok) throw new Error();
+    const blob = await res.blob();
+    const nome = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || 'ordem_de_batalha.xlsx';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nome;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  } catch {
+    msgsOB('erro', 'Não foi possível gerar a planilha.');
+  }
+}
+
+$('btn-ob-baixar').addEventListener('click', baixarPlanilha);
+$('btn-ob-padrao').addEventListener('click', async () => {
+  await ativarOB('padrao');
+  msgsOB('ok', 'De volta à ordem de batalha padrão.');
+});
+$('ob-arquivo').addEventListener('change', e => {
+  const f = e.target.files?.[0];
+  e.target.value = '';        // permite carregar o mesmo arquivo de novo depois de corrigi-lo
+  if (f) carregarPlanilha(f);
+});
+
+// ─── 2. Pacote ───────────────────────────────────────────────────────────────
 const MAXQ = () => META?.quantidadeMaxima ?? 4;
 
 async function carregarMeta() {
-  const res = await fetch('/api/construtivo/meta');
+  let res = await fetchComOB('/api/construtivo/meta' + qsOB());
+  if (!res.ok && OB_ID !== 'padrao') {
+    // A OB guardada sumiu do servidor e do navegador: volta à padrão e avisa,
+    // em vez de deixar a tela vazia.
+    OB_ID = 'padrao';
+    LS.del('ob:ativa');
+    msgsOB('erro', 'A ordem de batalha carregada antes não está mais disponível — usando a padrão. Carregue a planilha de novo, se quiser.');
+    res = await fetch('/api/construtivo/meta');
+  }
   META = await res.json();
-  for (const f of META.fatores) estado[f.chave] = 1;
-  for (const g of META.gruposVermelhos) estadoRed[g.sigla] = 1;
+  // Mantém as quantidades já escolhidas ao trocar de OB: as chaves de pacote e
+  // de grupo são as mesmas em qualquer OB.
+  for (const f of META.fatores) estado[f.chave] ??= 1;
+  for (const g of META.gruposVermelhos) estadoRed[g.sigla] ??= 1;
+  renderOB();
   renderFatores();
   renderGruposVermelhos();
   atualizarTotais();
@@ -145,9 +291,9 @@ function agendarEfetivo() {
 }
 
 async function atualizarEfetivo() {
-  const corpo = { factors: fatoresSelecionados(), redGroups: grupoVermelhoSelecionado() || {} };
+  const corpo = { factors: fatoresSelecionados(), redGroups: grupoVermelhoSelecionado() || {}, obId: OB_ID };
   try {
-    const res = await fetch('/api/construtivo/forca', {
+    const res = await fetchComOB('/api/construtivo/forca', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo),
     });
     if (!res.ok) throw new Error('falhou');
@@ -234,6 +380,7 @@ async function rodar() {
   // Força Azul, e a ameaça contra a qual ela é medida é escolha do cenário.
   const red = grupoVermelhoSelecionado();
   if (red) corpo.redGroups = red;
+  if (OB_ID !== 'padrao') corpo.obId = OB_ID;
 
   $('erro').classList.add('hidden');
   $('btn-run').disabled = true;
@@ -241,7 +388,7 @@ async function rodar() {
   atualizarProgresso(0, 1, null);
 
   try {
-    const res = await fetch('/api/construtivo/run', {
+    const res = await fetchComOB('/api/construtivo/run', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo),
     });
     const inicio = await res.json();
@@ -420,6 +567,9 @@ function urlReplay(row, r) {
   for (const k of FATORES_URL) q.set(k, row[k]);
   const red = Object.entries(r.redGroupsUsados || {});
   if (red.length) q.set('red', red.map(([s, n]) => `${s}:${n}`).join(','));
+  // A OB do LOTE (não a que estiver ativa agora): a partida só se reproduz com
+  // a mesma ordem de batalha com que foi jogada.
+  if (r.obId && r.obId !== 'padrao') q.set('ob', r.obId);
   return '/replay?' + q.toString();
 }
 
@@ -516,6 +666,9 @@ $('btn-jogar').addEventListener('click', () => {
   const red = grupoVermelhoSelecionado();
   if (red) sessionStorage.setItem('soloRedGroups', JSON.stringify(red));
   else sessionStorage.removeItem('soloRedGroups');
+  // A OB carregada vai junto: a partida solo é jogada com ela.
+  if (OB_ID !== 'padrao') sessionStorage.setItem('soloObId', OB_ID);
+  else sessionStorage.removeItem('soloObId');
   window.location.href = '/game';
 });
 
@@ -548,4 +701,9 @@ $('bloco').addEventListener('change', atualizarPlano);
 $('replicas').addEventListener('input', atualizarPlano);
 $('regra').addEventListener('change', atualizarRegra);
 
+// A OB carregada na visita anterior continua ativa, se o navegador a guardou.
+{
+  const ativa = LS.get('ob:ativa');
+  if (ativa && obGuardada(ativa)) OB_ID = ativa;
+}
 carregarMeta().catch(err => mostrarErro('Não foi possível carregar a configuração: ' + err.message));

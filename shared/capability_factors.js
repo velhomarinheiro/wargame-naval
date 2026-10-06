@@ -110,10 +110,31 @@ function isActive(value) {
   return quantityOf(value) >= 1;
 }
 
-/** Custo EAC do pacote: cada cópia custa o mesmo que a original. */
-function totalCost(factors) {
+/**
+ * Custo EAC do pacote: cada cópia custa o mesmo que a original.
+ * `costs` (opcional) traz os custos de uma OB carregada de planilha, onde o
+ * usuário pode tê-los editado na aba Cenário; ausente, valem os do estudo.
+ */
+function totalCost(factors, costs = null) {
   return FACTOR_KEYS.reduce((sum, key) =>
-    sum + quantityOf(factors?.[key]) * CAPABILITY_FACTORS[key].cost, 0);
+    sum + quantityOf(factors?.[key]) * (costs?.[key] ?? CAPABILITY_FACTORS[key].cost), 0);
+}
+
+/**
+ * Ids que pertencem a um pacote (Azul) ou grupo-tarefa (Vermelho).
+ *
+ * Numa OB anotada (carregada de planilha, `ob.anotada`), a pertença é a coluna
+ * `pacote`/`grupo` de cada unidade — é o que faz uma fragata nova classificada
+ * em C_Azuis sair junto com C_Azuis=0 e ser duplicada com C_Azuis=2. Sem
+ * anotação, valem as listas fixas acima, exatamente como antes.
+ */
+function factorUnitIds(ob, key) {
+  if (!ob?.anotada) return CAPABILITY_FACTORS[key].unitIds;
+  return ob.forces.blue.filter(s => s.pacote === key).map(s => s.id);
+}
+function redGroupUnitIds(ob, sigla) {
+  if (!ob?.anotada) return RED_GROUPS[sigla]?.unitIds || [];
+  return ob.forces.red.filter(s => s.grupo === sigla).map(s => s.id);
 }
 
 /** Quantos dos 5 fatores estão presentes (quantidade >= 1). */
@@ -123,11 +144,21 @@ function countActive(factors) {
 
 /**
  * Cópia de um spec com ID e nome próprios. `n` é o número da cópia (2, 3, …).
+ *
+ * `usados` é o conjunto de ids já presentes na força. Sem ele, um dependente
+ * podia ser copiado duas vezes com o mesmo id: INTERV×2 copia as aeronaves
+ * embarcadas no porta-aviões (RED-KMF-1~2) e DAE×2 copia as mesmas aeronaves
+ * de novo — dois RED-KMF-1~2 na partida, quebrando tudo o que indexa por id.
+ * Com ele, a segunda cópia recebe o próximo sufixo livre. Quando não há
+ * colisão, o sufixo é exatamente o de antes.
  */
-function copySpec(spec, n) {
+function copySpec(spec, n, usados = null) {
   const copy = JSON.parse(JSON.stringify(spec));
-  copy.id   = `${spec.id}${COPY_SEP}${n}`;
-  copy.name = `${spec.name} (${n})`;
+  let k = n;
+  while (usados && usados.has(`${spec.id}${COPY_SEP}${k}`)) k++;
+  copy.id   = `${spec.id}${COPY_SEP}${k}`;
+  copy.name = `${spec.name} (${k})`;
+  if (usados) usados.add(copy.id);
   return copy;
 }
 
@@ -154,14 +185,15 @@ function expandSet(specs, unitIds, qty) {
   }
 
   const out = [...specs];
+  const usados = new Set(specs.map(s => s.id));
   for (const spec of specs) {
     if (!alvo.has(spec.id)) continue;
     const dependentes = specs.filter(s => s.embarked === spec.id || s.hostId === spec.id);
     for (let n = 2; n <= qty; n++) {
-      const copia = copySpec(spec, n);
+      const copia = copySpec(spec, n, usados);
       out.push(copia);
       for (const dep of dependentes) {
-        const depCopia = copySpec(dep, n);
+        const depCopia = copySpec(dep, n, usados);
         if (depCopia.embarked) depCopia.embarked = copia.id;
         if (depCopia.hostId)   depCopia.hostId   = copia.id;
         out.push(depCopia);
@@ -183,13 +215,16 @@ function applyForceConfig(baseOB, config = {}) {
   const ob = JSON.parse(JSON.stringify(baseOB));
   const { factors = {}, redGroups = {} } = config;
 
+  // A pertença é lida da OB de ENTRADA, antes de qualquer expansão: cópias e
+  // dependentes acrescentados por um pacote nunca devem mudar quem pertence ao
+  // pacote seguinte.
   for (const key of FACTOR_KEYS) {
-    ob.forces.blue = expandSet(ob.forces.blue, CAPABILITY_FACTORS[key].unitIds, quantityOf(factors[key]));
+    ob.forces.blue = expandSet(ob.forces.blue, factorUnitIds(baseOB, key), quantityOf(factors[key]));
   }
   for (const sigla of RED_GROUP_KEYS) {
     // Sem chave informada, o grupo fica como está (quantidade 1).
     if (!(sigla in redGroups)) continue;
-    ob.forces.red = expandSet(ob.forces.red, RED_GROUPS[sigla].unitIds, quantityOf(redGroups[sigla]));
+    ob.forces.red = expandSet(ob.forces.red, redGroupUnitIds(baseOB, sigla), quantityOf(redGroups[sigla]));
   }
   return ob;
 }
@@ -222,6 +257,8 @@ module.exports = {
   totalCost,
   countActive,
   expandSet,
+  factorUnitIds,
+  redGroupUnitIds,
   applyForceConfig,
   applyCapabilityConfig,
   describeRedConfig,

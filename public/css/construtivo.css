@@ -210,3 +210,19 @@
           background: none; border: 1px solid var(--cs-line); color: var(--blue-l, #82b1ff);
           font-family: inherit; font-size: 0.8rem; }
 .cs-ver:hover { border-color: var(--blue-l, #82b1ff); color: #fff; }
+
+/* ── Ordem de batalha ── */
+.cs-ob-ativa { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.3rem; }
+.cs-ob-nome  { font-size: 0.95rem; color: #fff; overflow-wrap: anywhere; }
+.cs-ob-resumo { margin-bottom: 0.4rem; }
+/* O input de arquivo fica dentro do rótulo-botão: o rótulo inteiro é o alvo
+   de toque (≥ 44px, como os demais .cs-btn), e o input nativo some da vista
+   sem sumir do teclado nem do leitor de tela. */
+.cs-file { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+.cs-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.cs-file:focus-within { outline: 2px solid var(--gold-l, #ffd54f); outline-offset: 2px; }
+.cs-ob-msgs { margin-top: 0.8rem; font-size: 0.74rem; line-height: 1.6; }
+.cs-ob-msgs ul { margin: 0.3rem 0 0; padding-left: 1.1rem; max-height: 260px; overflow-y: auto; overflow-wrap: anywhere; }
+.cs-ob-ok    { border-left: 3px solid var(--gold-l, #ffd54f); padding-left: 10px; }
+.cs-ob-erros { border-left: 3px solid #ff8a80; padding-left: 10px; color: #ffd9d5; }
+.cs-ob-erros b { color: #fff; }

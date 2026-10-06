@@ -490,4 +490,168 @@ const avulso = SIM.runBatch({ factors: { A_SSN: -1, B_SSK: -1, C_Azuis: -1, D_MS
 eq(avulso.porCondicao[0].custo_total, 0, 'pacote vazio custa 0');
 eq(avulso.porCondicao[0].n_capacidades, 0, 'pacote vazio tem 0 capacidades');
 
-console.log(`\nALL PASS (${pass} asserts)`);
+// ─── Ordem de batalha em planilha ────────────────────────────────────────────
+// O que precisa valer: (1) a OB padrão anotada é exatamente o que as
+// constantes dizem — senão carregar a planilha padrão mudaria resultados; (2) a
+// planilha vai e volta sem perda; (3) uma unidade nova classificada num pacote
+// se comporta como as do pacote; (4) erro aponta a célula; (5) nada vaza.
+const SC  = require('../shared/scenario');
+const XL  = require('../shared/ob_spreadsheet');
+const ExcelJS = require('exceljs');
+
+async function testesPlanilha() {
+  const A = SC.DEFAULT_ANOTADA;
+
+  // (1) A OB padrão anotada reproduz as constantes.
+  for (const k of CF.FACTOR_KEYS) {
+    eq(CF.factorUnitIds(A, k), CF.CAPABILITY_FACTORS[k].unitIds, `OB anotada: pacote ${k} igual à constante`);
+  }
+  for (const s of CF.RED_GROUP_KEYS) {
+    eq(CF.redGroupUnitIds(A, s), CF.RED_GROUPS[s].unitIds, `OB anotada: grupo vermelho ${s} igual à taxonomia`);
+  }
+  const cen = SC.cenarioDe(A);
+  const lista = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, [].concat(v)]));
+  eq(cen.objectiveIds.blueTargets, lista(ENGINE.OBJECTIVE_IDS.blueTargets), 'OB anotada: alvos do Azul iguais a OBJECTIVE_IDS');
+  eq(cen.objectiveIds.redTargets,  lista(ENGINE.OBJECTIVE_IDS.redTargets),  'OB anotada: alvos do Vermelho iguais a OBJECTIVE_IDS');
+  eq(cen.thresholds, ENGINE.OBJECTIVE_THRESHOLDS, 'OB anotada: limiares iguais a OBJECTIVE_THRESHOLDS');
+  ok([...ORDER_OF_BATTLE.forces.blue.map(u => ['blue', u]), ...ORDER_OF_BATTLE.forces.red.map(u => ['red', u])]
+       .every(([s, u]) => cen.grupos[s][u.id] === TAX.classifyUnit(u.id, s).sigla),
+     'OB anotada: grupo de cada unidade igual à taxonomia');
+  const vPadrao = SC.validarOB(A);
+  eq([vPadrao.erros.length, vPadrao.avisos.length], [0, 0], 'a OB padrão valida sem erros nem avisos');
+  eq(SC.obHash(SC.canonOB(A)), SC.DEFAULT_HASH, 'forma canônica é idempotente (mesmo hash)');
+
+  // (1b) O caminho anotado dá os MESMOS resultados que o caminho das constantes.
+  const semOB = (spec) => SIM.toCsv(SIM.runBatch(spec).rows);
+  const comOB = (spec) => SIM.toCsv(SIM.runBatch({ ...spec, ob: A, obId: 'teste' }).rows
+    .map(({ ob_id, ...resto }) => { void ob_id; return resto; }));
+  for (const spec of [
+    { bloco: 'ablacao', replicas: 2, maxTurns: 8 },
+    { factors: { ...TODAS, A_SSN: 2, B_SSK: 0 }, redGroups: { INTERV: 2, LOG: 0 }, replicas: 3, maxTurns: 10 },
+    { factors: TODAS, replicas: 3, maxTurns: 16, victoryRule: 'exhaustion' },
+  ]) {
+    eq(comOB(spec), semOB(spec), `OB anotada joga igual à padrão (${spec.bloco || JSON.stringify(spec.redGroups || spec.victoryRule || 'pacote')})`);
+  }
+
+  // (2) Ida e volta pela planilha.
+  const buf = await XL.exportarPlanilha(A);
+  ok(buf.equals(await XL.exportarPlanilha(A)), 'exportação é determinística (mesmo arquivo)');
+  const lida = await XL.lerPlanilha(buf);
+  eq([lida.erros.length, lida.avisos.length], [0, 0], 'planilha padrão lida sem erros nem avisos');
+  const v = SC.validarOB(lida.rascunho);
+  eq(SC.obHash(v.ob), SC.DEFAULT_HASH, 'ida e volta da planilha padrão devolve a mesma OB (mesmo hash)');
+  ok(SC.ehPadrao(v.ob), 'planilha padrão sem edição é reconhecida como a padrão');
+
+  // Editar como o usuário faria (exceljs no lugar do Excel).
+  async function editar(fn) {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+    const u = wb.getWorksheet('Unidades'), c = wb.getWorksheet('Composição');
+    const col = {};
+    u.getRow(1).eachCell((cell, n) => { col[cell.value] = n; });
+    const linha = id => { let r = null; u.eachRow((row, n) => { if (row.getCell(col.id).value === id) r = n; }); return r; };
+    const set = (id, campo, val) => { u.getCell(linha(id), col[campo]).value = val; };
+    fn({ wb, u, c, col, linha, set });
+    return Buffer.from(await wb.xlsx.writeBuffer());
+  }
+  const lerEValidar = async b => {
+    const l = await XL.lerPlanilha(b);
+    const vv = l.rascunho ? SC.validarOB(l.rascunho) : { ob: null, erros: [], avisos: [] };
+    return { ob: vv.ob, erros: [...l.erros, ...vv.erros], avisos: [...l.avisos, ...vv.avisos] };
+  };
+
+  // (3) Unidade nova num pacote, característica alterada, unidade removida.
+  const editada = await lerEValidar(await editar(({ u, c, col, linha, set }) => {
+    set('BLUE-SAG-S1', 'SP', 12);
+    const r = u.rowCount + 1;
+    const novo = { lado: 'azul', id: 'BLUE-FRAG-N1', nome: 'Fragata Nova', categoria: 'superficie', pacote: 'C_Azuis',
+                   grupo: 'VIG', SP: 4, movimento: 4, coluna: 'F', linha: 6, mss_qtd: 8, mss_alc: 2,
+                   det_superficie: 2, det_aereo: 2, alc_superficie: 2, defesa_aerea: 2 };
+    for (const [k, val] of Object.entries(novo)) u.getCell(r, col[k]).value = val;
+    c.addRow(['BLUE-FRAG-N1', 'fragata', 1]);
+    u.spliceRows(linha('RED-AKE'), 1);
+    c.eachRow((row, n) => { if (row.getCell(1).value === 'RED-AKE') row.getCell(1).value = null; });
+    for (let n = c.rowCount; n > 1; n--) if (c.getCell(n, 1).value === null) c.spliceRows(n, 1);
+  }));
+  eq(editada.erros, [], 'OB editada (unidade nova, SP alterado, unidade removida) é aceita');
+  ok(editada.avisos.some(a => a.includes('BLUE-FRAG-N1')), 'a unidade nova é apontada nos avisos para conferência');
+  const OBE = editada.ob;
+  const azuisCom = cfg => CF.applyForceConfig(OBE, cfg).forces.blue.map(u => u.id);
+  ok(azuisCom({ factors: TODAS }).includes('BLUE-FRAG-N1'), 'fragata nova presente com C_Azuis=1');
+  ok(!azuisCom({ factors: { ...TODAS, C_Azuis: 0 } }).includes('BLUE-FRAG-N1'), 'fragata nova sai junto com C_Azuis=0');
+  ok(azuisCom({ factors: { ...TODAS, C_Azuis: 2 } }).includes('BLUE-FRAG-N1~2'), 'fragata nova é duplicada com C_Azuis=2');
+  const stE = ENGINE.newGame(CF.applyForceConfig(OBE, { factors: TODAS }), { seed: 1, obId: 'x' });
+  eq(stE.units.find(u => u.id === 'BLUE-SAG-S1').hp, 12, 'característica editada (SP do SAG-1) vale em partida');
+  eq(stE.units.find(u => u.id === 'BLUE-FRAG-N1').type, 'fragata', 'tipo da unidade nova vem da composição (comportamento de fragata)');
+  ok(ENGINE.computeObjectives(stE).blue.conditions.find(c => c.id === 'logistics').label.includes('2 de 2'),
+     'remover um logístico ajusta a condição para "2 de 2"');
+  ok(!JSON.stringify(ENGINE.stateFor(stE, 'blue')).includes('"cenario"'), 'a classificação da OB não vai para o cliente');
+  eq(JSON.stringify(ORDER_OF_BATTLE), obAntes, 'OB global intacta depois de tudo');
+  const loteE = SIM.runBatch({ factors: TODAS, replicas: 2, maxTurns: 6, ob: OBE, obId: SC.obHash(OBE) });
+  ok(loteE.rows.every(r => r.ob_id === SC.obHash(OBE)), 'linhas do lote carregam ob_id da OB usada');
+  ok(loteE.rows.every(r => 'grp_blue_VIG' in r), 'a unidade nova entra no grupo VIG dos relatórios');
+  const tr = SIM.traceGame({ factors: TODAS, seed: loteE.rows[0].semente, maxTurns: 6, ob: OBE, obId: 'x' });
+  eq([tr.resultado.winner || 'censurado', tr.resultado.turns], [loteE.rows[0].vencedor, loteE.rows[0].turnos],
+     'replay com OB carregada reproduz a partida do lote');
+
+  // Segundo porta-aviões vermelho: a condição passa a exigir os dois.
+  const doisPA = await lerEValidar(await editar(({ set }) => set('RED-GANF', 'alvo_porta_avioes', 'x')));
+  eq(doisPA.erros, [], 'marcar um segundo navio como porta-aviões é aceito');
+  eq(SC.cenarioDe(doisPA.ob).objectiveIds.blueTargets.carrier, ['RED-GBPA', 'RED-GANF'], 'condição do porta-aviões lista os dois');
+  const stP = ENGINE.newGame(doisPA.ob, { seed: 1 });
+  stP.units.find(u => u.id === 'RED-GBPA').hp = 0;
+  ok(!ENGINE.computeObjectives(stP).blue.conditions.find(c => c.id === 'carrier').met, 'afundar só um não cumpre a condição');
+  stP.units.find(u => u.id === 'RED-GANF').hp = 0;
+  ok(ENGINE.computeObjectives(stP).blue.conditions.find(c => c.id === 'carrier').met, 'afundar os dois cumpre');
+
+  // (4) Cada erro aponta a célula certa.
+  const comErros = await lerEValidar(await editar(({ u, c, col, linha, set }) => {
+    set('BLUE-SUB-1', 'coluna', 'G'); set('BLUE-SUB-1', 'linha', 1);
+    set('RED-GE-2', 'movimento', 'quatro');
+    set('RED-GE-3', 'SP', new Date(2026, 0, 1));
+    set('RED-GBPA', 'pacote', 'C_Azuis');
+    set('RED-GBPA', 'alvo_porta_avioes', null);
+    set('BLUE-SEOP', 'nome', '<b>x</b>');
+    u.getCell(linha('BLUE-SUB-2'), col.id).value = 'BLUE-SUB-1';
+    c.addRow(['BLUE-SAG-P', 'navio_espacial', 1]);
+  }));
+  const tem = (re, msg) => ok(comErros.erros.some(e => re.test(e)), msg);
+  tem(/^Unidades!P\d+: G1 é águas rasas/,         'submarino em águas rasas: erro na célula da coluna');
+  tem(/^Unidades!O\d+: movimento — "quatro"/,      'texto em campo numérico: erro na célula');
+  tem(/^Unidades!N\d+: a célula virou data/,       'data no lugar de número: erro na célula');
+  tem(/^Unidades!E\d+: pacote de capacidade só existe na Força Azul/, 'pacote numa unidade vermelha');
+  tem(/^Unidades!C\d+: nome não pode conter/,      'caracteres de HTML no nome são recusados');
+  tem(/^Unidades!B\d+: id "BLUE-SUB-1" repetido/,  'id repetido');
+  tem(/^Composição!B\d+: tipo de composição "navio_espacial"/, 'tipo de composição desconhecido');
+  tem(/alvo "porta-aviões".*cumprida automaticamente/, 'condição de vitória sem alvo é recusada');
+  ok(!comErros.erros.some(e => /movimento é obrigatório|SP é obrigatório/.test(e)),
+     'célula já recusada na leitura não gera um segundo erro');
+
+  // Limiar impossível
+  const impossivel = await lerEValidar(await editar(({ wb }) => { wb.getWorksheet('Cenário').getCell('B4').value = 9; }));
+  ok(impossivel.erros.some(e => /^Cenário!B4: pede 9 FPSO/.test(e)), 'limiar maior que o número de alvos é recusado');
+
+  // (5) Arquivos ruins e segurança.
+  eq((await XL.lerPlanilha(Buffer.from('nao e planilha'))).erros.length, 1, 'arquivo que não é planilha é recusado');
+  const zlib = require('zlib');
+  const dado = zlib.deflateRawSync(Buffer.alloc(30 * 1024 * 1024), { level: 9 });
+  const nome = Buffer.from('xl/a.xml');
+  const lh = Buffer.alloc(30); lh.writeUInt32LE(0x04034b50, 0); lh.writeUInt16LE(nome.length, 26);
+  const cd = Buffer.alloc(46); cd.writeUInt32LE(0x02014b50, 0); cd.writeUInt32LE(dado.length, 20);
+  cd.writeUInt32LE(30 * 1024 * 1024, 24); cd.writeUInt16LE(nome.length, 28);
+  const corpo = Buffer.concat([lh, nome, dado]), dir = Buffer.concat([cd, nome]);
+  const eocd = Buffer.alloc(22); eocd.writeUInt32LE(0x06054b50, 0); eocd.writeUInt16LE(1, 10);
+  eocd.writeUInt32LE(dir.length, 12); eocd.writeUInt32LE(corpo.length, 16);
+  ok(XL.checarZip(Buffer.concat([corpo, dir, eocd])) !== null, 'bomba de zip é recusada antes de abrir');
+  const csvInj = SIM.toCsv([{ condicao: '=HYPERLINK("x")', replica: 1, semente: 1 }]);
+  ok(csvInj.includes("'=HYPERLINK"), 'CSV neutraliza texto que o Excel leria como fórmula');
+
+  // Bug de ids duplicados corrigido: INTERV×2 + DAE×2 copiava as aeronaves
+  // embarcadas duas vezes com o mesmo id.
+  const dup = CF.applyForceConfig(ORDER_OF_BATTLE, { redGroups: { INTERV: 2, DAE: 2 } }).forces.red.map(u => u.id);
+  eq(dup.length, new Set(dup).size, 'INTERV×2 + DAE×2 não gera ids duplicados');
+}
+
+testesPlanilha()
+  .then(() => console.log(`\nALL PASS (${pass} asserts)`))
+  .catch(err => { console.error(err); process.exit(1); });
