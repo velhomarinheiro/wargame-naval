@@ -142,7 +142,27 @@
     </p>
     <div id="heatmaps"></div>
 
+    <h3 class="cs-h3">Assistir a uma partida</h3>
+    <p class="cs-help">
+      O relatório mostra médias; uma partida mostra como elas aconteceram. Escolha
+      uma e assista passo a passo — cada ordem de movimento com sua rota, cada alvo
+      escolhido, a arma empregada, as rolagens de dado e o dano. A partida é
+      reproduzida pela semente, então é exatamente aquela que entrou na média.
+    </p>
+    <div id="notaveis" class="cs-notaveis"></div>
+    <div class="cs-run-grid">
+      <label class="cs-field" id="campo-cond">
+        <span>Condição</span>
+        <select id="rep-cond"></select>
+      </label>
+      <label class="cs-field">
+        <span>Réplica</span>
+        <select id="rep-replica"></select>
+      </label>
+    </div>
     <div class="cs-run-actions">
+      <button id="btn-assistir" class="cs-btn cs-btn-go">▶ Assistir</button>
+      <button id="btn-link" class="cs-btn cs-btn-ghost" title="Copia um link que reproduz exatamente esta partida">🔗 Copiar link</button>
       <button id="btn-csv" class="cs-btn cs-btn-ghost">⬇ Baixar CSV por partida</button>
     </div>
     <p class="cs-nota">

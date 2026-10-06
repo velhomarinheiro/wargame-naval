@@ -34,28 +34,11 @@ if (!fs.existsSync(LOG_DIR)) {
 }
 
 // ── Serialização do estado ─────────────────────────────────────────────────────
-// Inclui apenas campos relevantes para ML; omite buffers internos de controle de turno.
-function snapshotState(state) {
-  return {
-    turn:   state.turn,
-    period: state.period,
-    phase:  state.phase,
-    units:  state.units.map(u => ({
-      id:        u.id,
-      team:      u.team,
-      col:       u.col,
-      row:       u.row,
-      hp:        u.hp,
-      maxHp:     u.maxHp,
-      category:  u.category,
-      type:      u.type,
-      moved:     u.moved   || false,
-      fuel:      u.fuel    ? { current: u.fuel.current, max: u.fuel.max } : null,
-      weapons:   u.weapons || null,
-      airStatus: u.airStatus || null,
-    })),
-  };
-}
+// Inclui apenas campos relevantes para ML; omite buffers internos de controle de
+// turno. Mora em shared/ porque o traço de replay do simulador construtivo usa
+// o mesmo vocabulário de campos — e nada em shared/ pode requerer este arquivo,
+// que cria diretório no disco ao ser carregado.
+const { snapshotState } = require('./shared/state_snapshot');
 
 // ── Handles de arquivo abertos (roomId → { path }) ────────────────────────────
 const _handles = new Map();

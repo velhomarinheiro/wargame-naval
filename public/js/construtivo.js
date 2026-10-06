@@ -310,6 +310,7 @@ function renderRelatorio(r) {
 
   renderTabela(r);
   renderHeatmaps(r);
+  renderSelecao(r);
 }
 
 function renderTabela(r) {
@@ -324,6 +325,7 @@ function renderTabela(r) {
         <th scope="col">E3 culminância<br><span class="cs-th-sub">turno</span></th>
         <th scope="col">Atrito azul<br><span class="cs-th-sub">M Dsp</span></th>
         <th scope="col">Desfechos<br><span class="cs-th-sub">A / V / s.d.</span></th>
+        <th scope="col"><span class="cs-th-sub">assistir</span></th>
       </tr>
     </thead>`;
   const linhas = r.porCondicao.map(c => {
@@ -342,6 +344,8 @@ function renderTabela(r) {
       <td>${mm('E3_culminancia')}${cens}</td>
       <td>${mm('atrito_azul')}</td>
       <td class="cs-outcomes">${m.vitorias.blue} / ${m.vitorias.red} / ${m.vitorias.censurado}</td>
+      <td><button type="button" class="cs-ver" data-ver-cond="${esc(c.condicao)}"
+          title="Assistir a uma partida típica desta condição (réplica mediana por turnos)">▶</button></td>
     </tr>`;
   }).join('');
   $('tabela-cond').innerHTML = cab + `<tbody>${linhas}</tbody>`;
@@ -396,6 +400,107 @@ function renderHeatmaps(r) {
   }).join('');
 }
 
+
+// ─── Seleção de partida para assistir ────────────────────────────────────────
+// Um bloco fatorial são 640 partidas: uma tabela com todas seria inutilizável e
+// cara em DOM. Então dois selects (≤32 + N opções) e, acima deles, atalhos que
+// respondem direto à pergunta "qual partida explica este resultado?".
+
+const FATORES_URL = ['A_SSN', 'B_SSK', 'C_Azuis', 'D_MSS', 'E_Terra'];
+
+function urlReplay(row, r) {
+  const q = new URLSearchParams({
+    seed:     row.semente,
+    maxTurns: r.maxTurns,
+    rule:     r.victoryRule,
+    // O desfecho que o lote registrou: o replay confere e avisa se divergir.
+    expect:   `${row.vencedor}:${row.turnos}`,
+    label:    `${row.condicao} · réplica ${row.replica}`,
+  });
+  for (const k of FATORES_URL) q.set(k, row[k]);
+  const red = Object.entries(r.redGroupsUsados || {});
+  if (red.length) q.set('red', red.map(([s, n]) => `${s}:${n}`).join(','));
+  return '/replay?' + q.toString();
+}
+
+/** As partidas que vale a pena olhar, extraídas das linhas do lote. */
+function notaveis(r) {
+  const rows = r.rows;
+  if (!rows.length) return [];
+  const porMax = (f, rotulo, fmt) => {
+    const cand = rows.filter(x => f(x) !== null && f(x) !== undefined);
+    if (!cand.length) return null;
+    const m = cand.reduce((a, b) => (f(b) > f(a) ? b : a));
+    return { row: m, rotulo, detalhe: fmt(m) };
+  };
+  const primeira = (cond, rotulo) => {
+    const m = rows.find(cond);
+    return m ? { row: m, rotulo, detalhe: `${m.condicao} · réplica ${m.replica}` } : null;
+  };
+  const turnos = x => x.turnos;
+  const decididas = rows.filter(x => x.vencedor !== 'censurado');
+  const maisCurta = decididas.length
+    ? { row: decididas.reduce((a, b) => (b.turnos < a.turnos ? b : a)),
+        rotulo: 'Decisão mais rápida',
+        detalhe: `${decididas.reduce((a, b) => (b.turnos < a.turnos ? b : a)).turnos} turnos` }
+    : null;
+
+  return [
+    maisCurta,
+    porMax(turnos, 'Partida mais longa', m => `${m.turnos} turnos`),
+    porMax(x => x.E1_atrito, 'Maior atrito imposto', m => `E1 ${Math.round(m.E1_atrito)}%`),
+    porMax(x => x.atrito_azul, 'Maior atrito sofrido', m => `${Math.round(m.atrito_azul)}% da Força Azul`),
+    primeira(x => x.vencedor === 'blue', 'Uma vitória Azul'),
+    primeira(x => x.vencedor === 'red', 'Uma vitória Vermelha'),
+    primeira(x => x.vencedor === 'censurado', 'Uma sem decisão'),
+  ].filter(Boolean);
+}
+
+function renderSelecao(r) {
+  // Atalhos
+  const ns = notaveis(r);
+  $('notaveis').innerHTML = ns.map((n, k) =>
+    `<button type="button" class="cs-notavel" data-notavel="${k}">
+       <b>${esc(n.rotulo)}</b><br><span class="cs-sd">${esc(n.detalhe)}</span>
+     </button>`).join('');
+  $('notaveis')._itens = ns;
+
+  // Condição — omitida quando o lote tem uma só (pacote avulso)
+  const umaSo = r.porCondicao.length === 1;
+  $('campo-cond').classList.toggle('hidden', umaSo);
+  $('rep-cond').innerHTML = r.porCondicao.map(c => {
+    const caps = Object.keys(c.factors).filter(k => c.factors[k] >= 1).map(k => k[0]).join('') || '—';
+    return `<option value="${esc(c.condicao)}">${esc(c.condicao)} — ${caps} · ${c.custo_total} EAC</option>`;
+  }).join('');
+  renderReplicas(r);
+}
+
+function renderReplicas(r) {
+  const cond = $('rep-cond').value || r.porCondicao[0]?.condicao;
+  const linhas = r.rows.filter(x => x.condicao === cond);
+  const desfecho = x => (x.vencedor === 'censurado' ? 'sem decisão' : `${x.vencedor === 'blue' ? 'Azul' : 'Vermelho'} em ${x.turnos} turnos`);
+  $('rep-replica').innerHTML = linhas.map(x =>
+    `<option value="${x.semente}">#${x.replica} · semente ${x.semente} · ${desfecho(x)}</option>`).join('');
+}
+
+/** A linha atualmente escolhida nos dois selects. */
+function linhaEscolhida(r) {
+  const cond = $('rep-cond').value || r.porCondicao[0]?.condicao;
+  const sem  = Number($('rep-replica').value);
+  return r.rows.find(x => x.condicao === cond && x.semente === sem) || null;
+}
+
+/** Réplica mediana por turnos — "uma partida típica desta condição". */
+function replicaTipica(r, condicao) {
+  const linhas = r.rows.filter(x => x.condicao === condicao).slice().sort((a, b) => a.turnos - b.turnos);
+  return linhas[Math.floor(linhas.length / 2)] || null;
+}
+
+function abrirReplay(row) {
+  if (!row || !ultimoResultado) return;
+  window.open(urlReplay(row, ultimoResultado), '_blank', 'noopener');
+}
+
 // ─── Ações ───────────────────────────────────────────────────────────────────
 $('btn-run').addEventListener('click', rodar);
 
@@ -412,6 +517,31 @@ $('btn-jogar').addEventListener('click', () => {
   if (red) sessionStorage.setItem('soloRedGroups', JSON.stringify(red));
   else sessionStorage.removeItem('soloRedGroups');
   window.location.href = '/game';
+});
+
+$('rep-cond').addEventListener('change', () => renderReplicas(ultimoResultado));
+$('btn-assistir').addEventListener('click', () => abrirReplay(linhaEscolhida(ultimoResultado)));
+$('btn-link').addEventListener('click', async () => {
+  const row = linhaEscolhida(ultimoResultado);
+  if (!row) return;
+  const url = location.origin + urlReplay(row, ultimoResultado);
+  try {
+    await navigator.clipboard.writeText(url);
+    $('btn-link').textContent = '✓ Link copiado';
+  } catch {
+    // Área de transferência bloqueada (http sem TLS, permissão negada): mostrar
+    // o link é melhor que falhar em silêncio.
+    window.prompt('Copie o link desta partida:', url);
+  }
+  setTimeout(() => { $('btn-link').textContent = '🔗 Copiar link'; }, 2500);
+});
+
+// Atalhos de partidas notáveis e a coluna ▶ da tabela por condição.
+document.addEventListener('click', e => {
+  const at = e.target.closest('[data-notavel]');
+  if (at) { abrirReplay($('notaveis')._itens?.[Number(at.dataset.notavel)]?.row); return; }
+  const ver = e.target.closest('[data-ver-cond]');
+  if (ver) abrirReplay(replicaTipica(ultimoResultado, ver.dataset.verCond));
 });
 
 $('bloco').addEventListener('change', atualizarPlano);

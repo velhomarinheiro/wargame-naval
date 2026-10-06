@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Replay de partida — Simulador Construtivo</title>
+  <meta name="description" content="Assista passo a passo a uma partida do simulador construtivo: cada ordem de movimento, cada alvo escolhido, a arma empregada, as rolagens de dado e o dano resultante.">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/construtivo.css">
+  <link rel="stylesheet" href="css/replay.css">
+</head>
+<body class="cs-page rp-page">
+
+<header class="cs-header">
+  <div class="cs-header-inner">
+    <div>
+      <div class="cs-eyebrow">OPERAÇÃO ATLÂNTICO SUL · MÓDULO ANALÍTICO</div>
+      <h1 class="cs-title">Replay de Partida</h1>
+      <p class="cs-sub" id="rp-rotulo">—</p>
+    </div>
+    <a href="/construtivo" class="cs-back">← Voltar ao simulador</a>
+  </div>
+</header>
+
+<main class="rp-main">
+
+  <p id="rp-carregando" class="rp-aviso">Reproduzindo a partida…</p>
+  <p id="rp-erro" class="cs-erro hidden" role="alert"></p>
+  <div id="rp-divergencia" class="rp-divergencia hidden" role="alert"></div>
+
+  <div id="rp-app" class="rp-app hidden">
+
+    <!-- ═══ TABULEIRO ═══ -->
+    <section class="rp-board" aria-label="Tabuleiro">
+      <div class="rp-canvas-wrap">
+        <canvas id="rp-canvas" aria-label="Tabuleiro hexagonal do teatro de operações"></canvas>
+      </div>
+
+      <div class="rp-controls">
+        <div class="rp-btns" role="group" aria-label="Controles de reprodução">
+          <button id="rp-inicio" class="rp-btn" title="Início (Home)" aria-label="Ir para o início">⏮</button>
+          <button id="rp-ant"    class="rp-btn" title="Passo anterior (←)" aria-label="Passo anterior">◀</button>
+          <button id="rp-play"   class="rp-btn rp-btn-play" title="Reproduzir (Espaço)" aria-label="Reproduzir">▶</button>
+          <button id="rp-prox"   class="rp-btn" title="Próximo passo (→)" aria-label="Próximo passo">▶|</button>
+          <button id="rp-fim"    class="rp-btn" title="Fim (End)" aria-label="Ir para o fim">⏭</button>
+          <select id="rp-vel" class="rp-sel" aria-label="Velocidade">
+            <option value="2">0,5×</option>
+            <option value="1" selected>1×</option>
+            <option value="0.5">2×</option>
+            <option value="0.25">4×</option>
+          </select>
+          <label class="rp-check"><input type="checkbox" id="rp-seguir"> Seguir a ação</label>
+        </div>
+        <input type="range" id="rp-scrub" class="rp-scrub" min="0" value="0" step="1" aria-label="Posição na partida">
+        <div id="rp-pos" class="rp-pos">—</div>
+      </div>
+    </section>
+
+    <!-- ═══ PAINEL ═══ -->
+    <aside class="rp-panel" aria-label="Detalhe do passo">
+      <div class="rp-tabs" role="tablist">
+        <button class="rp-tab rp-tab-on" data-aba="passo" role="tab" aria-selected="true">Passo</button>
+        <button class="rp-tab" data-aba="objetivos" role="tab" aria-selected="false">Objetivos</button>
+        <button class="rp-tab" data-aba="forcas" role="tab" aria-selected="false">Forças</button>
+        <button class="rp-tab" data-aba="sobre" role="tab" aria-selected="false">Sobre</button>
+      </div>
+
+      <div id="rp-aba-passo" class="rp-aba">
+        <div id="rp-cab" class="rp-cab">—</div>
+        <div id="rp-narr" class="rp-narr"></div>
+      </div>
+
+      <div id="rp-aba-objetivos" class="rp-aba hidden"></div>
+      <div id="rp-aba-forcas"    class="rp-aba hidden"></div>
+
+      <div id="rp-aba-sobre" class="rp-aba hidden">
+        <p class="cs-help">
+          <b>O raciocínio do bot não é registrado.</b> O que se vê aqui é <b>o que ele
+          decidiu</b> e <b>o que aconteceu em seguida</b> — rota, alvo, arma, salva,
+          rolagens e dano. A pontuação interna que levou a cada escolha não é exposta
+          pelo motor.
+        </p>
+        <p class="cs-help">
+          <b>A movimentação é sequencial, não simultânea.</b> No laço do simulador
+          construtivo o Azul move primeiro e o Vermelho decide <i>depois de ver</i> as
+          posições novas do Azul — o que dá ao Vermelho uma vantagem de informação que
+          ele não teria no jogo com pessoas, onde os dois lados movem ao mesmo tempo.
+          É uma propriedade do simulador, não deste visualizador; o replay apenas a
+          torna visível.
+        </p>
+        <p class="cs-help">
+          <b>Os dois bots jogam com informação perfeita.</b> Nenhum filtro de detecção
+          é aplicado às decisões: cada lado lê a posição de todas as unidades
+          adversárias. O nevoeiro de guerra do jogo interativo é de apresentação, e não
+          existe aqui — por isso esta tela mostra as duas forças inteiras.
+        </p>
+        <p class="cs-help">
+          <b>Só a 1ª rodada de batalha.</b> O laço construtivo resolve cada engajamento
+          em uma rodada e não executa contra-ataques nem as decisões CONTINUAR/PARAR do
+          jogo interativo. Onde a fila disser “até 2 rodadas”, só a primeira correu.
+        </p>
+        <p class="cs-help">
+          <b>Doutrina fixa:</b> <span id="rp-doutrina">—</span>. O laço construtivo chama
+          a heurística sem parâmetro de doutrina, então os dois lados jogam sempre no
+          padrão, independentemente do que se escolha numa partida solo.
+        </p>
+        <p class="cs-help" id="rp-params">—</p>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script src="js/hex.js"></script>
+<script src="js/terrain.js"></script>
+<script src="js/units.js"></script>
+<script src="js/replay_board.js"></script>
+<script src="js/replay.js"></script>
+</body>
+</html>

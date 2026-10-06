@@ -321,6 +321,152 @@ eq(q1.rows.map(r => `${r.semente}:${r.vencedor}:${r.turnos}`),
    q2.rows.map(r => `${r.semente}:${r.vencedor}:${r.turnos}`),
   'lote com quantidades é reprodutível por semente');
 
+// ─── Traço de replay ─────────────────────────────────────────────────────────
+// A funcionalidade inteira repousa sobre duas garantias: gravar a partida não
+// pode alterá-la, e re-rodar pela semente tem de dar a mesma partida que o lote
+// registrou. Tudo o mais é apresentação.
+const TRACE = require('../shared/replay_trace');
+const SNAP  = require('../shared/state_snapshot');
+
+// Gravar não pode mudar o que aconteceu — é o que protege o lote.
+const semTraco = SIM.runGame(TODAS, 4242, 8);
+const t = SIM.traceGame({ factors: TODAS, seed: 4242, maxTurns: 8 });
+eq(JSON.stringify(t.resultado), JSON.stringify(semTraco),
+  'gravar o traço não altera o resultado da partida');
+
+// Abertura e fecho
+eq(t.passos[0].kind, 'game_start', 'o traço começa em game_start');
+const fim = t.passos[t.passos.length - 1];
+eq(fim.kind, 'game_over', 'o traço termina em game_over');
+eq(fim.winner, semTraco.winner, 'game_over registra o mesmo vencedor');
+eq(fim.turns,  semTraco.turns,  'game_over registra o mesmo total de turnos');
+ok(TRACE.STEP_KINDS.includes(fim.kind), 'vocabulário de passos é fechado');
+ok(t.passos.every(p => TRACE.STEP_KINDS.includes(p.kind)), 'todo passo tem tipo conhecido');
+ok(!t.truncado, 'partida de 8 turnos não estoura o orçamento do traço');
+
+// Estrutura do laço: duas movimentações e duas declarações por fase.
+const fases = t.passos.filter(p => p.kind === 'phase_start').length;
+eq(t.passos.filter(p => p.kind === 'movement_committed').length, fases * 2,
+  'duas movimentações (Azul e Vermelha) por fase');
+eq(t.passos.filter(p => p.kind === 'attacks_declared').length, fases * 2,
+  'duas declarações de ataque por fase');
+eq(t.passos.filter(p => p.kind === 'combat_queue_built').length, fases,
+  'uma fila de combate por fase');
+
+// A fila tem de ser gravada ANTES da resolução. resolveBattleRound muta os
+// MESMOS objetos (empilha em results, muda status): guardar a referência faria
+// o passo mostrar a fila já resolvida — justamente o que ele existe para negar.
+const fila = t.passos.find(p => p.kind === 'combat_queue_built' && p.queue.length);
+ok(fila.queue.every(e => e.results.length === 0), 'a fila é copiada antes da resolução (results vazio)');
+ok(fila.queue.every(e => e.status === 'pending'), 'a fila é copiada antes da resolução (status pendente)');
+ok(fila.queue.every(e => e.weaponType && e.amount >= 1),
+  'a fila registra a arma e a salva de cada engajamento');
+
+// O engajamento resolvido traz o que explica o dano.
+const eng = t.passos.find(p => p.kind === 'engagement_resolved' && p.engagement.results[0]?.result?.ok);
+eq(eng.engagement.results.length, 1, 'o laço construtivo resolve só a 1ª rodada de batalha');
+const res = eng.engagement.results[0].result;
+ok(Array.isArray(res.attackRolls), 'o resultado traz as rolagens de ataque');
+ok(res.interception !== undefined,  'o resultado traz a interceptação');
+ok(typeof res.totalDamage === 'number', 'o resultado traz o dano total');
+
+// A invariante central do formato: os deltas reconstroem os quadros.
+const quadros = TRACE.materialize(t);
+eq(quadros.length, t.passos.length, 'um quadro materializado por passo');
+const estadoFinal = SIM.runGame(TODAS, 4242, 8);   // mesma partida, sem traço
+void estadoFinal;
+{
+  // Reconstrói à mão a mesma partida e compara o quadro final unidade a unidade.
+  const ob = CF.applyForceConfig(ORDER_OF_BATTLE, { factors: TODAS });
+  const st = ENGINE.newGame(ob, { seed: 4242 });
+  let w = null;
+  for (let ph = 0; ph < 16 && !w && st.turn <= 8; ph++) {
+    for (const tm of ['blue', 'red']) ENGINE.applyBotMovesToState(st, tm, ENGINE.computeBotMoves(st, tm));
+    st.phase = 'combat';
+    st.blueAttacks = ENGINE.computeBotAttacks(st, 'blue');
+    st.redAttacks  = ENGINE.computeBotAttacks(st, 'red');
+    st.combatQueue = ENGINE.buildCombatQueue(st);
+    for (const e of st.combatQueue) { e.battleRound = 1; ENGINE.resolveBattleRound(st, e); }
+    st.combatQueue = []; st.currentEngagementIndex = 0;
+    w = ENGINE.checkWinner(st); if (w) break; ENGINE.nextTurn(st);
+  }
+  const ultimo = quadros[quadros.length - 1];
+  const divergentes = st.units.filter(u =>
+    JSON.stringify(ultimo.get(u.id)) !== JSON.stringify(SNAP.frameUnit(u)));
+  eq(divergentes.map(u => u.id), [],
+    'os deltas reconstroem exatamente o estado final, unidade a unidade');
+}
+
+// O traço é estável entre execuções — é o que torna o link compartilhável.
+const t2 = SIM.traceGame({ factors: TODAS, seed: 4242, maxTurns: 8 });
+eq(JSON.stringify(t2), JSON.stringify(t), 'o traço é idêntico entre duas execuções da mesma semente');
+
+// Reprodutibilidade LOTE × ISOLADO: a garantia sobre a qual a tela se apoia.
+// A partida original correu como a N-ésima de um lote no mesmo processo; o
+// replay a roda sozinha. Se isto quebrar, o visualizador mostra outra partida.
+{
+  const lote = SIM.runBatch({ factors: TODAS, replicas: 5, maxTurns: 10 });
+  for (const row of lote.rows) {
+    const g = SIM.traceGame({ factors: TODAS, seed: row.semente, maxTurns: 10 });
+    eq([g.resultado.winner || 'censurado', g.resultado.turns], [row.vencedor, row.turnos],
+      `replay isolado da semente ${row.semente} reproduz o desfecho do lote`);
+  }
+}
+
+// Condição de bloco: os fatores da própria LINHA bastam para reproduzir, sem
+// consultar shared/conditions.js. É o que o relatório usa para montar a URL.
+{
+  const fat = SIM.runBatch({ bloco: 'fatorial', replicas: 1, maxTurns: 6 });
+  for (const row of fat.rows.slice(0, 4)) {
+    const fx = Object.fromEntries(CF.FACTOR_KEYS.map(k => [k, row[k]]));
+    const g = SIM.traceGame({ factors: fx, seed: row.semente, maxTurns: 6 });
+    eq([g.resultado.winner || 'censurado', g.resultado.turns], [row.vencedor, row.turnos],
+      `${row.condicao}: os fatores da linha bastam para reproduzir a partida`);
+  }
+}
+
+// Composição Vermelha também viaja na URL e tem de reproduzir.
+{
+  const comRed = { INTERV: 2, LOG: 0 };
+  const lote = SIM.runBatch({ factors: TODAS, redGroups: comRed, replicas: 2, maxTurns: 8 });
+  eq(lote.redGroupsUsados, comRed, 'o lote expõe a composição Vermelha usada (para montar o link)');
+  for (const row of lote.rows) {
+    const g = SIM.traceGame({ factors: TODAS, seed: row.semente, maxTurns: 8, redGroups: comRed });
+    eq([g.resultado.winner || 'censurado', g.resultado.turns], [row.vencedor, row.turnos],
+      `replay com Força Vermelha composta reproduz a semente ${row.semente}`);
+  }
+}
+
+// Partida sem decisão registra maxTurns+1 — o laço vira o turno antes de sair
+// pela contagem de fases. Documentado porque a tela precisa dizer o turno certo.
+{
+  const cens = SIM.runBatch({ factors: TODAS, replicas: 6, maxTurns: 2 });
+  const semDecisao = cens.rows.filter(r => r.vencedor === 'censurado');
+  ok(semDecisao.length > 0 && semDecisao.every(r => r.turnos === 3),
+    'partida sem decisão registra maxTurns+1 em "turnos"');
+  const g = SIM.traceGame({ factors: TODAS, seed: semDecisao[0].semente, maxTurns: 2 });
+  const fimG = g.passos[g.passos.length - 1];
+  eq(fimG.lastPlayedTurn, 2, 'game_over informa o último turno efetivamente jogado');
+  eq(fimG.reason, 'timeout', 'game_over classifica a partida sem decisão como timeout');
+}
+
+// Orçamento: o traço precisa caber numa resposta HTTP.
+{
+  const longo = SIM.traceGame({ factors: TODAS, seed: 7003, maxTurns: 40, victoryRule: 'exhaustion' });
+  const kb = JSON.stringify(longo).length / 1024;
+  ok(kb < 1500, `traço do pior caso cabe em 1,5 MB (${kb.toFixed(0)} KB, ${longo.passos.length} passos)`);
+}
+
+// O coletor desligado não pode custar nada ao lote.
+{
+  const N = 40;
+  for (let k = 0; k < 10; k++) SIM.runGame(TODAS, 9500 + k, 8);   // aquecimento
+  const t0 = Date.now(); for (let k = 0; k < N; k++) SIM.runGame(TODAS, 6000 + k, 8);
+  const ms = (Date.now() - t0) / N;
+  console.log(`   ℹ ${ms.toFixed(2)} ms/partida sem captura`);
+  ok(ms < 15, `lote sem captura continua abaixo de 15 ms/partida (${ms.toFixed(1)} ms)`);
+}
+
 // ─── Lote ────────────────────────────────────────────────────────────────────
 const lote = SIM.runBatch({ bloco: 'ablacao', replicas: 3, maxTurns: 8 });
 eq(lote.rows.length, 18, 'lote de ablação: 6 condições × 3 réplicas = 18 partidas');

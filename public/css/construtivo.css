@@ -192,3 +192,21 @@
 @media (prefers-reduced-motion: reduce) {
   .cs-progress-fill, .cs-btn, .cs-factor { transition: none; }
 }
+
+/* ── Atalhos de partidas notáveis ── */
+/* Rolar 640 linhas para achar "a partida que explica o resultado" não é
+   utilizável. Estes atalhos respondem a pergunta direto. */
+.cs-notaveis { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0.9rem; }
+.cs-notavel {
+  cursor: pointer; min-height: 40px; padding: 8px 12px;
+  background: rgba(7,25,41,0.9); border: 1px solid var(--cs-line); color: var(--cs-ink);
+  font-family: inherit; font-size: 0.68rem; text-align: left;
+}
+.cs-notavel:hover { border-color: var(--blue-l, #82b1ff); color: #fff; }
+.cs-notavel:focus-visible { outline: 2px solid var(--gold-l, #ffd54f); outline-offset: 1px; }
+.cs-notavel b { color: var(--gold-l, #ffd54f); font-weight: normal; }
+/* Coluna ▶ da tabela por condição: abre a réplica mediana por turnos. */
+.cs-ver { cursor: pointer; min-width: 40px; min-height: 40px;
+          background: none; border: 1px solid var(--cs-line); color: var(--blue-l, #82b1ff);
+          font-family: inherit; font-size: 0.8rem; }
+.cs-ver:hover { border-color: var(--blue-l, #82b1ff); color: #fff; }

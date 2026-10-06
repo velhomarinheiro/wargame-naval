@@ -5,6 +5,7 @@ const http     = require('http');
 const { Server } = require('socket.io');
 const path     = require('path');
 const fs       = require('fs');
+const zlib     = require('zlib');
 const archiver = require('archiver');
 const { ORDER_OF_BATTLE }  = require('./shared/order_of_battle');
 const { COMBAT_CONFIG }    = require('./shared/combat_config');
@@ -24,7 +25,7 @@ const { mulberry32 } = require('./shared/rng');
 const combatRng = require('./shared/combat_engine');
 const { CAPABILITY_FACTORS, FACTOR_KEYS, RED_GROUPS, RED_GROUP_KEYS,
         applyForceConfig, quantityOf, baseUnitId, describeRedConfig,
-        MAX_QUANTITY } = require('./shared/capability_factors');
+        totalCost, MAX_QUANTITY } = require('./shared/capability_factors');
 const { FACTORIAL_CONDITIONS, ABLATION_CONDITIONS } = require('./shared/conditions');
 const { hasOffensiveMeans, offensiveStockRatio } = require('./shared/metrics');
 const constructiveSim = require('./shared/constructive_sim');
@@ -1550,6 +1551,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/',     (_, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/game', (_, res) => res.sendFile(path.join(__dirname, 'public', 'game.html')));
 app.get('/construtivo', (_, res) => res.sendFile(path.join(__dirname, 'public', 'construtivo.html')));
+app.get('/replay',      (_, res) => res.sendFile(path.join(__dirname, 'public', 'replay.html')));
 
 // ─── Simulação construtiva (PBC) ──────────────────────────────────────────────
 // Lotes de partidas bot-vs-bot, sem jogadores: a página /construtivo monta um
@@ -1624,6 +1626,157 @@ app.post('/api/construtivo/forca', (req, res) => {
   }
 });
 
+// Rótulos das condições de vitória — fixos, iguais em toda partida. Calculados
+// uma vez para irem no envelope do replay, e não repetidos em cada passo.
+const ROTULOS_OBJETIVOS = (() => {
+  const { rotulosObjetivos } = require('./shared/replay_trace');
+  return rotulosObjetivos(computeObjectives(newGame()));
+})();
+
+// ─── Replay de uma partida ────────────────────────────────────────────────────
+// Reproduz UMA partida do simulador construtivo, gravando o caminho passo a
+// passo. Nada é armazenado: como o motor é semeado, a partida é re-executada
+// sob demanda a partir dos parâmetros — guardar os traços de um lote fatorial
+// custaria ~180 MB por job, re-rodar custa ~20 ms.
+//
+// GET, e com os parâmetros todos explícitos na query — e não POST com um id de
+// job — porque a URL da página /replay é repassada literalmente para cá. Uma
+// URL, uma fonte de verdade, e o link continua reproduzindo a partida depois
+// que o job expirou (JOB_TTL_MS = 30 min). É o que permite citar um caso.
+//
+// A validação é estrita de propósito: `resolveVictoryRule` cai no padrão em
+// silêncio e `quantityOf(NaN)` devolve 1. Num lote isso é benigno; aqui um
+// `rule=exaustao` (sem h) reproduziria OUTRA partida, que o usuário leria como
+// sendo a da linha do relatório. Erro visível é muito melhor que replay
+// sutilmente errado.
+app.get('/api/construtivo/replay', (req, res) => {
+  const q = req.query || {};
+  const erro = m => res.status(400).json({ error: m });
+
+  if (!/^\d+$/.test(String(q.seed ?? ''))) {
+    return erro('Parâmetro "seed" é obrigatório e deve ser um inteiro não negativo.');
+  }
+  const seed = Number(q.seed);
+  if (!Number.isSafeInteger(seed)) return erro('Semente fora da faixa representável.');
+
+  // Quantidade por fator. Ausente = 1 (ordem de batalha). Aceita a forma legada
+  // -1/+1 das condições de bloco, que é como shared/conditions.js as escreve.
+  const factors = {};
+  for (const k of FACTOR_KEYS) {
+    if (q[k] === undefined || q[k] === '') { factors[k] = 1; continue; }
+    if (!/^-?\d+$/.test(String(q[k]))) return erro(`Quantidade inválida para "${k}": ${q[k]}`);
+    factors[k] = quantityOf(Number(q[k]));
+  }
+
+  const maxTurns = Math.max(1, Math.min(40, Number(q.maxTurns) || constructiveSim.DEFAULT_MAX_TURNS));
+
+  if (q.rule !== undefined && !VICTORY_RULES.includes(String(q.rule))) {
+    return erro(`Regra de vitória desconhecida: "${q.rule}". Use ${VICTORY_RULES.join(' ou ')}.`);
+  }
+  const victoryRule = q.rule ? String(q.rule) : VICTORY_RULE_DEFAULT;
+
+  // red=INTERV:2,LOG:0
+  let redGroups;
+  if (q.red) {
+    redGroups = {};
+    for (const par of String(q.red).split(',')) {
+      const [sigla, n] = par.split(':');
+      if (!RED_GROUP_KEYS.includes(sigla)) {
+        return erro(`Grupo Vermelho desconhecido: "${sigla}". Válidos: ${RED_GROUP_KEYS.join(', ')}.`);
+      }
+      if (!/^\d+$/.test(String(n ?? ''))) return erro(`Quantidade inválida para o grupo "${sigla}": ${n}`);
+      redGroups[sigla] = quantityOf(Number(n));
+    }
+  }
+
+  let t;
+  try {
+    t = constructiveSim.traceGame({ factors, seed, maxTurns, victoryRule, redGroups });
+  } catch (err) {
+    console.error('[replay] falhou:', err);
+    return res.status(500).json({ error: 'Não foi possível reproduzir a partida: ' + err.message });
+  }
+
+  const obtido = { vencedor: t.resultado.winner || 'censurado', turnos: t.resultado.turns };
+  const conferencia = montarConferencia(q.expect, obtido, maxTurns);
+
+  const payload = {
+    partida: {
+      seed, factors, redGroups: redGroups || null, maxTurns, victoryRule,
+      custoTotal:    totalCost(factors),
+      nCapacidades:  FACTOR_KEYS.filter(k => factors[k] >= 1).length,
+      forcaVermelha: describeRedConfig(redGroups || {}),
+      rotulo:        q.label ? String(q.label).slice(0, 120) : null,
+      // A doutrina não é parâmetro: o laço construtivo chama computeBotMoves sem
+      // ela, então os dois lados jogam sempre no padrão.
+      doutrinaBot:   `${DOCTRINE_DEFAULT.formation}/${DOCTRINE_DEFAULT.posture}`,
+    },
+    catalogo:      t.catalogo,
+    quadroInicial: t.quadroInicial,
+    passos:        t.passos,
+    truncado:      t.truncado,
+    resultado:     t.resultado,
+    conferencia,
+    // Vocabulário de combate: deixa a tela explicar POR QUE aquela arma foi a
+    // escolhida, sem reimplementar a prioridade do motor no cliente.
+    armas: {
+      prioridade: WEAPON_PRIORITY,
+      salvaPadrao: SALVO_SIZE,
+      perfis: Object.fromEntries(Object.entries(COMBAT_CONFIG.weaponProfiles || {}).map(
+        ([k, p]) => [k, { label: p.label, targets: p.targets, expendable: !!p.expendable,
+                          defaultRange: p.defaultRange, interceptableBy: p.interceptableBy || [] }])),
+    },
+    objetivosRotulos: ROTULOS_OBJETIVOS,
+  };
+
+  enviarJson(req, res, payload);
+});
+
+// `expect=blue:4` — o desfecho que o lote registrou para esta linha. Divergir
+// responde 200, não erro: a partida re-executada É válida sob aqueles
+// parâmetros, e uma divergência é sinal de bug que se quer VISÍVEL na tela, não
+// engolido por uma página de erro.
+function montarConferencia(expect, obtido, maxTurns) {
+  if (!expect) return { ok: true, esperado: null, obtido, motivo: null };
+  const [vencedor, turnos] = String(expect).split(':');
+  if (!vencedor || !/^\d+$/.test(String(turnos ?? ''))) {
+    return { ok: true, esperado: null, obtido, motivo: null };
+  }
+  const esperado = { vencedor, turnos: Number(turnos) };
+  const ok = esperado.vencedor === obtido.vencedor && esperado.turnos === obtido.turnos;
+  if (ok) return { ok: true, esperado, obtido, motivo: null };
+
+  // Só três causas são possíveis, e vale nomeá-las: o usuário vai querer saber
+  // se o relatório que está citando foi gerado por outra versão do motor.
+  const soTurnos = esperado.vencedor === obtido.vencedor;
+  console.warn(`[replay] divergência: lote ${esperado.vencedor}:${esperado.turnos}, ` +
+               `re-execução ${obtido.vencedor}:${obtido.turnos}`);
+  return {
+    ok: false, esperado, obtido,
+    motivo: soTurnos
+      ? `Mesmo vencedor, turnos diferentes — provável limite de turnos distinto do lote `
+        + `(aqui: ${maxTurns}). O limite não entra em nenhuma decisão, então o caminho `
+        + `mostrado é fiel até onde vai.`
+      : 'Desfecho diferente do que o lote registrou. As causas possíveis são: o código do '
+        + 'motor mudou desde que o lote rodou; algum parâmetro (limite de turnos, regra de '
+        + 'vitória, composição Vermelha) difere do usado no lote; ou há um defeito de '
+        + 'reprodutibilidade. Não use esta reprodução como evidência do resultado do lote.',
+  };
+}
+
+// gzip pelo zlib nativo: um traço de 230 KB vira ~25 KB na rede, sem acrescentar
+// dependência ao projeto por causa de uma rota.
+function enviarJson(req, res, payload) {
+  const body = Buffer.from(JSON.stringify(payload));
+  res.set('Vary', 'Accept-Encoding');
+  res.type('application/json');
+  if (req.acceptsEncodings('gzip')) {
+    res.set('Content-Encoding', 'gzip');
+    return res.send(zlib.gzipSync(body));
+  }
+  res.send(body);
+}
+
 app.post('/api/construtivo/run', (req, res) => {
   pruneJobs();
   const emAndamento = [...CONSTRUCTIVE_JOBS.values()].filter(j => j.status === 'running').length;
@@ -1695,6 +1848,9 @@ app.post('/api/construtivo/run', (req, res) => {
     });
     job.resultado = { rows, porCondicao, total: rows.length, maxTurns, victoryRule,
                       forcaVermelha: describeRedConfig(redGroups),
+                      // O objeto, e não só a descrição: é o que o relatório
+                      // precisa para montar o link de replay de cada partida.
+                      redGroupsUsados: redGroups || {},
                       gruposPresentes: constructiveSim.presentGroups(rows) };
     job.status = 'done'; job.updatedAt = Date.now();
   }

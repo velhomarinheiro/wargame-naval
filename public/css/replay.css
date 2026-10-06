@@ -1,0 +1,129 @@
+/* ═══ REPLAY DE PARTIDA ════════════════════════════════════════════════════
+   Herda as variáveis e os componentes de construtivo.css (.cs-*). Aqui ficam
+   só o arranjo tabuleiro/painel e os controles de reprodução. */
+
+.rp-main { max-width: 1600px; margin: 0 auto; padding: 16px; }
+
+.rp-aviso { color: var(--cs-dim); font-size: 0.85rem; padding: 2rem 0; text-align: center; }
+
+/* Divergência entre a re-execução e o lote: é um sinal de que o número citado
+   não veio desta partida. Fica permanente no topo, não é um toast. */
+.rp-divergencia {
+  border: 1px solid #ff8a80; background: rgba(120,20,15,0.35); color: #ffd9d5;
+  padding: 12px 14px; margin-bottom: 1rem; font-size: 0.8rem; line-height: 1.6;
+}
+.rp-divergencia b { color: #fff; }
+
+/* ── Arranjo ── */
+.rp-app { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+@media (min-width: 1024px) {
+  .rp-app { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; }
+}
+
+.rp-board { display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
+
+/* Mesmo mecanismo de game.css: tamanho intrínseco fixo e limite por largura E
+   altura, centralizado. O mapa cabe sempre inteiro, sem rolagem horizontal. */
+.rp-canvas-wrap {
+  position: relative; overflow: hidden;
+  border: 1px solid var(--cs-line);
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(5,30,70,0.8) 0%, transparent 60%),
+    linear-gradient(135deg, #071929 0%, #0a2e55 50%, #071929 100%);
+  display: flex; align-items: center; justify-content: center;
+  max-height: 60vh;
+}
+#rp-canvas { display: block; max-width: 100%; max-height: 60vh; width: auto; height: auto; }
+@media (min-width: 1024px) {
+  .rp-canvas-wrap { max-height: 76vh; }
+  #rp-canvas      { max-height: 76vh; }
+}
+
+/* ── Controles ── */
+.rp-controls {
+  border: 1px solid var(--cs-line); background: var(--cs-panel);
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
+}
+.rp-btns { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rp-btn {
+  min-width: 44px; min-height: 44px; cursor: pointer;
+  background: rgba(7,25,41,0.9); border: 1px solid var(--cs-line); color: var(--cs-ink);
+  font-family: inherit; font-size: 0.95rem; line-height: 1;
+}
+.rp-btn:hover:not(:disabled) { border-color: var(--blue-l, #82b1ff); color: #fff; }
+.rp-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.rp-btn:focus-visible { outline: 2px solid var(--gold-l, #ffd54f); outline-offset: 1px; }
+.rp-btn-play { border-color: var(--gold-l, #ffd54f); color: var(--gold-l, #ffd54f); }
+
+.rp-sel {
+  min-height: 44px; background: rgba(7,25,41,0.9); color: var(--cs-ink);
+  border: 1px solid var(--cs-line); font-family: inherit; font-size: 0.74rem; padding: 0 8px;
+}
+.rp-check {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px;
+  font-size: 0.72rem; color: var(--cs-dim); cursor: pointer; padding: 0 4px;
+}
+.rp-check input { width: 18px; height: 18px; accent-color: var(--blue-l, #82b1ff); }
+
+.rp-scrub { width: 100%; min-height: 40px; accent-color: var(--gold-l, #ffd54f); }
+.rp-pos { font-size: 0.72rem; color: var(--cs-dim); font-variant-numeric: tabular-nums; }
+
+/* ── Painel ── */
+.rp-panel {
+  border: 1px solid var(--cs-line); background: var(--cs-panel);
+  display: flex; flex-direction: column; min-width: 0;
+}
+.rp-tabs { display: flex; border-bottom: 1px solid var(--cs-line); }
+.rp-tab {
+  flex: 1; min-height: 44px; cursor: pointer; background: none; border: none;
+  border-bottom: 2px solid transparent; color: var(--cs-dim);
+  font-family: inherit; font-size: 0.66rem; letter-spacing: 1.4px; text-transform: uppercase;
+}
+.rp-tab:hover { color: #fff; }
+.rp-tab-on { color: var(--gold-l, #ffd54f); border-bottom-color: var(--gold-l, #ffd54f); }
+.rp-tab:focus-visible { outline: 2px solid var(--gold-l, #ffd54f); outline-offset: -2px; }
+
+.rp-aba { padding: 12px 14px; overflow-y: auto; }
+@media (min-width: 1024px) { .rp-aba { max-height: calc(76vh + 46px); } }
+
+.rp-cab {
+  font-size: 0.68rem; letter-spacing: 1.6px; text-transform: uppercase;
+  color: var(--blue-l, #82b1ff); border-bottom: 1px solid var(--cs-line);
+  padding-bottom: 8px; margin-bottom: 10px;
+}
+.rp-narr { font-size: 0.78rem; line-height: 1.65; }
+
+/* Linha de narração: o marcador à esquerda diz o tipo sem depender da cor. */
+.rp-li { padding: 6px 0 6px 10px; border-left: 2px solid var(--cs-line); margin-bottom: 4px; }
+.rp-li-azul { border-left-color: var(--blue-l, #82b1ff); }
+.rp-li-verm { border-left-color: var(--red-l, #ff8a80); }
+.rp-li-hit  { border-left-color: #eb6834; }
+.rp-li-miss { border-left-color: var(--cs-dim); opacity: 0.75; }
+.rp-li-kill { border-left-color: #ff5040; background: rgba(120,20,15,0.22); }
+.rp-li b    { color: #fff; }
+.rp-dado {
+  display: inline-block; min-width: 20px; padding: 1px 4px; margin-right: 3px;
+  border: 1px solid var(--cs-line); font-size: 0.68rem; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.rp-mais { background: none; border: none; color: var(--blue-l, #82b1ff); cursor: pointer;
+           font-family: inherit; font-size: 0.72rem; padding: 6px 0; min-height: 40px; }
+
+/* Barras de progresso de objetivo */
+.rp-obj { margin-bottom: 10px; }
+.rp-obj-top { display: flex; justify-content: space-between; gap: 8px; font-size: 0.72rem; }
+.rp-obj-bar { height: 6px; background: rgba(255,255,255,0.08); margin-top: 3px; }
+.rp-obj-fill { height: 100%; background: var(--blue-l, #82b1ff); }
+.rp-obj-fill.verm { background: var(--red-l, #ff8a80); }
+.rp-obj-met .rp-obj-fill { background: var(--gold-l, #ffd54f); }
+
+/* Tabela de forças */
+.rp-forcas { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
+.rp-forcas th, .rp-forcas td { padding: 4px 6px; border-bottom: 1px solid var(--cs-line); text-align: left; }
+.rp-forcas th { color: var(--cs-dim); font-weight: normal; letter-spacing: 1px; text-transform: uppercase; font-size: 0.6rem; }
+.rp-forcas td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.rp-morta { opacity: 0.4; text-decoration: line-through; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rp-btn, .rp-tab { transition: none; }
+}

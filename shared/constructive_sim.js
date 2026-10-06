@@ -28,6 +28,7 @@ const { applyForceConfig, FACTOR_KEYS, RED_GROUP_KEYS, totalCost, countActive,
 const { createCulminationTracker, computeFinalMetrics, groupLossMetrics } = require('./metrics');
 const { groupLabels } = require('./force_taxonomy');
 const { FACTORIAL_CONDITIONS, ABLATION_CONDITIONS } = require('./conditions');
+const { NO_TRACE, createCollector } = require('./replay_trace');
 
 // Injetado por server.js (evita dependência circular: server.js requer este
 // módulo, e este precisa das funções de partida que vivem lá).
@@ -54,47 +55,101 @@ const DEFAULT_MAX_TURNS = 12;
  *                             a métrica E1_kcv.
  * @param {object} redGroups   quantidade por grupo-tarefa Vermelho (opcional);
  *                             ausente = ordem de batalha original
+ * @param {object} trace       coletor de shared/replay_trace.js, para gravar a
+ *                             partida passo a passo (visualizador /replay).
+ *                             O padrão NO_TRACE tem `step` vazio: o lote, que
+ *                             roda até 640 partidas, não paga por isto.
  * @returns {{winner, turns, metrics, groupMetrics}}
  */
-function runGame(factors, seed, maxTurns = DEFAULT_MAX_TURNS, victoryRule = undefined, redGroups = undefined) {
+function runGame(factors, seed, maxTurns = DEFAULT_MAX_TURNS, victoryRule = undefined,
+                 redGroups = undefined, trace = NO_TRACE) {
   if (!ENGINE) throw new Error('constructive_sim: motor não injetado (useEngine)');
   const ob    = applyForceConfig(ORDER_OF_BATTLE, { factors, redGroups });
   const state = ENGINE.newGame(ob, { seed, victoryRule });
+  if (trace.bindEngine) trace.bindEngine(ENGINE);
 
   const culmination = createCulminationTracker();
   culmination.update(state);
+  trace.step('game_start', null, state);
 
   const maxPhases = maxTurns * 2;          // dia + noite por turno
   let winner = null;
+  let ultimoTurnoJogado = state.turn;
   for (let phase = 0; phase < maxPhases && !winner && state.turn <= maxTurns; phase++) {
-    // ── Movimentação (os dois lados pela heurística do bot) ──
+    ultimoTurnoJogado = state.turn;
+    trace.step('phase_start', null, state);
+
+    // ── Movimentação ──
+    // ATENÇÃO: aqui ela é SEQUENCIAL, não simultânea — o Vermelho decide depois
+    // de ver as posições novas do Azul. O jogo interativo move os dois lados ao
+    // mesmo tempo (movementSnapshot / HIDDEN_MOVE_PHASES em server.js). A
+    // diferença é visível no replay, e está declarada na tela.
     for (const team of ['blue', 'red']) {
-      ENGINE.applyBotMovesToState(state, team, ENGINE.computeBotMoves(state, team));
+      const moves = ENGINE.computeBotMoves(state, team);
+      ENGINE.applyBotMovesToState(state, team, moves);
+      trace.step('movement_committed', { team, moves }, state);
     }
 
     // ── Combate ──
     state.phase       = 'combat';
     state.blueAttacks = ENGINE.computeBotAttacks(state, 'blue');
+    trace.step('attacks_declared', { team: 'blue', attacks: state.blueAttacks }, state);
     state.redAttacks  = ENGINE.computeBotAttacks(state, 'red');
+    trace.step('attacks_declared', { team: 'red', attacks: state.redAttacks }, state);
+
+    // A fila é o passo em que arma e salva ficam decididas (selectBestWeapon +
+    // SALVO_SIZE). Gravada ANTES da resolução — resolveBattleRound muta estes
+    // mesmos objetos logo abaixo.
     state.combatQueue = ENGINE.buildCombatQueue(state);
+    trace.step('combat_queue_built', { queue: state.combatQueue }, state);
+
     for (const eng of state.combatQueue) {
       eng.battleRound = 1;
       ENGINE.resolveBattleRound(state, eng);
+      trace.step('engagement_resolved', { engagement: eng }, state);
     }
     state.combatQueue = [];
     state.currentEngagementIndex = 0;
 
     winner = ENGINE.checkWinner(state);
     culmination.update(state);
+    trace.step('phase_resolved', { winner, culminationTurn: culmination.turn }, state);
     if (winner) break;
     ENGINE.nextTurn(state);
   }
 
-  return {
+  const saida = {
     winner,
     turns:        state.turn,
     metrics:      computeFinalMetrics(state, culmination.turn),
     groupMetrics: groupLossMetrics(state),
+  };
+  // `turns` de uma partida sem decisão é maxTurns+1: o laço vira o turno antes
+  // de sair pela contagem de fases. `lastPlayedTurn` é o último efetivamente
+  // jogado — é o número que a tela mostra.
+  trace.step('game_over', { ...saida, reason: winner ? 'victory' : 'timeout',
+                            lastPlayedTurn: ultimoTurnoJogado }, state);
+  return saida;
+}
+
+/**
+ * Joga UMA partida gravando o caminho, para o visualizador /replay.
+ *
+ * Nada é guardado entre chamadas: como o motor é semeado, a partida é
+ * reproduzida sob demanda a partir da semente. Guardar os traços de um lote
+ * fatorial custaria ~180 MB por job; re-rodar custa ~5 ms.
+ */
+function traceGame(spec = {}) {
+  const trace = createCollector({ maxSteps: spec.maxSteps, maxBytes: spec.maxBytes });
+  const resultado = runGame(spec.factors, spec.seed, spec.maxTurns, spec.victoryRule,
+                            spec.redGroups, trace);
+  const t = trace.result();
+  return {
+    resultado,
+    catalogo:      t.catalogo,
+    quadroInicial: t.quadroInicial,
+    passos:        t.passos,
+    truncado:      t.truncado,
   };
 }
 
@@ -223,6 +278,7 @@ function runBatch(spec = {}, onProgress = null) {
   return { rows, porCondicao, total, maxTurns,
            victoryRule: victoryRule === 'exhaustion' ? 'exhaustion' : 'objectives',
            forcaVermelha: describeRedConfig(redGroups),
+           redGroupsUsados: redGroups || {},
            gruposPresentes: presentGroups(rows) };
 }
 
@@ -267,6 +323,7 @@ function toCsv(rows) {
 module.exports = {
   useEngine,
   runGame,
+  traceGame,
   runBatch,
   summarize,
   buildConditions,
