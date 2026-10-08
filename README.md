@@ -43,7 +43,7 @@ O servidor sobe em `http://localhost:3000` (porta configurável via `PORT`).
 
 ## Mecânicas principais
 
-- Grade hexagonal 16×10 sobre carta náutica, com terrenos (terra, águas rasas,
+- Grade hexagonal 20×10 sobre carta náutica, com terrenos (terra, águas rasas,
   plataforma, águas profundas, campos de petróleo).
 - Turnos com períodos diurno/noturno; movimentação simultânea seguida de fase
   de combate com rodadas, interceptação e contra-ataques.

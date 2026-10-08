@@ -395,7 +395,7 @@ const ORDER_OF_BATTLE = {
         "attackRange":{"surface":4,"air":1,"submarine":2,"land":2},
         "weapons":{"mss":{"quantity":10,"range":3}},
         "capabilities":{"airDefense":3,"asw":6,"airAttack":8},
-        "position":{"col":15,"row":1},
+        "position":{"col":19,"row":1},
         "notes":"KCV Aurelius Magnus"
       },
       {
@@ -406,7 +406,7 @@ const ORDER_OF_BATTLE = {
         "attackRange":{"surface":6,"air":1,"submarine":2,"land":8},
         "weapons":{"ascm":{"quantity":14,"range":6},"mss":{"quantity":18,"range":3},"lacm":{"quantity":10,"range":10}},
         "capabilities":{"navalGun":6,"airDefense":13,"bmd":4,"asw":11},
-        "position":{"col":14,"row":1},
+        "position":{"col":18,"row":1},
         "notes":"1x CG Drakhmar + 2x DDG Volnaria. SAM/BMD/ASCM."
       },
       {
@@ -417,7 +417,7 @@ const ORDER_OF_BATTLE = {
         "attackRange":{"surface":6,"air":1,"submarine":2,"land":8},
         "weapons":{"ascm":{"quantity":8,"range":6},"mss":{"quantity":12,"range":3},"lacm":{"quantity":4,"range":10}},
         "capabilities":{"navalGun":4,"airDefense":8,"bmd":1,"asw":8},
-        "position":{"col":14,"row":2},
+        "position":{"col":18,"row":2},
         "notes":"1x CG Drakhmar + 2x DDG Volnaria. Espelhado com GE-1."
       },
       {
@@ -428,7 +428,7 @@ const ORDER_OF_BATTLE = {
         "attackRange":{"surface":2,"air":1,"submarine":1,"land":1},
         "weapons":{"mss":{"quantity":12,"range":3}},
         "capabilities":{"navalGun":3,"airDefense":6,"asw":3},
-        "position":{"col":14,"row":0},
+        "position":{"col":18,"row":0},
         "notes":"3x Fragatas Cl. Volnaria. Escolta de reserva."
       },
       {
@@ -438,7 +438,7 @@ const ORDER_OF_BATTLE = {
         "detectionRange":{"surface":1,"air":1,"submarine":0,"land":0},
         "attackRange":{"surface":0,"air":0,"submarine":0,"land":0},
         "weapons":{},"capabilities":{},
-        "position":{"col":15,"row":0},
+        "position":{"col":19,"row":0},
         "notes":"AOR Cl. Korvas. Reabastecedor primário do GBPA. Proteger."
       },
       {
@@ -449,7 +449,7 @@ const ORDER_OF_BATTLE = {
         "attackRange":{"surface":2,"air":1,"submarine":0,"land":2},
         "weapons":{},
         "capabilities":{"navalGun":4,"airDefense":4},
-        "position":{"col":15,"row":2},
+        "position":{"col":19,"row":2},
         "notes":"1x LPD Harnax + 2x LST Morvask. Carrega BdaIN. Crítico."
       },
       {
@@ -459,7 +459,7 @@ const ORDER_OF_BATTLE = {
         "detectionRange":{"surface":1,"air":1,"submarine":0,"land":0},
         "attackRange":{"surface":0,"air":0,"submarine":0,"land":0},
         "weapons":{},"capabilities":{},
-        "position":{"col":15,"row":3},
+        "position":{"col":19,"row":3},
         "notes":"AOR Korvas + AOT Brennar. Abastecimento no mar. Alvo prioritário adversário."
       },
       {
@@ -469,7 +469,7 @@ const ORDER_OF_BATTLE = {
         "detectionRange":{"surface":1,"air":1,"submarine":0,"land":0},
         "attackRange":{"surface":0,"air":0,"submarine":0,"land":0},
         "weapons":{},"capabilities":{},
-        "position":{"col":15,"row":4},
+        "position":{"col":19,"row":4},
         "notes":"AKE Cl. Yarven. Navio de munições: reabastece unidades empilhadas ao fim do turno. Alvo do objetivo logístico Azul — proteger."
       },
       {
@@ -480,7 +480,7 @@ const ORDER_OF_BATTLE = {
         "attackRange":{"surface":3,"air":0,"submarine":2,"land":8},
         "weapons":{"ascm":{"quantity":8,"range":6},"torpedo":{"quantity":12,"range":2},"lacm":{"quantity":8,"range":10}},
         "capabilities":{"asw":1},
-        "position":{"col":13,"row":2},
+        "position":{"col":17,"row":2},
         "notes":"KAR Veylan (SSN). Nuclear, submerso permanente. Posição secreta."
       },
       {
@@ -502,7 +502,7 @@ const ORDER_OF_BATTLE = {
         "attackRange":{"surface":2,"air":2,"submarine":0,"land":1},
         "weapons":{},
         "capabilities":{"airDefense":8,"airAttack":8},
-        "position":{"col":15,"row":1},
+        "position":{"col":19,"row":1},
         "embarked":"RED-GBPA",
         "notes":"KMF-22 Sturmadler 4.5a ger. Embarcado no KCV. Raio 20 hex."
       },
@@ -514,7 +514,7 @@ const ORDER_OF_BATTLE = {
         "attackRange":{"surface":2,"air":2,"submarine":0,"land":1},
         "weapons":{},
         "capabilities":{"airDefense":8,"airAttack":8},
-        "position":{"col":15,"row":1},
+        "position":{"col":19,"row":1},
         "embarked":"RED-GBPA",
         "notes":"KMF-22 Sturmadler 4.5a ger. Embarcado no KCV."
       },
@@ -526,7 +526,7 @@ const ORDER_OF_BATTLE = {
         "attackRange":{"surface":2,"air":0,"submarine":1,"land":0},
         "weapons":{"ascm":{"quantity":2,"range":6},"mss":{"quantity":2,"range":2},"torpedo":{"quantity":2,"range":2}},
         "capabilities":{"asw":2,"airAttack":2},
-        "position":{"col":15,"row":1},
+        "position":{"col":19,"row":1},
         "embarked":"RED-GBPA"
       },
       {
@@ -537,7 +537,7 @@ const ORDER_OF_BATTLE = {
         "attackRange":{"surface":2,"air":0,"submarine":1,"land":0},
         "weapons":{"ascm":{"quantity":2,"range":6},"mss":{"quantity":2,"range":2},"torpedo":{"quantity":2,"range":2}},
         "capabilities":{"asw":2,"airAttack":2},
-        "position":{"col":15,"row":1},
+        "position":{"col":19,"row":1},
         "embarked":"RED-GBPA",
         "notes":"K-32 Stormwatch. Raio 60 hex. ASW + anti-superfície. Embarcado KCV."
       },
@@ -548,7 +548,7 @@ const ORDER_OF_BATTLE = {
         "detectionRange":{"surface":3,"air":4,"submarine":0,"land":1},
         "attackRange":{"surface":0,"air":0,"submarine":0,"land":0},
         "weapons":{},"capabilities":{},
-        "position":{"col":15,"row":1},
+        "position":{"col":19,"row":1},
         "embarked":"RED-GBPA",
         "notes":"K-99 Argus. Raio ISR 9 hex. Crítico. Embarcado KCV."
       },
@@ -560,7 +560,7 @@ const ORDER_OF_BATTLE = {
         "attackRange":{"surface":1,"air":0,"submarine":0,"land":2},
         "weapons":{"raid":{"quantity":3,"range":2}},
         "capabilities":{},
-        "position":{"col":15,"row":1},
+        "position":{"col":19,"row":1},
         "hostId":"RED-GBPA",
         "stealthy":true,
         "notes":"Equipe de Operações Especiais. Embarcada no CSG."

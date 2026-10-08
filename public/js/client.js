@@ -41,6 +41,7 @@ const unitTooltipEl     = $('unit-tooltip');
 const cardModal         = $('card-modal');
 const cardModalImg      = $('card-modal-img');
 const sfxToggle         = $('sfx-toggle');
+const fogToggle         = $('fog-toggle');
 const weaponPicker      = $('weapon-picker');
 const wpBody            = $('wp-body');
 const wpTargetName      = $('wp-target-name');
@@ -294,6 +295,12 @@ const HELP_SECTIONS = {
     <p>Você só vê inimigos dentro do alcance de detecção das suas unidades
     (névoa de guerra). À noite a detecção cai (−2), <b>exceto submarinos</b>,
     que usam sonar. Submarinos em águas profundas são mais difíceis de detectar.</p>
+    <p>No mapa, os hexágonos <b>nítidos</b> estão cobertos pela detecção das suas
+    unidades: se não há inimigo ali, a área está de fato livre. Os hexágonos
+    <b>enevoados</b> (borrados e escuros) estão fora do alcance — parecerem vazios
+    não quer dizer que estejam. Submarinos só aparecem para unidades com detecção
+    antissubmarino e forças especiais nunca são vistas, mesmo na área nítida.
+    O botão 🌫 (ou a tecla <b>F</b>) liga e desliga a névoa visual.</p>
     <h4>PRAZO OPERACIONAL</h4>
     <p>A operação dura no máximo <b>12 dias</b>. Ao fim do prazo, vence quem
     tiver maior progresso nos seus objetivos.</p>`,
@@ -816,9 +823,25 @@ function _updateSfxBtn() {
 }
 sfxToggle.addEventListener('click', () => { SFX.toggleMute(); _updateSfxBtn(); });
 _updateSfxBtn();
+
+// ─── Névoa de guerra visual (liga/desliga) ───────────────────────────────────
+let fogOfWarOn = true;
+try { fogOfWarOn = localStorage.getItem('oas_fog') !== 'off'; } catch { /* sem armazenamento */ }
+function _updateFogBtn() {
+  fogToggle.textContent = fogOfWarOn ? '🌫' : '☀';
+  fogToggle.classList.toggle('muted', !fogOfWarOn);
+}
+fogToggle.addEventListener('click', () => {
+  fogOfWarOn = !fogOfWarOn;
+  try { localStorage.setItem('oas_fog', fogOfWarOn ? 'on' : 'off'); } catch { /* sem armazenamento */ }
+  _updateFogBtn(); render();
+});
+_updateFogBtn();
+
 document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || document.activeElement.tagName === 'INPUT') return;
   if (e.key === 's') { SFX.toggleMute(); _updateSfxBtn(); }
+  if (e.key === 'f') { fogToggle.click(); }
   if (e.key === 'h') {
     helpModal.classList.contains('hidden') ? showHelpModal() : hideHelpModal();
   }
@@ -1960,8 +1983,9 @@ function render() {
   ctx.scale(zoom, zoom);
 
   drawBackground();
-  drawHighlights();
+  drawFogOfWar();
   drawGrid();
+  drawHighlights();
   drawInfrastructure();
   drawUnits();
   drawEngagements();
@@ -2216,6 +2240,89 @@ function drawGrid() {
       drawHex(ctx, x, y, null, T_BORDER[t], 0.8);
     }
   }
+}
+
+// ── Layer 1b: Névoa de guerra visual ─────────────────────────────────────────
+// Complemento visual da filtragem de detecção do servidor (stateFor): os
+// hexágonos dentro do alcance de detecção de pelo menos uma unidade própria
+// ficam nítidos — o que se vê ali é confiável, inclusive a ausência de
+// inimigos; os demais ficam sob uma névoa translúcida (mapa borrado, escuro e
+// dessaturado), e um hexágono vazio ali pode esconder o inimigo. O raio de
+// cada unidade é o maior dos 4 alcances de detecção (a divisão por categoria
+// decide quem ela enxerga, não até onde vai a bolha); à noite cai 2, exceto
+// nos submarinos (sonar) — a mesma regra de stateFor.
+function unitFogRadius(u) {
+  const dr = u.detectionRange || {};
+  let r = Math.max(dr.surface || 0, dr.air || 0, dr.submarine || 0, dr.land || 0);
+  if (gameState.period === 'night' && u.category !== 'submarine') r = Math.max(0, r - 2);
+  return r;
+}
+
+function computeDetectionCoverage() {
+  const covered = new Set();
+  for (const u of gameState.units) {
+    if (u.team !== myTeam || u.hp <= 0) continue;
+    covered.add(`${u.col},${u.row}`);
+    const radius = unitFogRadius(u);
+    if (radius <= 0) continue;
+    for (let r = 0; r < GRID_H; r++) {
+      for (let c = 0; c < GRID_W; c++) {
+        const key = `${c},${r}`;
+        if (covered.has(key)) continue;
+        if (hexDist(u.col, u.row, c, r) <= radius) covered.add(key);
+      }
+    }
+  }
+  return covered;
+}
+
+function drawFogOfWar() {
+  if (!gameState || !fogOfWarOn || isFacilitator) return;   // o facilitador vê tudo
+  const covered = computeDetectionCoverage();
+  const misted = [];
+  for (let r = 0; r < GRID_H; r++) {
+    for (let c = 0; c < GRID_W; c++) {
+      if (!covered.has(`${c},${r}`)) misted.push({c, r});
+    }
+  }
+  if (!misted.length) return;
+
+  // Recorta a união dos hexágonos sem cobertura e redesenha ali o próprio mapa
+  // borrado/escurecido/dessaturado (o litoral continua legível), com um véu
+  // leve por cima. Sem suporte a ctx.filter (Safari antigo), só o véu, mais forte.
+  // Cada hexágono entra no recorte um pouco maior (+1 px) para os vizinhos se
+  // sobreporem: com o raio exato, o antisserrilhado do recorte deixa uma
+  // fresta clara entre dois hexágonos enevoados (a carta aqui é clara).
+  const rClip = HEX_R + 1;
+  ctx.save();
+  ctx.beginPath();
+  for (const {c, r} of misted) {
+    const {x, y} = hexToPixel(c, r);
+    for (let i = 0; i < 6; i++) {
+      const a  = (Math.PI / 3) * i;
+      const vx = x + rClip * Math.cos(a);
+      const vy = y + rClip * Math.sin(a);
+      if (i === 0) ctx.moveTo(vx, vy); else ctx.lineTo(vx, vy);
+    }
+    ctx.closePath();
+  }
+  ctx.clip();
+  const temFiltro = 'filter' in ctx;
+  if (temFiltro) {
+    ctx.filter = 'blur(7px) brightness(0.62) saturate(0.55)';
+    // Mesma escala do fundo: os hexágonos ficam longe das bordas do canvas
+    // (há a moldura da carta), então o borrão não esmaece o recorte.
+    if (mapReady) {
+      ctx.drawImage(mapImg, 0, 0, CVS_W, CVS_H);
+    } else {
+      ctx.fillStyle = '#0a2035';
+      ctx.fillRect(0, 0, CVS_W, CVS_H);
+    }
+    ctx.filter = 'none';
+  }
+  ctx.fillStyle = temFiltro ? 'rgba(6,16,28,0.30)' : 'rgba(6,16,28,0.55)';
+  ctx.fillRect(0, 0, CVS_W, CVS_H);
+  ctx.restore();
 }
 
 // ── Layer 5: Infrastructure ───────────────────────────────────────────────────

@@ -24,16 +24,11 @@ const dist = (a, b) => {
     Math.abs((-p.x - p.z) - (-q.x - q.z)));
 };
 
-// Espelho do terreno p/ validar legalidade dos caminhos (igual a server.js)
-const TERRAIN = [
-  [0,0,0,0,0,0,1,2,3,3,3,3,3,3,3,3],[0,0,0,0,0,1,1,2,3,3,3,3,3,3,3,3],
-  [0,0,0,0,1,1,2,4,3,3,3,3,3,3,3,3],[0,0,0,1,1,2,4,4,3,3,3,3,3,3,3,3],
-  [0,0,1,1,2,4,4,2,3,3,3,3,3,3,3,3],[0,1,1,2,4,4,2,3,3,3,3,3,3,3,3,3],
-  [1,1,2,4,4,2,3,3,3,3,3,3,3,3,3,3],[1,2,2,4,2,2,3,3,3,3,3,3,3,3,3,3],
-  [1,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3],[1,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3],
-];
+// Terreno do tabuleiro (shared/board.js, o mesmo que o servidor usa); a regra
+// de passagem abaixo é um espelho independente da de server.js.
+const { TERRAIN_MAP: TERRAIN, GRID_W, GRID_H } = require('../shared/board');
 function canEnter(category, col, row) {
-  if (col < 0 || col > 15 || row < 0 || row > 9) return false;
+  if (col < 0 || col >= GRID_W || row < 0 || row >= GRID_H) return false;
   const t = TERRAIN[row][col];
   if (category === 'air' || category === 'specops') return true;
   if (category === 'land')      return t === 0 || t === 1;
@@ -354,7 +349,7 @@ function pathLegal(state, unitId, path) {
 // Referência medida: bot antigo ~4.3 unidades a 0 FP em média; novo ~3.4.
 {
   const RUNS = 3;
-  let err = null, strandedTotal = 0, progressed = true;
+  let err = null, strandedTotal = 0, turnsTotal = 0, progressed = true;
   try {
     for (let r = 0; r < RUNS; r++) {
       const s = newGame();
@@ -386,14 +381,20 @@ function pathLegal(state, unitId, path) {
       const stranded = s.units.filter(u =>
         u.hp > 0 && u.fuel?.fuelType === 'naval' && u.fuel.current === 0).length;
       strandedTotal += stranded;
+      turnsTotal    += s.turn;
       progressed = progressed && (!!s.winner || s.turn > MAX_TURNS || periods >= MAX_TURNS * 2);
       console.log(`   selfplay ${r}: winner=${s.winner ?? '—'} turno=${s.turn} 0FP=${stranded}`);
     }
   } catch (e) { err = e; }
   check('selfplay termina sem exceção', !err, err?.message);
   check('selfplay: partidas progridem (vencedor ou limite)', progressed);
-  const avg = strandedTotal / RUNS;
-  check(`selfplay: média de unidades a 0 FP aceitável (${avg.toFixed(1)} <= 5)`, avg <= 5);
+  // Medido por turno jogado, não por partida: quanto mais longa a partida, mais
+  // navios secam naturalmente (com o mapa 20×10 o Vermelho chega mais tarde e a
+  // partida dura o dobro). Somar as 3 partidas reduz a variância — em 200
+  // amostras o p99 foi 1,91; um bot que navega sempre em alta velocidade seca a
+  // frota em 2–4 turnos (~6 por turno).
+  const rate = strandedTotal / Math.max(1, turnsTotal);
+  check(`selfplay: navios a 0 FP por turno jogado aceitável (${rate.toFixed(2)} <= 2.5)`, rate <= 2.5);
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FALHA(S)`);

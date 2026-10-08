@@ -24,6 +24,7 @@
       <span id="period-label" class="meta-item">☀ Diurno</span>
       <span id="phase-label"  class="meta-item phase">Movimentação</span>
       <button id="sfx-toggle" class="sfx-toggle" title="Som (S)">🔊</button>
+      <button id="fog-toggle" class="sfx-toggle" title="Névoa de guerra (F)" aria-label="Alternar névoa de guerra">🌫</button>
       <button id="help-toggle" class="sfx-toggle" title="Ajuda (H)" aria-label="Abrir ajuda">?</button>
       <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Abrir painel lateral" aria-label="Abrir painel lateral"
         onclick="document.querySelector('.game-body').classList.toggle('sidebar-open')">☰</button>
@@ -149,6 +150,7 @@
           <div class="leg-row"><span class="leg-swatch orange"></span>Alta velocidade: consumo de 3 FP</div>
           <div class="leg-row"><span class="leg-swatch red"  ></span>Alvos no alcance</div>
           <div class="leg-row"><span class="leg-swatch eng"></span>Engajamento registrado</div>
+          <div class="leg-row"><span class="leg-swatch fog"></span>Fora do alcance de detecção (névoa)</div>
         </div>
         <div class="action-divider"></div>
         <button id="export-log-btn" class="act-btn gray hidden">📋 Exportar Log</button>

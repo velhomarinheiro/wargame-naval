@@ -37,7 +37,7 @@ const LADO      = { azul: 'blue', vermelho: 'red' };
 const LADO_PT   = { blue: 'azul', red: 'vermelho' };
 const CATEG     = { superficie: 'surface', submarino: 'submarine', aereo: 'air', terrestre: 'land', opesp: 'specops' };
 const CATEG_PT  = Object.fromEntries(Object.entries(CATEG).map(([pt, en]) => [en, pt]));
-const LETRAS    = 'ABCDEFGHIJKLMNOP'.slice(0, GRID_W).split('');
+const LETRAS    = Array.from({ length: GRID_W }, (_, i) => String.fromCharCode(65 + i));
 const RANGE_PT  = { surface: 'superficie', air: 'aereo', submarine: 'submarino', land: 'terrestre' };
 const CAP_PT    = { navalGun: 'canhao', airDefense: 'defesa_aerea', bmd: 'bmd', asw: 'asw', airAttack: 'ataque_aereo' };
 const ALVO_PT   = { carrier: 'alvo_porta_avioes', logistics: 'alvo_logistico', amphib: 'alvo_anfibio',
@@ -225,7 +225,7 @@ function instrucoes(nome) {
     '• nome e notas não podem conter os caracteres < > & " `.',
     '',
     'POSIÇÃO',
-    `• coluna A–P e linha 1–${GRID_H}, como no tabuleiro. O terreno precisa ser compatível com a categoria: submarino não entra em águas rasas nem em terra; superfície não entra em terra; terrestre fica em terra ou águas rasas; aéreo e opesp vão a qualquer lugar.`,
+    `• coluna A–${LETRAS[GRID_W - 1]} e linha 1–${GRID_H}, como no tabuleiro. O terreno precisa ser compatível com a categoria: submarino não entra em águas rasas nem em terra; superfície não entra em terra; terrestre fica em terra ou águas rasas; aéreo e opesp vão a qualquer lugar.`,
     '',
     'PACOTE DE CAPACIDADE (só Força Azul)',
     `• ${FACTOR_KEYS.join(', ')}. A unidade passa a sair da partida quando o pacote está em 0 e a ser duplicada quando está em 2 ou mais — exatamente como as demais do pacote.`,

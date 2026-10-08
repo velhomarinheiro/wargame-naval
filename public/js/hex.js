@@ -6,22 +6,24 @@
 // Flat-top hexagons (topo reto)
 // ═════════════════════════════════════════════════════════════════════════════
 
-const GRID_W = 16; // A–P
+const GRID_W = 20; // A–T
 const GRID_H = 10; // 1–10
 
 // ─── Geometria da grade ────────────────────────────────────────────────────
-const HEX_R = 67.5;
+// Medida na grade impressa na carta (scripts/ampliar_mapa.py): passo de
+// 202,04 px entre colunas e 233,26 px de altura na imagem, à metade aqui.
+const HEX_R = 67.35;
 const HEX_W = HEX_R * 2;
 const HEX_H = HEX_R * Math.sqrt(3);
 
-// ─── Canvas: imagem 3446×2832 exibida a 50% ───────────────────────────────
-const CVS_W = 1723;
+// ─── Canvas: imagem 4254×2832 exibida a 50% ───────────────────────────────
+const CVS_W = 2127;
 const CVS_H = 1416;
 
 // ─── Origem da grade sobre o mapa ──────────────────────────────────────────
-// Centro do hexágono A-1 (= pixel (238,372) na imagem original ÷ 2)
-const OX = 119;
-const OY = 186;
+// Centro do hexágono A-1 (= pixel (234,5; 382,1) na imagem ÷ 2)
+const OX = 117.25;
+const OY = 191.05;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // CONVERSÕES

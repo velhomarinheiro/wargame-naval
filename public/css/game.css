@@ -315,6 +315,7 @@ body {
 .leg-swatch.amber { background: rgba(255,179,0,0.35); border: 1.5px solid rgba(255,179,0,0.85); }
 .leg-swatch.orange { background: rgba(255,87,34,0.35); border: 1.5px solid rgba(255,87,34,0.9); }
 .leg-swatch.eng { height: 0; border-radius: 0; border-top: 2.5px dashed rgba(255,112,67,0.95); }
+.leg-swatch.fog { background: linear-gradient(135deg, #6b7480, #3e4650); border: 1.5px solid rgba(160,175,190,0.45); }
 .leg-swatch.red   {
   background: repeating-linear-gradient(45deg,
     rgba(255,80,80,0.3), rgba(255,80,80,0.3) 3px,
@@ -1153,7 +1154,9 @@ input[type=text]:focus-visible {
 @media (max-width: 860px) {
   .header-title { font-size: 0.62rem; letter-spacing: 1.5px; }
   .game-header  { gap: 0.5rem; padding: 6px 10px; position: relative; z-index: 65; }
-  .header-meta  { gap: 0.4rem; }
+  /* Em tela estreita os itens quebram linha em vez de empurrar os botões
+     (som, névoa, ajuda, painel) para fora da tela. */
+  .header-meta  { gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
   .meta-item    { font-size: 0.66rem; }
 
   .sidebar-toggle-btn {
@@ -1355,6 +1358,7 @@ body.facilitator-mode .phase-legend { display: none; }
 /* Em tela de toque, os controles compactos da lista ganham área de toque de
    40px (regra do repositório); com mouse ficam com o tamanho de referência. */
 @media (pointer: coarse) {
+  .sfx-toggle { min-width: 40px; min-height: 40px; }
   .eng-list .atk-adj-btn { width: 40px; height: 40px; font-size: 1rem; }
   .eng-del { min-width: 40px; min-height: 40px; }
   .eng-att { min-height: 40px; }
